@@ -160,6 +160,22 @@ export async function runAction(ha, body) {
 
     case 'aisle_glow': return script(ha, 'aisle_glow');
 
+    // This fork's Cinema card: start the room (your movie scene), Denon volume and input.
+    case 'cinema': {
+      if (body.cmd === 'on') return ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+      if (body.cmd === 'volume') {
+        // Capped at 75%: a slip of the finger on a wall tablet should not blow the speakers.
+        const level = Math.min(0.75, clamp(Number(body.value), 0, 100) / 100);
+        return ha.callService('media_player', 'volume_set', { volume_level: Math.round(level * 100) / 100 }, { target: { entity_id: e.avr } });
+      }
+      if (body.cmd === 'source') {
+        const allowed = ['GoogleTVStreamer', 'Xbox One'];
+        if (!allowed.includes(body.source)) throw httpError(400, 'Unknown source');
+        return ha.callService('media_player', 'select_source', { source: body.source }, { target: { entity_id: e.avr } });
+      }
+      throw httpError(400, 'Unknown cinema command');
+    }
+
     case 'projector': {
       const allowed = { power_on: [], power_off: [], light_on: [], light_off: [], source: ['source'], picture: ['mode'] };
       if (!(body.cmd in allowed)) throw new Error('Unknown projector command');

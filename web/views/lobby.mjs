@@ -63,8 +63,12 @@ export function Lobby() {
     <div class="lobby-grid">
       <${Continue} />
       <${Scenes} />
-      <${Shelves} />
+      <${Cinema} />
       <${Lights} />
+      <div class="right-col">
+        <${JustAdded} />
+        <${Catalogs} />
+      </div>
     </div>
     ${streamsOpen && html`<${StreamsSheet} onClose=${() => setStreamsOpen(false)} />`}
     ${scanOpen && html`<${ScanToRequest} onClose=${() => setScanOpen(false)} />`}
@@ -207,7 +211,11 @@ export async function play(item, resume = true, extra = {}) {
 }
 
 function Scenes() {
-  const scene = useEntity('input_select.theater_scene')?.state;
+  // The tracker keeps its last value when the cinema is turned off elsewhere (the toggle, the Hue
+  // switch), so no scene is shown as active while the movie scene is off.
+  const roomOn = useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
+  const tracked = useEntity('input_select.theater_scene')?.state;
+  const scene = roomOn ? tracked : undefined;
   const map = { 'Pre-show': 'pre_show', 'Movie time': 'movie_time', Intermission: 'intermission', 'Lights up': 'lights_up' };
   const active = map[scene];
   return html`<section class="scenes tx-maple" aria-label="Scenes">
@@ -454,6 +462,59 @@ function ShelfRow({ row }) {
       </button>`)}
     </div>
   </div>`;
+}
+
+// This fork: the cinema's own devices where the original had its projector. Power comes from your
+// movie scene (start it here; All off turns it off), then what HA reports for each device, the
+// Denon's volume and its input.
+function Cinema() {
+  const e = useStore((s) => s.entities) || {};
+  const room = useEntity(e.roomOn);
+  const plug = useEntity(e.plug);
+  const avr = useEntity(e.avr);
+  const proj = useEntity(e.projectorPower);
+  const tv = useEntity(e.appleTv);
+  const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
+  const on = room?.state === 'on';
+  const isUp = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
+  const app = tv?.attributes?.app_id;
+  const appName = app === 'com.stremio.one' ? 'Stremio' : app === 'com.netflix.ninja' ? 'Netflix' : isUp(tv) ? 'Home screen' : '';
+  const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
+  const src = avr?.attributes?.source;
+  const devices = [
+    { name: 'Power', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off' },
+    { name: 'Denon', ok: isUp(avr), note: isUp(avr) ? `${vol}%` : 'Off' },
+    { name: 'Projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
+    { name: 'Streamer', ok: isUp(tv), note: appName || 'Off' },
+  ];
+  const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
+  return html`<section class="card cinema-card">
+    <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
+    <div class="row">
+      <button type="button" class=${`power ${on ? 'on' : ''}`} aria-label=${on ? 'Cinema is on' : 'Start the cinema'} disabled=${on || warming}
+        onClick=${() => act({ action: 'cinema', cmd: 'on' })}><${Icon} name="power" size=${40} color=${on ? '#F4F0E8' : 'var(--acc)'} /></button>
+      <div style="min-width:0"><div style="font-size:21px;font-weight:600">${on ? 'Cinema is on' : warming ? 'Starting up' : 'Start the cinema'}</div>
+        <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Powers the Denon, projector and Streamer (about 2 min)'}</div></div>
+    </div>
+    <div class="devs">${devices.map((d) => html`<div class=${`dev ${d.ok ? 'ok' : ''}`}><span class=${`dot ${d.ok ? 'on' : ''}`}></span><b>${d.name}</b><span class="muted">${d.note}</span></div>`)}</div>
+    ${isUp(avr) && html`<div class="label" style="margin:14px 0 8px">Volume · ${vol}%</div>
+      <${Range} value=${vol} label="Denon volume" onCommit=${(v) => act({ action: 'cinema', cmd: 'volume', value: v })} />
+      <div class="label" style="margin:14px 0 8px">Input</div>
+      <div class="tiles">${[['GoogleTVStreamer', 'Streamer', 'tv'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${26} /><span>${name}</span></button>`)}</div>`}
+  </section>`;
+}
+
+// The catalogs from your Stremio addons, as shortcuts into Watch.
+function Catalogs() {
+  const [rows] = useLoad(() => get('/api/shelves'), []);
+  const list = (rows || []).filter((r) => r.addon !== 'Your library');
+  return html`<section class="card catalogs-card">
+    <${H2} title="Catalogs"><button type="button" class="link" onClick=${() => go('watch')}>Watch</button><//>
+    <div class="chips-wrap">
+      ${!rows && html`<span class="muted">Loading…</span>`}
+      ${list.map((r) => html`<button type="button" class="filter" onClick=${() => go('watch', { lib: r.id })}>${r.title}<small>${r.addon}</small></button>`)}
+    </div>
+  </section>`;
 }
 
 function JustAdded() {
