@@ -8,6 +8,7 @@ import { EffectPreview, EffectTile, byMood, familyOf, curated } from '../lib/eff
 import { StreamsChip, StreamsSheet } from './streams.mjs';
 import { MysterySheet } from './mystery.mjs';
 import { SleepChip } from './sleep.mjs';
+import { needsWarmup } from './warmup.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -191,9 +192,16 @@ function Continue() {
 const ago = (ms) => { const d = Math.round((Date.now() - ms) / 86400e3); return d <= 1 ? 'yesterday' : d < 14 ? `${d} days ago` : d < 60 ? `${Math.round(d / 7)} weeks ago` : `${Math.round(d / 30)} months ago`; };
 
 export async function play(item, resume = true, extra = {}) {
-  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, offset: resume ? item.viewOffset : 0, ...extra });
+  // A cold room takes about two minutes to come up: show the warm-up screen instead of Showtime.
+  const cold = needsWarmup();
+  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, title: item.showTitle || item.title, offset: resume ? item.viewOffset : 0, ...extra });
   if (!r) return;
   const name = `${item.showTitle ? `${item.showTitle}: ` : ''}${item.title}`;
+  if (cold) {
+    const sub = item.showTitle ? `S${item.season} · E${item.episode} ${item.title}` : [item.year].filter(Boolean).join('');
+    go('warmup', { title: item.showTitle || item.title, sub, poster: item.poster || '', at: String(Date.now()) });
+    return;
+  }
   toast(r.preroll ? `Lights down… ${name} in ${r.preroll}s` : `Opening ${name} on the TV · pick a stream with the remote`);
   go('showtime');
 }
