@@ -12,9 +12,6 @@ const FILTERS = [
   { key: 'unwatched', label: 'Unwatched' },
   { key: 'short', label: 'Under 2 hours', movieOnly: true },
   { key: 'family', label: 'Family friendly' },
-  { key: '4k', label: '4K', movieOnly: true },
-  { key: 'hdr', label: 'HDR', movieOnly: true },
-  { key: 'wholeSeason', label: 'Whole season out', showOnly: true },
 ];
 const SORTS = [
   { value: 'added', label: 'Recently added' },
@@ -36,6 +33,7 @@ export function Watch() {
   const [items, setItems] = useState(null);
   const [total, setTotal] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [cursor, setCursor] = useState(null);   // catalogs: where the next page starts, and whether there is one
   const [seed, setSeed] = useState(0);
   const [brand, setBrand] = useState(route.params.brand || null);
   const [mystery, setMystery] = useState(false);
@@ -48,6 +46,10 @@ export function Watch() {
   const byNetwork = libId === 'networks';
   const forYou = libId === 'foryou';
   const libType = byNetwork ? null : libs?.find((l) => l.id === libId)?.type;
+  // Catalog tabs are ranked lists from Stremio: they keep their own order, so only Random applies.
+  const isCatalog = libs?.find((l) => l.id === libId)?.source === 'catalog';
+  const sorts = isCatalog ? SORTS.filter((s) => s.value === 'random') : SORTS;
+  const sortNow = isCatalog && sort !== 'random' ? 'catalog' : sort;
   const activeFilters = filters.filter((f) => { const d = FILTERS.find((x) => x.key === f); return !(d?.movieOnly && libType !== 'movie') && !(d?.showOnly && libType !== 'show'); }).join(',');
   const brandName = networks.find((n) => n.id === brand)?.name;
 
@@ -59,22 +61,23 @@ export function Watch() {
     setItems(null);
     const req = q ? get(`/api/plex/search?q=${encodeURIComponent(q)}`).then((r) => ({ items: r, total: r.length }))
       : byNetwork ? get(`/api/plex/brand/${brand}?filters=${filters.includes('unwatched') ? 'unwatched' : ''}&size=90`)
-      : get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sort}&size=${PAGE}`);
+      : get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}&size=${PAGE}`);
     req.then((r) => {
       if (!live) return;
-      setItems(r.items); setTotal(r.total);
+      setItems(r.items); setTotal(r.total); setCursor(r.next != null ? { next: r.next, more: r.more } : null);
       if (!selected && r.items[0]) setSelected(r.items[0].id);
       gridRef.current?.scrollTo(0, 0);
     }).catch((e) => live && (setItems([]), toast(e.message, true)));
     return () => { live = false; };
-  }, [libId, activeFilters, sort, q, seed, brand, forYou]);
+  }, [libId, activeFilters, sortNow, q, seed, brand, forYou]);
 
   async function more() {
-    if (loadingMore || q || byNetwork || !items || items.length >= Math.min(total, MAX_ITEMS)) return;
+    if (loadingMore || q || byNetwork || !items || items.length >= MAX_ITEMS || (cursor ? !cursor.more : items.length >= total)) return;
     setLoadingMore(true);
     try {
-      const r = await get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sort}&size=${PAGE}&start=${items.length}`);
+      const r = await get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}&size=${PAGE}&start=${cursor ? cursor.next : items.length}`);
       setItems([...items, ...r.items]);
+      if (r.next != null) { setCursor({ next: r.next, more: r.more }); setTotal(items.length + r.items.length + (r.more ? PAGE : 0)); }
     } finally { setLoadingMore(false); }
   }
   const onScroll = (e) => { const el = e.target; if (el.scrollTop + el.clientHeight > el.scrollHeight - 600) more(); };
@@ -98,7 +101,8 @@ export function Watch() {
         ${byNetwork && brand && html`<button type="button" class="filter" onClick=${() => { setBrand(null); setSelected(null); }}><${Icon} name="left" size=${18} />All networks</button>`}
         ${forYou ? null : byNetwork ? html`<button type="button" class="filter" aria-pressed=${filters.includes('unwatched') ? 'true' : 'false'} onClick=${() => toggle('unwatched')}>${filters.includes('unwatched') && html`<${Icon} name="check" size=${18} />`}Unwatched</button>` : FILTERS.filter((f) => !(f.movieOnly && libType === 'show') && !(f.showOnly && libType !== 'show')).map((f) => html`<button type="button" class="filter" aria-pressed=${filters.includes(f.key) ? 'true' : 'false'} disabled=${!!q} onClick=${() => toggle(f.key)}>
           ${filters.includes(f.key) && html`<${Icon} name="check" size=${18} />`}${f.label}</button>`)}
-        ${!byNetwork && !forYou && SORTS.map((s) => html`<button type="button" class="filter" aria-pressed=${sort === s.value ? 'true' : 'false'} disabled=${!!q}
+        ${!byNetwork && !forYou && isCatalog && html`<button type="button" class="filter" aria-pressed=${sort !== 'random' ? 'true' : 'false'} disabled=${!!q} onClick=${() => setSort('added')}>Catalog order</button>`}
+        ${!byNetwork && !forYou && sorts.map((s) => html`<button type="button" class="filter" aria-pressed=${sort === s.value ? 'true' : 'false'} disabled=${!!q}
           onClick=${() => { setSort(s.value); if (s.value === 'random') setSeed(seed + 1); }}>
           ${s.value === 'random' && html`<${Icon} name="dice" size=${18} />`}${s.label}</button>`)}
       </div>

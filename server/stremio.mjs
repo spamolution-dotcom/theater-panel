@@ -184,6 +184,7 @@ function fromMeta(m, lib) {
     watched: lib?.get(id) ? watchedFlag(lib.get(id)) : false,
     rating: m.imdbRating ? Number(m.imdbRating) : undefined,
     genres: (m.genres || m.genre || []).slice(0, 3),
+    allGenres: m.genres || m.genre || [],
     addedAt: lib?.get(id) ? Math.floor((ms(lib.get(id)._ctime) || 0) / 1000) : undefined,
     lastViewedAt: state ? lastWatched(lib.get(id)) || null : null,
     inLibrary: lib ? inLibrary(lib.get(id) || {}) : false,
@@ -279,7 +280,7 @@ const LIBS = [
 // whatever the other addons add).
 export async function libraries() {
   const cats = await catalogs().catch((e) => { console.warn('[stremio] addon catalogs:', e.message); return []; });
-  return [...LIBS, ...cats].map(({ id, title, type }) => ({ id, title, type }));
+  return [...LIBS, ...cats].map(({ id, title, type, source }) => ({ id, title, type, source: source === 'library' ? 'library' : 'catalog' }));
 }
 
 // ---------- addon catalogs ----------
@@ -306,15 +307,16 @@ export async function catalogs() {
       const kind = c.type === 'series' ? 'Series' : 'Films';
       const name = c.name || c.id;
       const title = /cinemeta/i.test(m.name || m.id || '') ? `${name} ${kind.toLowerCase()}` : `${name} · ${kind}`;
-      list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip') });
+      list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip'), genres: extras.find((e) => e.name === 'genre')?.options || [] });
     }
   }
   catIndex = new Map(list.map((c) => [c.id, c]));
   return list;
 }
 
-async function addonCatalog(def, { skip = 0 } = {}) {
-  const extra = skip && def.paged ? `/skip=${skip}` : '';
+async function addonCatalog(def, { skip = 0, genre } = {}) {
+  const parts = [genre && `genre=${encodeURIComponent(genre)}`, skip && def.paged && `skip=${skip}`].filter(Boolean);
+  const extra = parts.length ? `/${parts.join('&')}` : '';
   const url = `${def.base}/catalog/${def.catType}/${encodeURIComponent(def.catId)}${extra}.json`;
   const metas = await cached(`addoncat:${url}`, 30 * 60e3, async () => (await getJson(url, 12000))?.metas || []);
   // Titles the panel can open are the IMDb-keyed ones (Cinemeta has their details and seasons).
@@ -335,31 +337,72 @@ function shuffle(list) {
   return a;
 }
 
+// ---------- Watch filters ----------
+//
+// Family friendly = IMDb's "Family" genre (not "Animation", which takes in adult shows too).
+// Under 2 hours = a known running time under 120 min (unknown is left out, not let through).
+// Library items and some addon catalogs carry no genres, running time or rating, so those are
+// looked up in Cinemeta once (cached for 6 hours) when a filter or sort needs them.
+const isFamily = (it) => (it.allGenres || it.genres || []).some((g) => /^family$/i.test(g));
+const isShort = (it) => Boolean(it.duration) && it.duration < 7200000;
+
+async function eachLimited(list, n, fn) {
+  let i = 0;
+  await Promise.all(Array.from({ length: Math.min(n, list.length) }, async () => { while (i < list.length) await fn(list[i++]); }));
+}
+async function enrich(items, { genres, runtime, rating, force }) {
+  // force: catalog rows carry an abbreviated genre list, so read the full one from the title's page.
+  const todo = items.filter((it) => (genres && (force || !(it.allGenres || []).length)) || (runtime && !it.duration) || (rating && it.rating == null));
+  await eachLimited(todo, 8, async (it) => {
+    const m = await meta(stremioType(it.type), it.id).catch(() => null);
+    if (!m) return;
+    const full = m.genres || m.genre || [];
+    if (full.length && (force || !(it.allGenres || []).length)) { it.allGenres = full; it.genres = full.slice(0, 3); }
+    if (!it.duration) it.duration = minutes(m.runtime);
+    if (it.rating == null && m.imdbRating) it.rating = Number(m.imdbRating);
+    if (!it.year) it.year = yearOf(m.releaseInfo ?? m.year);
+  });
+}
+async function applyFilters(items, filters, sort) {
+  const family = filters.includes('family');
+  const short = filters.includes('short');
+  let out = filters.includes('unwatched') ? items.filter((it) => !it.watched) : items;
+  if (family) await enrich(out, { genres: true, force: true });
+  if (short || sort === 'rating') await enrich(out, { runtime: short, rating: sort === 'rating' });
+  if (family) out = out.filter(isFamily);
+  if (short) out = out.filter(isShort);
+  return out;
+}
+
 export async function listLibrary(libId, { filters = [], genre, sort = 'added', start = 0, size = 60 } = {}) {
   let def = LIBS.find((l) => l.id === libId) || catIndex.get(libId);
   if (!def && String(libId).startsWith('cat-')) { await catalogs(); def = catIndex.get(libId); }
   if (!def) throw httpError(404, 'No such library');
-  if (def.source === 'addon') {
-    const [metas, lib] = await Promise.all([addonCatalog(def, { skip: start }), libraryIndex().catch(() => null)]);
-    let items = metas.map((m) => fromMeta({ type: def.catType, ...m }, lib));
-    if (filters.includes('unwatched')) items = items.filter((it) => !it.watched);
-    if (filters.includes('short')) items = items.filter((it) => !it.duration || it.duration < 7200000);
+  // Catalogs are ranked lists fetched a page at a time: they keep their own order (only Random
+  // reshuffles the page), and a filtered page can come back shorter than a full one.
+  if (def.source === 'addon' || def.source === 'catalog') {
+    const lib = await libraryIndex().catch(() => null);
+    const type = def.source === 'addon' ? def.catType : stremioType(def.type);
+    // Family friendly: ask the catalog for its Family genre when it has one (Cinemeta does).
+    const family = filters.includes('family');
+    const g = genre || (family && (def.source === 'catalog' || (def.genres || []).includes('Family')) ? 'Family' : undefined);
+    const page = (skip) => (def.source === 'addon' ? addonCatalog(def, { skip, genre: g }) : catalog(type, { genre: g, skip: skip || undefined }));
+    // A filter can empty most of a page, so read on (up to 6 pages) until there is a screenful.
+    let skip = start, items = [], more = true;
+    for (let n = 0; n < 6 && more && items.length < Math.min(size, 24); n++) {
+      const metas = await page(skip);
+      skip += metas.length;
+      more = metas.length > 0 && (def.source !== 'addon' || def.paged);
+      // Asked the catalog for Family already: trust it (catalog rows list only a few genres each).
+      const rest = g === 'Family' && !genre ? filters.filter((f) => f !== 'family') : filters;
+      items.push(...await applyFilters(metas.map((m) => fromMeta({ type, ...m }, lib)), rest, null));
+    }
     if (sort === 'random') items = shuffle(items);
-    items = items.slice(0, size);
-    return { total: start + items.length + (def.paged && metas.length >= 20 ? size : 0), items };
-  }
-  if (def.source === 'catalog') {
-    const [metas, lib] = await Promise.all([catalog(stremioType(def.type), { genre, skip: start || undefined }), libraryIndex().catch(() => null)]);
-    let items = metas.map((m) => fromMeta({ type: stremioType(def.type), ...m }, lib));
-    if (filters.includes('unwatched')) items = items.filter((it) => !it.watched);
-    if (filters.includes('short')) items = items.filter((it) => !it.duration || it.duration < 7200000);
-    items = items.slice(0, size);
-    // Cinemeta does not say how many there are; keep offering more while pages come back full.
-    return { total: start + items.length + (metas.length >= 20 ? size : 0), items };
+    return { total: start + items.length + (more ? size : 0), items, next: skip, more };
   }
   const want = stremioType(def.type);
   let rows = (await rawLibrary()).filter((it) => inLibrary(it) && it.type === want).map(fromLibrary);
-  if (filters.includes('unwatched')) rows = rows.filter((it) => !it.watched);
+  rows = await applyFilters(rows, filters, sort);
   rows = sort === 'random' ? shuffle(rows) : rows.sort(SORTS[sort] || SORTS.added);
   return { total: rows.length, items: rows.slice(start, start + size) };
 }
