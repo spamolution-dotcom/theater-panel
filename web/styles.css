@@ -876,3 +876,25 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .catalogs-card .chips-wrap { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; overflow-y: auto; min-height: 0; }
 .catalogs-card .filter { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; height: auto; padding: 10px 16px; line-height: 1.15; }
 .catalogs-card .filter small { font-size: 12px; font-weight: 500; color: var(--muted); }
+
+/* Hallway Now Showing (?role=hallway): poster full height on the left (2:3 at 1080 = 720 wide),
+   the controls in the remaining 1200 px over the film's artwork, and a brighter palette. */
+.showtime.hall { display: flex; --d-text: #E9C999; --d-dim: #B08A5C; --d-line: #3A2A1C; --d-fill: rgba(22,15,10,.85); background: #0d1116; }
+.showtime.hall::before { display: none; }
+.showtime.hall .st-poster { position: relative; width: 720px; height: 1080px; flex-shrink: 0; background: #120d0a; box-shadow: 20px 0 60px rgba(0,0,0,.6); z-index: 1; overflow: hidden; }
+.showtime.hall .st-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.showtime.hall .st-poster-t { position: absolute; inset: auto 40px 120px; text-align: center; font-family: var(--disp); font-weight: 800; font-size: 96px; line-height: 1; text-transform: uppercase; color: var(--d-text); }
+.showtime.hall .st-art { position: absolute; left: 720px; right: 0; top: 0; bottom: 0; background: #0d1116 center / cover; }
+.showtime.hall .st-art::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.72); }
+.showtime.hall .wrap { flex: 1; min-width: 0; padding: 44px 52px 44px 48px; gap: 28px; }
+.showtime.hall h1 { font-size: 88px; }
+.showtime.hall .st-side { width: 180px !important; gap: 18px !important; }
+.showtime.hall .st-mute { height: 84px !important; }
+.showtime.hall .transport { gap: 44px; }
+.showtime.hall .transport .skip { width: 120px; height: 120px; }
+.showtime.hall .transport .pp { width: 200px; height: 200px; }
+.showtime.hall .st-bottom { display: grid !important; grid-template-columns: 1.3fr 1.3fr 1fr 1fr; gap: 22px !important; }
+.showtime.hall .st-bottom .dbtn { width: auto !important; height: 120px !important; gap: 6px; }
+.showtime.hall .st-bottom .dbtn .big { font-size: 32px; gap: 12px; }
+.showtime.hall .st-bottom .dbtn .s { font-size: 15px; }
+.showtime.hall .st-bottom .dbtn svg { width: 34px; height: 34px; }
