@@ -10,6 +10,7 @@ import { Emblem } from './lib/emblems.mjs';
 import { Particles } from './lib/particles.mjs';
 import { RailGlow } from './lib/effects.mjs';
 import { onTheater, detectTheater } from './lib/ks.mjs';
+import { hallway } from './lib/role.mjs';
 import { Lobby } from './views/lobby.mjs';
 import { Watch } from './views/watch.mjs';
 import { Request } from './views/request.mjs';
@@ -121,7 +122,7 @@ export function currentAccent() {
 let cinemaOverride = null;
 export function setCinema(value) {
   if (value === undefined) return;
-  cinemaOverride = value === '1' || value === 'on' ? true : value === '0' || value === 'off' ? false : null;
+  cinemaOverride = hallway ? false : value === '1' || value === 'on' ? true : value === '0' || value === 'off' ? false : null;
   applyCinema();
 }
 // The lights decide, not the scene helper: the helper only changes when a scene runs, so
@@ -148,6 +149,7 @@ subscribe(applyCinema);
 // the tally and Plex is told the average, so one person's five does not stand for the room. It
 // shows over whatever screen is up, the way the dog does, and takes no for an answer.
 function RateCard() {
+  if (hallway) return null;
   const live = useStore((s) => s.rate);
   const [hover, setHover] = useState(0);
   const [mine, setMine] = useState(0);
@@ -363,7 +365,9 @@ function App() {
   // Showtime while a movie plays, return there after 90 s without a touch.
   useEffect(() => {
     if (tvState === 'playing' && route.name !== 'showtime' && Date.now() - lastManual > 90000) go('showtime', { auto: true });
-    if (['idle', 'off', 'standby'].includes(tvState) && route.name === 'showtime') go('lobby', { auto: true });
+    // The Streamer reports only on/off: with nothing on it (no session) Showtime has nothing to show.
+    const nothingOn = tvState === 'on' && !getState().sessions?.length;
+    if ((['idle', 'off', 'standby'].includes(tvState) || nothingOn) && route.name === 'showtime') go('lobby', { auto: true });
   }, [tvState]);
   // Intermission is a screen as well as a scene: whoever calls for the break - the panel, a Pico
   // remote, "hey Jarvis, intermission" - gets the snack bar on the wall, and leaving the scene
@@ -403,7 +407,7 @@ function App() {
       if (gone && route.name === 'showtime' && Date.now() - tvGoneSince > 60000) go('lobby', { auto: true });
     }, 5000);
     // Theater mode switched on from HA, a ks:// link or a reload mid-film: show Showtime.
-    const offTheater = onTheater((d) => { if (d.active && route.name !== 'showtime') go('showtime', { auto: true }); });
+    const offTheater = hallway ? () => {} : onTheater((d) => { if (d.active && route.name !== 'showtime') go('showtime', { auto: true }); });
     const touch = () => { lastManual = Date.now(); };
     addEventListener('pointerdown', touch, true);
     return () => { clearInterval(t); offTheater(); removeEventListener('pointerdown', touch, true); };
@@ -473,7 +477,7 @@ setAccent(route.params.accent ?? '');
 setCinema(route.params.cinema ?? '');
 startLive({ navigate: goRoute });
 // Is Kiosk Satellite's theater mode reachable (directly, or relayed by the HA page around us)?
-detectTheater().then((t) => {
+if (!hallway) detectTheater().then((t) => {
   setTheater(t);
   if (t?.active && route.name !== 'showtime') go('showtime', { auto: true });
 });

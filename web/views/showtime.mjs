@@ -4,6 +4,7 @@
 // controls and a tap brightens them for a few seconds.
 
 import { useEffect, useState } from 'preact/hooks';
+import { hallway } from '../lib/role.mjs';
 import { html, Icon, Pause, Play } from '../lib/ui.mjs';
 import { act, useStore, useEntity, livePosition, mmss, clock, getState, playbackState } from '../lib/api.mjs';
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
@@ -31,9 +32,11 @@ export function Showtime() {
   const native = useStore((s) => Boolean(s.theater));
   // Showtime owns theater mode: on while this screen is up, off when it goes (Full controls,
   // playback ended). Reloads keep it on, and the app re-sends the phase after the reload.
-  useEffect(() => { enterTheater(); return () => { exitTheater(); }; }, []);
+  // In the hallway the screen stays lit with its controls showing: it is a Now Playing board, not
+  // the dark in-room remote.
+  useEffect(() => { if (hallway) return undefined; enterTheater(); return () => { exitTheater(); }; }, []);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
-  useEffect(() => { if (native || !awake) return; const t = setTimeout(() => setAwake(false), 8000); return () => clearTimeout(t); }, [awake]);
+  useEffect(() => { if (hallway || native || !awake) return; const t = setTimeout(() => setAwake(false), 8000); return () => clearTimeout(t); }, [awake]);
 
   const a = tv?.attributes || {};
   const state = useStore((s) => playbackState(s));
