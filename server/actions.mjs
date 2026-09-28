@@ -418,8 +418,20 @@ export function castNow(ha) {
   return /stremio/i.test(`${c.attributes?.app_name || ''} ${c.attributes?.app_id || ''}`) ? c : null;
 }
 
+// The Streamer's screensaver (Google TV's Ambient mode) comes on after a while paused. It ends
+// Stremio's Cast session and swallows the next key, so playback buttons did nothing until someone
+// pressed OK on the real remote. Press OK for them, then wait for Stremio and Cast to come back.
+const SCREENSAVER = /dreamx|screensaver|backdrop|ambient/i;
+async function wakeStreamer(ha) {
+  const e = config.entities;
+  if (!SCREENSAVER.test(ha.states[e.appleTv]?.attributes?.app_id || '')) return;
+  await ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
+  for (let i = 0; i < 20 && !castNow(ha); i++) await new Promise((r) => setTimeout(r, 500));
+}
+
 async function streamerTransport(ha, body) {
   const e = config.entities;
+  if (['play_pause', 'play', 'pause', 'stop', 'seek_rel'].includes(body.cmd)) await wakeStreamer(ha);
   // Stremio's player ignores the remote's fast-forward and rewind keys, but takes play/pause and
   // seek from Google Cast: use that whenever Cast reports Stremio playing or paused.
   const cast = castNow(ha);
