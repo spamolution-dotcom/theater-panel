@@ -898,3 +898,26 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .showtime.hall .st-bottom .dbtn .big { font-size: 32px; gap: 12px; }
 .showtime.hall .st-bottom .dbtn .s { font-size: 15px; }
 .showtime.hall .st-bottom .dbtn svg { width: 34px; height: 34px; }
+
+/* Now Showing tap feedback and live state (both layouts). */
+.showtime .dbtn, .showtime .transport .skip, .showtime .transport .pp { position: relative; transition: transform .12s, background-color .15s, border-color .15s, box-shadow .15s; }
+.showtime .dbtn:active, .showtime .transport .skip:active, .showtime .transport .pp:active,
+.showtime .fx-tap { transform: scale(.96); }
+.showtime .dbtn:active, .showtime .dbtn.fx-tap { background: rgba(233,201,153,.24); border-color: var(--d-text); }
+.showtime .transport .skip.fx-tap, .showtime .transport .skip:active { background: rgba(233,201,153,.14); }
+.showtime .dbtn.on { border-color: var(--d-text); background: rgba(233,201,153,.14); box-shadow: 0 0 24px rgba(233,201,153,.22); }
+.showtime .dbtn.on .s, .showtime .dbtn.on .sub { color: var(--d-text); }
+.showtime .dbtn .sub { font-family: var(--mono); font-size: 15px; color: var(--d-dim); }
+.showtime .fx-ok::after, .showtime .fx-err::after { position: absolute; top: 12px; right: 14px; width: 34px; height: 34px; border-radius: 17px; font: 700 20px/34px var(--sans, sans-serif); text-align: center; }
+.showtime .fx-ok::after { content: '✓'; background: var(--d-text); color: #1a120b; }
+.showtime .fx-err::after { content: '!'; background: #d4574a; color: #fff; }
+.showtime .dbtn.fx-err { border-color: #d4574a; background: rgba(212,87,74,.18); }
+.showtime .transport .fx-ok::after, .showtime .transport .fx-err::after { top: 0; right: 0; }
+.showtime .st-vol { display: flex; flex-direction: column; gap: 8px; padding: 2px 6px; }
+.showtime .st-vol .vl { display: flex; justify-content: space-between; align-items: baseline; }
+.showtime .st-vol .k { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--d-dim); }
+.showtime .st-vol .v { font-size: 22px; color: var(--d-text); }
+.showtime .st-vol .vb { height: 10px; border-radius: 5px; background: rgba(255,255,255,.1); overflow: hidden; }
+.showtime .st-vol .vb i { display: block; height: 100%; border-radius: 5px; background: var(--d-text); transition: width .3s; }
+.showtime .st-vol .vb.m i { background: var(--d-dim); opacity: .4; }
+.showtime.hall .st-mute { height: 84px !important; }
