@@ -18,7 +18,7 @@ import * as sleep from './sleep.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
-import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched } from './actions.mjs';
+import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
 import * as admin from './admin.mjs';
 import * as icons from './icons.mjs';
@@ -147,6 +147,22 @@ function streamerSessions() {
   if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing' }];
   if (app !== STREMIO_APP) return [];
   const l = lastLaunched();
+  // Best source: Google Cast's view of the Streamer. Stremio's player publishes its title,
+  // position and play/pause there the moment a stream starts (the Current Watching sensor below
+  // only catches up when Stremio syncs, which can be much later).
+  const cast = castNow(ha);
+  if (cast) {
+    const a = cast.attributes;
+    const pos = livePosition(a, cast.state);
+    const same = l && Date.now() - l.at < 6 * 3600e3;
+    return [{
+      id: same ? l.id : 'stremio', type: same ? l.type : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
+      title: same && l.title ? l.title : a.media_title || 'Stremio', showTitle: same ? l.showTitle : undefined,
+      season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : undefined,
+      viewOffset: pos != null ? Math.round(pos * 1000) : 0, duration: a.media_duration ? Math.round(a.media_duration * 1000) : 0,
+      poster: same ? l.poster : null,
+    }];
+  }
   // Stremio's 'Current Watching' sensor updates within seconds of playback starting, with the
   // episode, position and length. It counts once it has changed since the panel last opened a title
   // (until then Stremio is showing the stream list); with no title opened by the panel, a recent one.

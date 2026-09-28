@@ -8,10 +8,11 @@ import { html, Icon, Poster } from '../lib/ui.mjs';
 import { useStore, getState } from '../lib/api.mjs';
 import { go, route } from '../app.mjs';
 
-// Your theatre sequence: 1:45 wait, Denon, 5 s, projector, 10 s, Streamer, then the panel's 5 s
-// before it sends the title.
-export const WARMUP_SECONDS = 130;
-const GIVE_UP_SECONDS = 210;   // the HA script's own timeout
+// Your theatre sequence runs about 2:45 end to end (the announcement, the 1:45 wait, then the
+// Denon, projector and Streamer, each taking a while to answer), and the title opens a few seconds
+// later: measured at 2:51 from start to Stremio on screen.
+export const WARMUP_SECONDS = 170;
+const GIVE_UP_SECONDS = 240;   // the HA script's own timeout
 const STREMIO_APP = 'com.stremio.one';
 
 const up = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);

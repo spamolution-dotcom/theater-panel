@@ -119,7 +119,9 @@ function build(env) {
     plug: env.ENTITY_PLUG || 'light.media_control_switch',
     projectorPower: env.ENTITY_PROJECTOR_POWER || 'media_player.epson_projector',
     // The start-up sequence the movie scene runs (~2 min); while it runs the panel shows the warm-up screen.
-    warmupScript: env.ENTITY_WARMUP_SCRIPT || 'script.turn_on_theatre_sequence',
+    warmupScript: env.ENTITY_WARMUP_SCRIPT || 'script.activate_movie_scene_sequence',
+    // The Streamer as Google Cast sees it: title, position and play/pause of what Stremio is playing.
+    streamerCast: env.ENTITY_STREAMER_CAST || 'media_player.living_room_tv',
     // The Plex client entity HA creates for the Apple TV once "Advertise as player" is on.
     plexPlayer: env.ENTITY_PLEX_PLAYER || '',
     // The projector's own Plex client, as HA's Plex integration names it.
@@ -339,7 +341,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
+    e.appleTv, e.appleTvRemote, e.streamerCast, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',
