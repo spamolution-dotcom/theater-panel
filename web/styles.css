@@ -857,3 +857,22 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .warmup .wu-steps .tick { font-family: var(--mono); width: 22px; text-align: center; color: var(--gold); }
 .warmup .wu-actions { display: flex; gap: 14px; margin-top: 16px; }
 .warmup .wu-actions .btn { height: 64px; padding: 0 30px; font-size: 20px; }
+
+/* this fork's Cinema card and Catalogs card */
+.cinema-card { display: flex; flex-direction: column; min-height: 0; overflow-y: auto; }
+.cinema-card .row { display: flex; gap: 16px; align-items: center; margin-top: 14px; }
+.cinema-card .power:disabled { opacity: 1; }
+.cinema-card .devs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+.cinema-card .dev { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-radius: 14px; background: var(--track); font-size: 16px; min-width: 0; }
+.cinema-card .dev b { font-weight: 600; }
+.cinema-card .dev .muted { margin-left: auto; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cinema-card .dev .dot { margin-right: 2px; }
+.cinema-card .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.cinema-card .tile { height: 72px; border: 0; border-radius: 16px; background: var(--track); color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 15px; font-weight: 600; }
+.cinema-card .tile svg { color: var(--acc); }
+.cinema-card .tile[aria-pressed="true"] { background: var(--choc); color: #F4F0E8; }
+.cinema-card .tile[aria-pressed="true"] svg { color: var(--gold); }
+.catalogs-card { flex-grow: 1; min-height: 0; display: flex; flex-direction: column; }
+.catalogs-card .chips-wrap { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; overflow-y: auto; min-height: 0; }
+.catalogs-card .filter { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; height: auto; padding: 10px 16px; line-height: 1.15; }
+.catalogs-card .filter small { font-size: 12px; font-weight: 500; color: var(--muted); }
