@@ -11,7 +11,7 @@ import { timingSafeEqual, createHash } from 'node:crypto';
 import { config, watchedEntities } from './config.mjs';
 import * as accents from './accents.mjs';
 import { HomeAssistant } from './ha.mjs';
-import * as plex from './plex.mjs';
+import * as plex from './media.mjs';
 import * as seerr from './seerr.mjs';
 import * as taste from './taste.mjs';
 import * as sleep from './sleep.mjs';
@@ -96,7 +96,7 @@ const ASK_FOR = 20 * 60e3;        // how long the card waits for the room's verd
 async function pollSessions() {
   clearTimeout(pollTimer);
   let next = 30000;
-  if (clients.size && config.plex.url) {
+  if (clients.size && config.plex.url && !config.media.on) {
     try {
       // One call to Plex, read two ways: the theater's own session, and everything on the server.
       const { sessions: all, streams: everything } = await plex.activity();
@@ -237,20 +237,20 @@ get(/^\/api\/state$/, () => ({
   intermission: { minutes: config.intermission.minutes, sound: Boolean(config.intermission.url) },
   projectorHotC: config.projectorHotC,
   soundbar: { step: config.soundbarStep, calibrationSeconds: config.soundbarCalibrationSeconds, thx: Boolean(config.thxUrl) },
-  services: { plex: Boolean(config.plex.url), seerr: Boolean(config.seerr.url) },
+  services: { plex: config.media.on, stremio: config.media.on, seerr: Boolean(config.seerr.url) },
 }));
 
 get(/^\/api\/plex\/libraries$/, () => plex.libraries());
-get(/^\/api\/plex\/library\/(\d+|movies)$/, (m, q) => plex.listLibrary(m[1], {
+get(/^\/api\/plex\/library\/([a-z-]+)$/, (m, q) => plex.listLibrary(m[1], {
   filters: (q.get('filters') || '').split(',').filter(Boolean), genre: q.get('genre') || undefined,
   brand: q.get('brand') || undefined,
   sort: q.get('sort') || 'added', start: Number(q.get('start') || 0), size: Math.min(Number(q.get('size') || 60), 120),
 }));
-get(/^\/api\/plex\/genres\/(\d+)$/, (m) => plex.genres(m[1]));
+get(/^\/api\/plex\/genres\/([a-z-]+)$/, (m) => plex.genres(m[1]));
 get(/^\/api\/plex\/brand\/([a-z]+)$/, (m, q) => plex.brandBrowse(m[1], { filters: (q.get('filters') || '').split(',').filter(Boolean), size: Math.min(Number(q.get('size') || 60), 120) }));
 get(/^\/api\/networks$/, () => (config.seerr.url ? seerr.networks() : [])); 
-get(/^\/api\/plex\/item\/(\d+)$/, (m) => plex.item(m[1]));
-get(/^\/api\/plex\/episodes\/(\d+)$/, (m) => plex.episodes(m[1]));
+get(/^\/api\/plex\/item\/([\w.%:-]+)$/, (m) => plex.item(decodeURIComponent(m[1])));
+get(/^\/api\/plex\/episodes\/([\w.%:-]+)$/, (m) => plex.episodes(decodeURIComponent(m[1])));
 // The panel's own settings sheet: the harmless knobs, behind the panel's auth like every action.
 get(/^\/api\/tweaks$/, () => admin.tweaks());
 post(/^\/api\/tweaks$/, async (m, q, body) => { const r = admin.saveTweaks(body?.values); await applySettings(); return r; });
@@ -275,7 +275,7 @@ const qrSvg = (text) => QRCode.toString(String(text).slice(0, 300), { type: 'svg
 
 // "You'll love this": what the house finished lately, and what goes with it. Anything already
 // in Plex comes back with the key that plays it; the rest can be requested from the same card.
-get(/^\/api\/taste$/, async () => (config.plex.url ? { rows: await taste.rows({ count: 3 }) } : { rows: [] }));
+get(/^\/api\/taste$/, async () => (config.media.on ? { rows: await taste.rows({ count: 3 }).catch(() => []) } : { rows: [] }));
 
 // The Mystery box: one unwatched film, weighted towards what the house has been watching. The
 // panel counts down and then plays it, so this only picks.
@@ -299,8 +299,8 @@ get(/^\/api\/marquee$/, async () => {
 });
 
 // The film before and after this one in its series, and whether the library has them.
-get(/^\/api\/plex\/related\/(\d+)$/, async (m) => {
-  const it = await plex.item(m[1]);
+get(/^\/api\/plex\/related\/([\w.%:-]+)$/, async (m) => {
+  const it = await plex.item(decodeURIComponent(m[1]));
   if (!it.tmdb || !config.tmdb.apiKey) return { collection: null, prev: null, next: null };
   const n = await tmdb.neighbours(it.tmdb).catch(() => ({ collection: null, prev: null, next: null }));
   const owned = await plex.byTmdb([n.prev?.tmdb, n.next?.tmdb].filter(Boolean)).catch(() => []);
@@ -435,9 +435,9 @@ async function voiceIntent(body = {}) {
 const seasonParam = (q) => (['halloween', 'christmas', 'hallmark'].includes(q.get('season')) ? q.get('season') : undefined);
 get(/^\/api\/showing$/, async (m, q) => {
   const [plexItems, soon, shelves] = await Promise.all([
-    config.plex.url ? plex.showing(10).catch(() => []) : [],
+    config.media.on ? plex.showing(10).catch(() => []) : [],
     config.seerr.url ? seasonal.coming(6).catch(() => []) : [],
-    config.plex.url ? seasonal.shelves(seasonParam(q)).catch(() => []) : [],
+    config.media.on ? seasonal.shelves(seasonParam(q)).catch(() => []) : [],
   ]);
   const boards = [];
   for (const shelf of shelves) if (shelf.items.length >= 4) boards.push({ id: `board-${shelf.id}`, kind: 'board', board: 'seasonal', season: shelf.id, title: shelf.title, kicker: shelf.kicker, items: shelf.items.slice(0, 8) });
@@ -473,7 +473,7 @@ get(/^\/api\/pick$/, async (m, q) => {
 });
 
 // The holiday shelves on their own (the For you tab), and Coming soon.
-get(/^\/api\/seasonal$/, async (m, q) => ({ shelves: config.plex.url ? await seasonal.shelves(seasonParam(q)) : [] }));
+get(/^\/api\/seasonal$/, async (m, q) => ({ shelves: config.media.on ? await seasonal.shelves(seasonParam(q)).catch(() => []) : [] }));
 get(/^\/api\/coming$/, async () => ({ items: config.seerr.url ? await seasonal.coming(8) : [] }));
 
 get(/^\/api\/plex\/search$/, (m, q) => plex.search(q.get('q') || ''));
@@ -698,10 +698,10 @@ hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });
 ha.start();
 pollSessions();
-if (config.plex.url) { plex.warmMovies(); taste.warm(); seasonal.warm(); }
+if (config.media.on) { plex.warmMovies(); }
 wrapped.schedule(ha);
 server.listen(config.port, () => {
   console.log(`[panel] theater-panel ${config.build.version}${config.build.time ? ` (${config.build.time})` : ''}`);
   console.log(`[panel] listening on :${config.port}`);
-  console.log(`[panel] HA ${config.ha.url || '(not set)'} | Plex ${config.plex.url || '(not set)'} | Seerr ${config.seerr.url || '(not set)'}`);
+  console.log(`[panel] HA ${config.ha.url || '(not set)'} | Stremio ${config.media.on ? config.stremio.email || 'auth key' : '(not set)'} | Seerr ${config.seerr.url || '(not set)'}`);
 });

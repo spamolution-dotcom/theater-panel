@@ -1,8 +1,8 @@
 # Theater Panel
 
 A home theater wall panel, forked from [davidcoulson/theater-panel](https://github.com/davidcoulson/theater-panel)
-and being adapted to Stremio + Google TV instead of Plex. Phase 1: the panel runs as an add-on and
-connects to Home Assistant; there is no library data yet.
+and being adapted to Stremio + Google TV instead of Plex. Phase 2: the panel shows your Stremio library,
+continue watching, popular catalogs and search. Play and room control come in phase 3.
 
 ## Install
 
@@ -15,6 +15,7 @@ connects to Home Assistant; there is no library data yet.
 
 | Option | What it does |
 | --- | --- |
+| `stremio_email`, `stremio_password` | Your Stremio account. The add-on signs in once and keeps the session key in `/data`. |
 | `admin_password` | Enables the settings page at `/admin`. |
 | `allow_open` | `true` = anyone on the LAN can use the panel without a key. |
 | `trust_networks` | CIDRs that skip the key, e.g. `192.168.107.0/24`. |

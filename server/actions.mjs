@@ -4,7 +4,7 @@
 
 import { config } from './config.mjs';
 import * as accents from './accents.mjs';
-import * as plex from './plex.mjs';
+import * as plex from './media.mjs';
 import { extImage } from './images.mjs';
 import * as games from './games.mjs';
 import { httpError } from './admin.mjs';

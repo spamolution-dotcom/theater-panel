@@ -20,7 +20,7 @@
 // "christmas" tag alone leads with the Harry Potter films, for their Christmas scenes).
 
 import { config } from './config.mjs';
-import * as plex from './plex.mjs';
+import * as plex from './media.mjs';
 import * as seerr from './seerr.mjs';
 import * as tmdb from './tmdb.mjs';
 import { thanksgiving } from './accents.mjs';

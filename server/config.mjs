@@ -74,6 +74,15 @@ function build(env) {
     url: (env.HA_URL || '').replace(/\/$/, ''),
     token: env.HA_TOKEN || '',
   },
+  // Stremio is this fork's library (server/stremio.mjs). Email and password come from the add-on
+  // options; STREMIO_AUTH_KEY works instead for anyone who would rather not store a password.
+  stremio: {
+    email: env.STREMIO_EMAIL || '',
+    password: env.STREMIO_PASSWORD || '',
+    authKey: env.STREMIO_AUTH_KEY || '',
+  },
+  // True when there is a library to show at all (Stremio here; Plex upstream).
+  media: { on: Boolean((env.STREMIO_EMAIL && env.STREMIO_PASSWORD) || env.STREMIO_AUTH_KEY) },
   plex: {
     url: (env.PLEX_URL || '').replace(/\/$/, ''),
     token: env.PLEX_TOKEN || '',

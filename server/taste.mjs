@@ -6,7 +6,7 @@
 // in - the panel already has a Plex token and a Seerr key.
 
 import { config } from './config.mjs';
-import * as plex from './plex.mjs';
+import * as plex from './media.mjs';
 import * as seerr from './seerr.mjs';
 
 const SEED_TTL = 20 * 60e3;
