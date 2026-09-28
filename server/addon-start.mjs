@@ -34,6 +34,13 @@ set('IMAGE_CACHE_MB', options.image_cache_mb);
 set('TMDB_API_KEY', options.tmdb_api_key);
 set('STREMIO_EMAIL', options.stremio_email);
 set('STREMIO_PASSWORD', options.stremio_password);
+// The panel's own address as the room's speaker can reach it: the pre-roll swell and the
+// intermission march are served from it (/assets/*.mp3, no key needed).
+if (options.public_url) {
+  const base = String(options.public_url).replace(/\/$/, '');
+  set('PREROLL_URL', options.preroll === false ? '' : `${base}/assets/preroll.mp3`);
+  set('INTERMISSION_URL', `${base}/assets/intermission.mp3`);
+}
 if (options.allow_open === true) process.env.ALLOW_OPEN = '1';
 
 // The update check compares against this fork's image, not the upstream one.

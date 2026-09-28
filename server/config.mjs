@@ -105,13 +105,18 @@ function build(env) {
   },
 
   entities: {
-    appleTv: env.ENTITY_APPLE_TV || 'media_player.home_theater',
-    appleTvRemote: env.ENTITY_APPLE_TV_REMOTE || 'remote.home_theater',
+    // This fork: the Google TV Streamer (Android TV Remote integration) takes the Apple TV's place.
+    appleTv: env.ENTITY_APPLE_TV || 'media_player.media_room_tv',
+    appleTvRemote: env.ENTITY_APPLE_TV_REMOTE || 'remote.media_room_tv',
+    // The Denon receiver (volume, mute) and the HACS Stremio integration's player (what is on).
+    avr: env.ENTITY_AVR || 'media_player.home_theater',
+    stremioPlayer: env.ENTITY_STREMIO_PLAYER || 'media_player.stairs_cabinet_stremio_stremio',
+    roomOn: env.ENTITY_ROOM_ON || 'input_boolean.movie_scene',
     // The Plex client entity HA creates for the Apple TV once "Advertise as player" is on.
     plexPlayer: env.ENTITY_PLEX_PLAYER || '',
     // The projector's own Plex client, as HA's Plex integration names it.
     projectorPlexPlayer: env.ENTITY_PROJECTOR_PLEX_PLAYER || '',
-    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.home_theater_2',
+    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.cinema_google_mini',
     // Music Assistant players offered under "Play on"; the first is the theater's own.
     musicPlayers: list(env.ENTITY_MUSIC_PLAYERS, []),
     // Android Debug Bridge media_player for the projector. Empty until ADB is tested.
@@ -122,12 +127,8 @@ function build(env) {
     // The projector's light-engine temperatures (the Kiosk Satellite plugin's sensors), for the
     // line on the Projector card and the running-hot nudge.
     projectorTemps: list(env.ENTITY_PROJECTOR_TEMPS, []),
-    lights: list(env.ENTITY_LIGHTS, [
-      'light.media_room_downlights',
-      'light.home_theater_accent_lights',
-      'light.home_theater_wled',
-    ]),
-    temperature: env.ENTITY_TEMPERATURE || 'sensor.media_room_temperature',
+    lights: list(env.ENTITY_LIGHTS, ['light.media']),
+    temperature: env.ENTITY_TEMPERATURE || 'sensor.cinema_temperature',
     occupancy: env.ENTITY_OCCUPANCY || 'binary_sensor.media_room_occupancy',
     tautulli: env.ENTITY_TAUTULLI || 'sensor.tautulli_watching',
     // Accent-light effect speed and intensity helpers (input_number), shown in the effect picker.
@@ -146,7 +147,7 @@ function build(env) {
   //   plezy    - Plezy on the projector, opened with a plezy://play link over ADB
   //   plex     - the official Plex app on the projector, driven as a Plex client
   // "projector" is the old name for plezy.
-  playTarget: ['plezy', 'plex', 'projector'].includes(env.PLAY_TARGET) ? (env.PLAY_TARGET === 'projector' ? 'plezy' : env.PLAY_TARGET) : 'appletv',
+  playTarget: ((env.STREMIO_EMAIL && env.STREMIO_PASSWORD) || env.STREMIO_AUTH_KEY) && !env.PLAY_TARGET ? 'stremio' : ['plezy', 'plex', 'projector'].includes(env.PLAY_TARGET) ? (env.PLAY_TARGET === 'projector' ? 'plezy' : env.PLAY_TARGET) : 'appletv',
   plezyPackage: env.PLEZY_PACKAGE || 'com.edde746.plezy',
   projectorPlexPackage: env.PROJECTOR_PLEX_PACKAGE || 'com.plexapp.android',
   // The Plex client's name as Plex reports it (Settings > Plex Web > Devices), used to pick the
@@ -154,7 +155,7 @@ function build(env) {
   plexPlayerName: env.PLEX_PLAYER_NAME || '',
   // Apps the Projector card can open on the projector itself (Android, over ADB), as
   // "Name=package" or "Name=package=icon" (e.g. YouTube=org.smarttube.stable=mdi:youtube). The projector is woken first if it is off.
-  projectorApps: list(env.PROJECTOR_APPS, ['Plex=com.plexapp.android']).map((pair) => {
+  projectorApps: list(env.PROJECTOR_APPS, []).map((pair) => {
     const [name, pkg, icon] = pair.split('=').map((x) => x.trim());
     if (!pkg || !/^[\w.]+$/.test(pkg)) return null;
     return { name, package: pkg, ...(icon && /^[a-z0-9-]+:[a-z0-9-]+$|^[a-z]+$/.test(icon) ? { icon } : {}) };
@@ -324,7 +325,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
+    e.appleTv, e.appleTvRemote, e.avr, e.stremioPlayer, e.roomOn, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

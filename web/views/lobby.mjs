@@ -49,7 +49,7 @@ export function Lobby() {
         <span class="x" role="button" aria-label="Dismiss" onClick=${(e) => { e.stopPropagation(); arrivals.dismiss(arrivals.list[0].id); }}>×</span></button>`}
       <${StreamsChip} onClick=${() => setStreamsOpen(true)} />
       ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
-      ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />Apple TV · ${tv.state}</span>`}
+      ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
       <button type="button" class=${`chip ${plan ? 'on' : ''}`} onClick=${() => openTonight()}><${Icon} name="film" size=${20} />${plan ? `Tonight · ${plan.at ? new Date(plan.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : plan.state === 'feature' ? 'on' : 'ready'}` : 'Tonight'}</button>
       <button type="button" class="chip" onClick=${() => openGuest()}><${Icon} name="remote" size=${20} />Guest remote</button>
       ${soundbar && html`<button type="button" class=${`chip ${undocked.length ? 'warn' : ''}`} onClick=${() => openSound()}><${Icon} name="spk" size=${20} />${undocked.length ? `${undocked.join(' and ')} rear off its dock` : 'Sound'}</button>`}
@@ -198,7 +198,7 @@ export async function play(item, resume = true, extra = {}) {
   const r = await act({ action: 'play', ratingKey: item.id, type: item.type, offset: resume ? item.viewOffset : 0, ...extra });
   if (!r) return;
   const name = `${item.showTitle ? `${item.showTitle}: ` : ''}${item.title}`;
-  toast(r.preroll ? `Lights down… ${name} in ${r.preroll}s` : `Starting ${name}`);
+  toast(r.preroll ? `Lights down… ${name} in ${r.preroll}s` : `Opening ${name} on the TV · pick a stream with the remote`);
   go('showtime');
 }
 
