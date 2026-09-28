@@ -411,8 +411,31 @@ async function playStremio(ha, body) {
 
 // Pause and play are key presses on the Streamer's remote (Stremio's player takes them); volume and
 // mute go to the Denon, which is the thing making the sound.
+// The Streamer as Google Cast sees it, when Stremio is playing or paused on it (else null).
+export function castNow(ha) {
+  const c = ha.states[config.entities.streamerCast];
+  if (!c || !['playing', 'paused', 'buffering'].includes(c.state)) return null;
+  return /stremio/i.test(`${c.attributes?.app_name || ''} ${c.attributes?.app_id || ''}`) ? c : null;
+}
+
 async function streamerTransport(ha, body) {
   const e = config.entities;
+  // Stremio's player ignores the remote's fast-forward and rewind keys, but takes play/pause and
+  // seek from Google Cast: use that whenever Cast reports Stremio playing or paused.
+  const cast = castNow(ha);
+  if (cast) {
+    const target = { entity_id: e.streamerCast };
+    const svc = { play_pause: 'media_play_pause', play: 'media_play', pause: 'media_pause', stop: 'media_stop' }[body.cmd];
+    if (svc) return ha.callService('media_player', svc, {}, { target });
+    if (body.cmd === 'seek_rel') {
+      const a = cast.attributes || {};
+      const pos = livePosition(a, cast.state);
+      if (pos != null) {
+        const to = Math.max(0, Math.min((a.media_duration || Infinity) - 1, pos + Number(body.seconds || 0)));
+        return ha.callService('media_player', 'media_seek', { seek_position: Math.round(to) }, { target });
+      }
+    }
+  }
   const key = { play_pause: 'MEDIA_PLAY_PAUSE', play: 'MEDIA_PLAY', pause: 'MEDIA_PAUSE', stop: 'MEDIA_STOP' }[body.cmd];
   if (key) return ha.callService('remote', 'send_command', { command: key }, { target: { entity_id: e.appleTvRemote } });
   if (body.cmd === 'seek_rel') {
