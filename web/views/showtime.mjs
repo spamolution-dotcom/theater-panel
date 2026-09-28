@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { hallway } from '../lib/role.mjs';
 import { html, Icon, Pause, Play } from '../lib/ui.mjs';
-import { act, useStore, useEntity, livePosition, mmss, clock, getState, playbackState } from '../lib/api.mjs';
+import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState } from '../lib/api.mjs';
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
 import { go, route } from '../app.mjs';
 import { SleepPicker, sleepLabel } from './sleep.mjs';
@@ -70,6 +70,11 @@ export function Showtime() {
   else pos = livePosition(tv);
   const left = dur && pos != null ? dur - pos : null;
   const ends = left != null ? clock(new Date(Date.now() + left * 1000)).hm : '--:--';
+  // The hallway board's caption: year and genre in the label, the synopsis under the title (the
+  // episode's own for a show). From the same details the Watch screen shows, loaded once per title.
+  const infoId = hallway && /^tt\d+/.test(session?.id || '') ? session.id : null;
+  const [info] = useLoad(() => (infoId ? get(`/api/plex/item/${infoId}`).catch(() => null) : Promise.resolve(null)), [infoId]);
+  const facts = info ? [info.year, info.genres?.[0]].filter(Boolean).join(' · ') : '';
   const bg = session?.art ? `background-image:url('${session.art}')` : '';
 
   // With native theater mode the app swallows the first touch and peeks by itself.
@@ -86,9 +91,10 @@ export function Showtime() {
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
           ${!hallway && session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
-          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}</div>
+          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}${hallway && facts ? ` · ${facts}` : ''}</div>
             <h1 class="ellipsis">${title}</h1>
-            ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}</div>
+            ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}
+            ${hallway && info?.summary && html`<p class="st-syn">${info.summary}</p>`}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">
           ${session?.transcoding && html`<span class="warn-dim">Transcoding</span>`}
