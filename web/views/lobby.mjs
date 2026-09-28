@@ -67,7 +67,6 @@ export function Lobby() {
       <${Lights} />
       <div class="right-col">
         <${JustAdded} />
-        <${Catalogs} />
       </div>
     </div>
     ${streamsOpen && html`<${StreamsSheet} onClose=${() => setStreamsOpen(false)} />`}
@@ -140,7 +139,15 @@ function Continue() {
   const at = i % n;
 
   // Swipe left/right to move through the deck. A swipe never counts as a tap on the buttons.
-  const down = (e) => { if (n > 1) swipe.current = { x: e.clientX, y: e.clientY, moved: false }; };
+  const down = (e) => {
+    if (n <= 1) return;
+    swipe.current = { x: e.clientX, y: e.clientY, moved: false };
+    // Keep the gesture ours even when the finger leaves the card (Fully Kiosk's WebView otherwise
+    // hands it to the page as a scroll and the swipe never lands).
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+  };
+  const step = (d) => setI((at + d + n) % n);
+  const noSwipe = (e) => e.stopPropagation();
   const move = (e) => {
     const s = swipe.current;
     if (!s) return;
@@ -161,16 +168,19 @@ function Continue() {
   const guard = (e) => { if (Date.now() < swallowUntil.current) { e.stopPropagation(); e.preventDefault(); } };
   const cancel = () => { swipe.current = null; setDrag(0); };
 
-  return html`<section class="hero dark tx-suede swipe" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel} onPointerLeave=${cancel} onClickCapture=${guard}>
+  return html`<section class="hero dark tx-suede swipe" onPointerDown=${down} onPointerMove=${move} onPointerUp=${up} onPointerCancel=${cancel} onClickCapture=${guard}>
     <div class="slide" key=${it.id} style=${drag ? `transform:translateX(${drag * 0.6}px);opacity:${Math.max(0.35, 1 - Math.abs(drag) / 500)};transition:none` : ''}>
     <div class="art">
       <img src=${it.art || it.still} alt="" draggable="false" />
       ${n > 1 && html`<span class="count">${at + 1} / ${n}</span>`}
+      ${n > 1 && html`<button type="button" class="deck-arrow prev" aria-label="Previous" onPointerDown=${noSwipe} onClick=${() => step(-1)}><${Icon} name="left" size=${30} w=${2.2} color="#fff" /></button>
+        <button type="button" class="deck-arrow next" aria-label="Next" onPointerDown=${noSwipe} onClick=${() => step(1)}><${Icon} name="chev" size=${30} w=${2.2} color="#fff" /></button>`}
       <div class="name">${name}</div>
     </div>
     <div class="body">
       <div style="display:flex;justify-content:space-between;align-items:center">
         <div class="eyebrow" style="white-space:nowrap">Continue watching</div>
+        ${n > 1 && html`<div class="deck-dots">${deck.map((_, k) => html`<i class=${k === at ? 'on' : ''} key=${k}></i>`)}</div>`}
 
       </div>
       <div class="title">${it.title}</div>
@@ -504,34 +514,43 @@ function Cinema() {
   </section>`;
 }
 
-// The catalogs from your Stremio addons, as shortcuts into Watch.
-function Catalogs() {
-  const [rows] = useLoad(() => get('/api/shelves'), []);
-  const list = (rows || []).filter((r) => r.addon !== 'Your library');
-  return html`<section class="card catalogs-card">
-    <${H2} title="Catalogs"><button type="button" class="link" onClick=${() => go('watch')}>Watch</button><//>
-    <div class="chips-wrap">
-      ${!rows && html`<span class="muted">Loading…</span>`}
-      ${list.map((r) => html`<button type="button" class="filter" onClick=${() => go('watch', { lib: r.id })}>${r.title}<small>${r.addon}</small></button>`)}
-    </div>
-  </section>`;
-}
-
+// Just added: your newest titles, four big posters at a time.
 function JustAdded() {
-  const [items] = useLoad(() => get('/api/plex/recent?size=14'), []);
+  const [items] = useLoad(() => get('/api/plex/recent?size=20'), []);
   // One card per movie or show: collapse episodes into their show.
   const seen = new Set();
   const list = (items || []).filter((m) => {
     const k = m.showTitle || m.id;
     if (seen.has(k)) return false; seen.add(k); return true;
-  }).slice(0, 6);
-  return html`<section class="card">
+  }).slice(0, 12);
+  // Four big posters at a time; swipe (or tap a dot) for the next four.
+  const PER = 4;
+  const pages = Math.max(1, Math.ceil(list.length / PER));
+  const [page, setPage] = useState(0);
+  const pg = Math.min(page, pages - 1);
+  const swipe = useRef(null);
+  const swallowUntil = useRef(0);
+  const down = (e) => { if (pages > 1) { swipe.current = e.clientX; try { e.currentTarget.setPointerCapture(e.pointerId); } catch {} } };
+  const up = (e) => {
+    const x0 = swipe.current; swipe.current = null;
+    if (x0 == null) return;
+    const dx = e.clientX - x0;
+    if (Math.abs(dx) < 60) return;
+    setPage((pg + (dx < 0 ? 1 : -1) + pages) % pages);
+    swallowUntil.current = Date.now() + 400;
+  };
+  const guard = (e) => { if (Date.now() < swallowUntil.current) { e.stopPropagation(); e.preventDefault(); } };
+  const kind = (m) => (m.type === 'show' || m.type === 'episode' || m.showTitle ? 'Series' : 'Film');
+  return html`<section class="card just-added">
     <${H2} title="Just added"><button type="button" class="link" onClick=${() => go('watch', { lib: 'library' })}>Browse library</button><//>
-    <div class="shelf">
-      ${list.map((m) => html`<button type="button" class="poster-btn" key=${m.id} style="width:130px" onClick=${() => go('watch', { item: m.id })} aria-label=${m.showTitle || m.title}>
+    <div class="ja-grid" onPointerDown=${down} onPointerUp=${up} onPointerCancel=${() => { swipe.current = null; }} onClickCapture=${guard}>
+      ${list.slice(pg * PER, pg * PER + PER).map((m) => html`<button type="button" class="ja-item" key=${m.id} onClick=${() => go('watch', { item: m.id })} aria-label=${m.showTitle || m.title}>
         <div class="framed"><${Poster} src=${m.poster} title=${m.showTitle || m.title} /></div>
+        <div class="ja-name">${m.showTitle || m.title}</div>
+        <div class="ja-meta">${[m.year, kind(m)].filter(Boolean).join(' · ')}</div>
       </button>`)}
     </div>
+    ${pages > 1 && html`<div class="ja-dots"><span>Swipe for more</span>${Array.from({ length: pages }, (_, k) => html`<button type="button" class=${k === pg ? 'on' : ''} aria-label=${`Page ${k + 1}`} onClick=${() => setPage(k)}></button>`)}</div>`}
   </section>`;
 }
 
