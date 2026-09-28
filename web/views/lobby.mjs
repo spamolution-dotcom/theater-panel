@@ -62,12 +62,8 @@ export function Lobby() {
     <div class="lobby-grid">
       <${Continue} />
       <${Scenes} />
-      <${Projector} />
+      <${Shelves} />
       <${Lights} />
-      <div class="right-col">
-        <${JustAdded} />
-        <${MusicBar} />
-      </div>
     </div>
     ${streamsOpen && html`<${StreamsSheet} onClose=${() => setStreamsOpen(false)} />`}
     ${scanOpen && html`<${ScanToRequest} onClose=${() => setScanOpen(false)} />`}
@@ -421,6 +417,34 @@ function LightRow({ id, onEffects }) {
       ${effect ? html`<${EffectPreview} name=${effect} h=${26} round=${8} />` : html`<span class="none">No effect</span>`}
       <span class="lbl">${effect || 'Choose'}</span><${Icon} name="chev" size=${18} color="var(--muted)" />
     </button>`}
+  </div>`;
+}
+
+// This fork: the lower half of the lobby is a stack of rows, like Stremio's own Board - your films
+// and shows, then every catalog your installed addons offer. Tap a poster for its details.
+function Shelves() {
+  const [rows, err] = useLoad(() => get('/api/shelves'), []);
+  return html`<section class="card shelves">
+    <${H2} title="Browse"><button type="button" class="link" onClick=${() => go('watch', { lib: 'library' })}>All of Watch</button><//>
+    <div class="shelves-scroll">
+      ${!rows && !err && html`<div class="empty">Loading your catalogs…</div>`}
+      ${err && html`<div class="empty">Could not load catalogs: ${err.message}</div>`}
+      ${(rows || []).map((r) => html`<${ShelfRow} key=${r.id} row=${r} />`)}
+    </div>
+  </section>`;
+}
+
+function ShelfRow({ row }) {
+  const [res] = useLoad(() => get(`/api/plex/library/${row.id}?size=20`), [row.id]);
+  const items = res?.items;
+  if (items && !items.length) return null;   // an empty catalog just isn't shown
+  return html`<div class="shelf-row">
+    <div class="shelf-head"><button type="button" class="link" onClick=${() => go('watch', { lib: row.id })}>${row.title}</button><span class="muted">${row.addon}</span></div>
+    <div class="shelf-track">
+      ${!items ? html`<div class="empty" style="padding:30px 0">…</div>` : items.map((m) => html`<button type="button" class="poster-btn" key=${m.id} onClick=${() => go('watch', { lib: row.id, item: m.id })} aria-label=${m.title}>
+        <div class="framed"><${Poster} src=${m.poster} title=${m.title} /></div>
+      </button>`)}
+    </div>
   </div>`;
 }
 

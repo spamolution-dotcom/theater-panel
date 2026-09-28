@@ -43,7 +43,8 @@ export function Watch() {
   const gridRef = useRef();
 
   // For you is where Watch opens. "?lib=library" (Browse library on Home) opens Movies instead.
-  const libId = lib === 'library' ? libs?.find((l) => l.title === 'Movies')?.id || libs?.[0]?.id : lib || 'foryou';
+  // This fork has no "For you" or "Networks" tabs (both need Plex/Seerr): My movies is the default.
+  const libId = lib === 'library' || lib === 'foryou' || !lib ? libs?.[0]?.id : lib;
   const byNetwork = libId === 'networks';
   const forYou = libId === 'foryou';
   const libType = byNetwork ? null : libs?.find((l) => l.id === libId)?.type;
@@ -89,7 +90,7 @@ export function Watch() {
     <//>
     <div style="display:flex;align-items:center;gap:14px">
       <div style="width:620px;flex-shrink:0">
-        <${Seg} options=${[{ value: 'foryou', label: 'For you' }, ...(libs || []).map((l) => ({ value: l.id, label: l.title })), { value: 'networks', label: 'Networks' }]} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); }} />
+        <${Seg} cls="scroll" options=${(libs || []).map((l) => ({ value: l.id, label: l.title }))} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); }} />
       </div>
       <div class="hscroll" style="display:flex;gap:10px;min-width:0">
         ${forYou && !q ? html`<button type="button" class="filter" onClick=${() => setMystery(true)}><${Icon} name="sparkle" size=${18} />Mystery box</button>
