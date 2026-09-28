@@ -137,6 +137,7 @@ async function pollSessions() {
 const STREMIO_APP = 'com.stremio.one';
 const NETFLIX_APP = 'com.netflix.ninja';
 const FRESH = 15 * 60e3;
+const CHOOSING_MAX = 3 * 60e3;   // how long 'pick a stream' may stay up after a title is opened
 function streamerSessions() {
   const e = config.entities;
   const tv = ha.states[e.appleTv];
@@ -164,8 +165,10 @@ function streamerSessions() {
     }];
   }
   // Opened by the panel, stream not picked yet (or Stremio has not synced playback yet): no clock.
+  // After a few minutes in Stremio a stream has almost certainly been picked, even if the player
+  // entity (synced from Stremio's cloud) has not caught up: say it is on, still without a clock.
   if (l && Date.now() - l.at < 6 * 3600e3) {
-    return [{ id: l.id, type: l.type, app: 'stremio', state: 'choosing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster }];
+    return [{ id: l.id, type: l.type, app: 'stremio', state: Date.now() - l.at > CHOOSING_MAX ? 'playing' : 'choosing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster }];
   }
   return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'choosing' }];
 }
