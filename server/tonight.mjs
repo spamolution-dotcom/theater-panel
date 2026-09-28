@@ -4,7 +4,7 @@
 // started now; either way the plan is what the marquee outside the room shows.
 
 import { config } from './config.mjs';
-import * as plex from './plex.mjs';
+import * as plex from './media.mjs';
 import * as tmdb from './tmdb.mjs';
 import { runAction, script } from './actions.mjs';
 

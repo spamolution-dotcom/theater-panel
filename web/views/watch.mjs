@@ -81,9 +81,9 @@ export function Watch() {
   const libTitle = libs?.find((l) => l.id === libId)?.title;
 
   return html`<main class="view">
-    <${Header} title="Watch" kicker=${q ? `Plex search · ${total} results` : forYou ? 'Plex · picked from what you watch' : byNetwork ? `Plex · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Plex · ${libTitle || ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
-      <label class="search" style="width:420px"><${Icon} name="search" color="var(--muted)" /><span class="sr">Search Plex</span>
-        <input type="search" placeholder="Search Plex" value=${query} onInput=${(e) => setQuery(e.target.value)} />
+    <${Header} title="Watch" kicker=${q ? `Stremio search · ${total} results` : forYou ? 'Stremio · picked from what you watch' : byNetwork ? `Stremio · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Stremio · ${libTitle || ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
+      <label class="search" style="width:420px"><${Icon} name="search" color="var(--muted)" /><span class="sr">Search Stremio</span>
+        <input type="search" placeholder="Search films and series" value=${query} onInput=${(e) => setQuery(e.target.value)} />
         ${query && html`<button type="button" class="icon-btn" aria-label="Clear search" style="width:40px;height:40px" onClick=${() => setQuery('')}><${Icon} name="x" size=${20} /></button>`}
       </label>
     <//>
@@ -154,7 +154,7 @@ function ForYou({ onPlex }) {
         ${watchlist.map((r) => html`<button type="button" class="poster-btn" key=${r.tmdbId || r.title}
           onClick=${() => onPlex(String(r.id))}>
           <${Poster} src=${r.poster} title=${r.title}>
-            <span class="tag in">In Plex</span>
+            <span class="tag in">In library</span>
           <//>
           <span class="t ellipsis">${r.title}</span>
           <span class="y">${r.year || ''}${r.mediaType === 'tv' ? ' · series' : ''}</span>
@@ -171,7 +171,7 @@ function ForYou({ onPlex }) {
         ${row.items.map((r) => html`<button type="button" class="poster-btn" key=${r.id}
           onClick=${() => (r.plexKey ? onPlex(String(r.plexKey)) : go('request', { q: r.title }))}>
           <${Poster} src=${r.poster} title=${r.title}>
-            ${r.plexKey ? html`<span class="tag in">In Plex</span>` : r.status !== 'none' ? html`<span class="tag soon">${r.status === 'available' ? 'In Plex' : 'On its way'}</span>` : html`<span class="tag ask">Request</span>`}
+            ${r.plexKey ? html`<span class="tag in">In library</span>` : r.status !== 'none' ? html`<span class="tag soon">${r.status === 'available' ? 'In library' : 'On its way'}</span>` : html`<span class="tag ask">Request</span>`}
           <//>
           <span class="t ellipsis">${r.title}</span>
           <span class="y">${r.year || ''}${r.rating ? ` · ${r.rating.toFixed(1)}★` : ''}</span>
@@ -192,7 +192,7 @@ function Tile({ m, selected, onSelect }) {
       ${m.season?.complete && html`<span class="season-out" title=${`Season ${m.season.index}: all ${m.season.total} episodes are here`}>S${m.season.index} complete</span>`}
     <//>
     <span class="t ellipsis">${name}</span>
-    <span class="y">${m.type === 'episode' ? `S${m.season} · E${m.episode}` : m.type === 'show' ? (m.season ? `S${m.season.index} · ${m.season.have}/${m.season.total}${m.season.airing ? ' · airing' : ''}` : `${m.year || ''} · ${m.leafCount} eps`) : m.year}</span>
+    <span class="y">${m.type === 'episode' ? `S${m.season} · E${m.episode}` : m.type === 'show' ? (m.season ? `S${m.season.index} · ${m.season.have}/${m.season.total}${m.season.airing ? ' · airing' : ''}` : [m.year, m.leafCount && `${m.leafCount} eps`].filter(Boolean).join(' · ')) : m.year}</span>
   </button>`;
 }
 

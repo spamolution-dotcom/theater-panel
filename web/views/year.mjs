@@ -1,4 +1,4 @@
-// Year in review: what the house actually watched, from Plex's own history. Plays are exact;
+// Year in review: what the house actually watched, from Stremio's watch history. Plays are exact;
 // hours are an estimate (history says something was watched, not for how long), so the screen
 // says "about". Reachable at #/year, from the For you tab, and from Home Assistant.
 
@@ -15,8 +15,8 @@ export function Year() {
   const year = Math.min(Math.max(Number(route.params.year) || now, 2000), now);
   const [d, err] = useLoad(() => get(`/api/year?year=${year}`), [year]);
 
-  if (err) return html`<main class="view"><${Header} title="Year in review" kicker="Plex" /><div class="empty">${err.message}</div></main>`;
-  if (!d) return html`<main class="view"><${Header} title="Year in review" kicker="Plex" /><div class="empty">Counting…</div></main>`;
+  if (err) return html`<main class="view"><${Header} title="Year in review" kicker="Stremio" /><div class="empty">${err.message}</div></main>`;
+  if (!d) return html`<main class="view"><${Header} title="Year in review" kicker="Stremio" /><div class="empty">Counting…</div></main>`;
 
   const days = Math.round(d.hours / 24);
   const busiest = DAYS[d.days.indexOf(Math.max(...d.days))];
@@ -26,7 +26,7 @@ export function Year() {
   const maxPerson = Math.max(...d.people.map((p) => p.plays), 1);
 
   return html`<main class="view">
-    <${Header} title=${`${d.year} at the theater`} kicker="Year in review · from Plex's own history">
+    <${Header} title=${`${d.year} at the theater`} kicker="Year in review · from Stremio's watch history">
       <div class="hscroll" style="display:flex;gap:10px">
         ${[now, now - 1, now - 2].map((y) => html`<a class="filter" href=${`#/year?year=${y}`} aria-pressed=${y === year ? 'true' : 'false'}>${y}</a>`)}
       </div>

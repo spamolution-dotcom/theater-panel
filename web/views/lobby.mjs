@@ -45,7 +45,7 @@ export function Lobby() {
     <${Header} title="Home Theater" kicker=${countdown ? `${weekday} ${part} · ${countdown.text}` : `${weekday} ${part}`}>
       ${arrivals.list.length > 0 && html`<button type="button" class="chip arrival" onClick=${() => go('watch', { item: arrivals.list[0].plexId })}>
         ${arrivals.list[0].poster && html`<img src=${arrivals.list[0].poster} alt="" />`}
-        <span><b>Now in Plex</b> ${arrivals.list[0].title}</span>${arrivals.list.length > 1 && html`<span class="more">+${arrivals.list.length - 1}</span>`}
+        <span><b>New in your library</b> ${arrivals.list[0].title}</span>${arrivals.list.length > 1 && html`<span class="more">+${arrivals.list.length - 1}</span>`}
         <span class="x" role="button" aria-label="Dismiss" onClick=${(e) => { e.stopPropagation(); arrivals.dismiss(arrivals.list[0].id); }}>×</span></button>`}
       <${StreamsChip} onClick=${() => setStreamsOpen(true)} />
       ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
@@ -126,7 +126,7 @@ function Continue() {
   const [drag, setDrag] = useState(0);
   const swipe = useRef(null);
   const swallowUntil = useRef(0);
-  if (!deck) return html`<section class="hero dark tx-suede"><div class="empty" style="flex-grow:1">Loading Plex…</div></section>`;
+  if (!deck) return html`<section class="hero dark tx-suede"><div class="empty" style="flex-grow:1">Loading Stremio…</div></section>`;
   if (!deck.length) return html`<section class="hero dark tx-suede"><div class="empty" style="flex-grow:1;color:#C7B39E">Nothing in progress. Pick something from Watch.</div></section>`;
   const it = deck[i % deck.length];
   const pct = it.duration ? Math.round((it.viewOffset / it.duration) * 100) : 0;
