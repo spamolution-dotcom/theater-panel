@@ -278,6 +278,10 @@ function build(env) {
   arrivalHours: Math.min(Number(env.ARRIVAL_HOURS) || 48, 24 * 14),
   // Minutes without a touch before the panel drifts to the Now Showing screen (0 = never).
   idleMinutes: Number(env.IDLE_MINUTES ?? 8),
+  // Hallway tablet (?role=hallway): its Dashboard button, and the minutes untouched with the
+  // cinema off before it goes back to the dashboard by itself (0 = never).
+  dashboardUrl: /^https?:\/\//.test(env.DASHBOARD_URL || '') ? env.DASHBOARD_URL : '',
+  hallwayReturnMinutes: Math.max(0, Number(env.HALLWAY_RETURN_MINUTES ?? 5) || 0),
   // Which build this is: stamped into the image by `npm run push`.
   build: { version: env.BUILD_VERSION || 'dev', time: env.BUILD_TIME || '' },
   // Favourite light effects shown first in the Moods sheet (up to 8, in order).

@@ -41,6 +41,10 @@ if (options.public_url) {
   set('PREROLL_URL', options.preroll === false ? '' : `${base}/assets/preroll.mp3`);
   set('INTERMISSION_URL', `${base}/assets/intermission.mp3`);
 }
+// Hallway tablet: where its Dashboard button goes, and how long it waits untouched (cinema off)
+// before going back there by itself (0 = never).
+set('DASHBOARD_URL', options.dashboard_url || 'http://homeassistant.local:8123/chatgpt-trial/0');
+set('HALLWAY_RETURN_MINUTES', options.hallway_return_minutes ?? 5);
 if (options.allow_open === true) process.env.ALLOW_OPEN = '1';
 
 // The update check compares against this fork's image, not the upstream one.

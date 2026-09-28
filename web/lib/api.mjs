@@ -73,7 +73,7 @@ let onNavigate = null;
 let bootBuild = null;
 export async function startLive({ navigate } = {}) {
   onNavigate = navigate;
-  const loadSettings = () => get('/api/state').then((s) => set({ entities: s.entities, services: s.services, ui: s.ui || {}, projectorApps: s.projectorApps || [], effectFavourites: s.effectFavourites || [], build: s.build || {}, idleMinutes: s.idleMinutes ?? 8, sleep: s.sleep || null, preroll: s.preroll || {}, intermission: s.intermission || {}, projectorHotC: s.projectorHotC || 65, soundbar: s.soundbar || {} })).catch(() => {});
+  const loadSettings = () => get('/api/state').then((s) => set({ entities: s.entities, services: s.services, ui: s.ui || {}, projectorApps: s.projectorApps || [], effectFavourites: s.effectFavourites || [], build: s.build || {}, idleMinutes: s.idleMinutes ?? 8, hallway: s.hallway || {}, sleep: s.sleep || null, preroll: s.preroll || {}, intermission: s.intermission || {}, projectorHotC: s.projectorHotC || 65, soundbar: s.soundbar || {} })).catch(() => {});
   const loadTonight = () => get('/api/tonight').then((d) => set({ tonight: d?.item ? d : null })).catch(() => {});
   loadSettings();
   get('/api/rate').then((v) => set({ rate: v?.id ? v : null })).catch(() => {});   // one may be waiting from before this panel loaded
