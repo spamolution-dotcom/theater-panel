@@ -1,0 +1,28 @@
+name: Theater Panel
+version: "0.1.0"
+slug: theater_panel
+description: Home theater wall panel (a Stremio fork of davidcoulson/theater-panel)
+url: https://github.com/spamolution-dotcom/theater-panel
+arch:
+  - aarch64
+image: ghcr.io/spamolution-dotcom/theater-panel-addon-{arch}
+startup: application
+boot: auto
+homeassistant_api: true
+ports:
+  8787/tcp: 8787
+  6053/tcp: 6053
+ports_description:
+  8787/tcp: Panel (open this on the wall tablet)
+  6053/tcp: ESPHome API (Home Assistant adds the panel as a device)
+webui: http://[HOST]:[PORT:8787]
+watchdog: http://[HOST]:[PORT:8787]/healthz
+options:
+  allow_open: false
+  image_cache_mb: 300
+schema:
+  admin_password: password?
+  allow_open: bool
+  trust_networks: str?
+  image_cache_mb: int(50,4096)
+  tmdb_api_key: password?

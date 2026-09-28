@@ -43,7 +43,10 @@ export class HomeAssistant extends EventEmitter {
     // exception and take the whole server down, so it is treated like any other failed attempt.
     let ws;
     try {
-      const wsUrl = this.url.replace(/^http/, 'ws') + '/api/websocket';
+      // Inside a Home Assistant add-on the core is reached through the Supervisor proxy, whose
+      // websocket lives at /core/websocket rather than /api/websocket.
+      const base = this.url.replace(/^http/, 'ws');
+      const wsUrl = /\/\/supervisor\/core$/.test(this.url) ? `${base}/websocket` : `${base}/api/websocket`;
       ws = new WebSocket(wsUrl);
     } catch (e) {
       console.warn(`[ha] cannot connect to ${this.url}: ${e.message}`);
