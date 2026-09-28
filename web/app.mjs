@@ -131,6 +131,9 @@ export function setCinema(value) {
 // whatever the accent lights and the scene are doing (they used to have a say, which left the
 // panel bright in a room with the downlights barely on and the accents off).
 function roomIsDark(s) {
+  // Only while the room is in use: the cinema's lights are off most of the day.
+  const roomOn = s.entities?.roomOn;
+  if (roomOn && s.states[roomOn]?.state !== 'on') return false;
   const [downlights] = s.entities?.lights || [];
   const down = s.states[downlights];
   if (!down || down.state === 'unavailable') return false;

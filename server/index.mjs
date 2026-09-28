@@ -281,12 +281,12 @@ get(/^\/api\/state$/, () => ({
 }));
 
 get(/^\/api\/plex\/libraries$/, () => plex.libraries());
-get(/^\/api\/plex\/library\/([a-z-]+)$/, (m, q) => plex.listLibrary(m[1], {
+get(/^\/api\/plex\/library\/([a-z0-9-]+)$/, (m, q) => plex.listLibrary(m[1], {
   filters: (q.get('filters') || '').split(',').filter(Boolean), genre: q.get('genre') || undefined,
   brand: q.get('brand') || undefined,
   sort: q.get('sort') || 'added', start: Number(q.get('start') || 0), size: Math.min(Number(q.get('size') || 60), 120),
 }));
-get(/^\/api\/plex\/genres\/([a-z-]+)$/, (m) => plex.genres(m[1]));
+get(/^\/api\/plex\/genres\/([a-z0-9-]+)$/, (m) => plex.genres(m[1]));
 get(/^\/api\/plex\/brand\/([a-z]+)$/, (m, q) => plex.brandBrowse(m[1], { filters: (q.get('filters') || '').split(',').filter(Boolean), size: Math.min(Number(q.get('size') || 60), 120) }));
 get(/^\/api\/networks$/, () => (config.seerr.url ? seerr.networks() : [])); 
 get(/^\/api\/plex\/item\/([\w.%:-]+)$/, (m) => plex.item(decodeURIComponent(m[1])));
@@ -307,6 +307,7 @@ get(/^\/api\/plex\/ondeck$/, async (m, q) => {
   }
   return deck;
 });
+get(/^\/api\/shelves$/, () => (config.media.on && plex.shelves ? plex.shelves() : []));
 get(/^\/api\/plex\/recent$/, (m, q) => plex.recentlyAdded(Math.min(Number(q.get('size') || 16), 60)));
 const qrSvg = (text) => QRCode.toString(String(text).slice(0, 300), { type: 'svg', margin: 1, color: { dark: '#25170F', light: '#0000' } });
 

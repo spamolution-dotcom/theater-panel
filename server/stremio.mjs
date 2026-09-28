@@ -14,6 +14,7 @@
 // "tt9288030:s1" for a season (the panel's own form, for the season picker).
 
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { config } from './config.mjs';
 import { extImage } from './images.mjs';
@@ -270,13 +271,54 @@ async function libraryEpisode(it) {
 
 export const MERGED = 'movies';
 const LIBS = [
-  { id: 'movies', title: 'Movies', type: 'movie', source: 'library' },
-  { id: 'shows', title: 'Shows', type: 'show', source: 'library' },
-  { id: 'popular-movies', title: 'Popular films', type: 'movie', source: 'catalog' },
-  { id: 'popular-shows', title: 'Popular series', type: 'show', source: 'catalog' },
+  { id: 'movies', title: 'My movies', type: 'movie', source: 'library' },
+  { id: 'shows', title: 'My shows', type: 'show', source: 'library' },
 ];
+// The Watch tabs and the lobby's shelves: your library first, then every catalog your installed
+// Stremio addons offer, in the order Stremio lists them (Cinemeta's Popular / New / Featured, and
+// whatever the other addons add).
 export async function libraries() {
-  return LIBS.map(({ id, title, type }) => ({ id, title, type }));
+  const cats = await catalogs().catch((e) => { console.warn('[stremio] addon catalogs:', e.message); return []; });
+  return [...LIBS, ...cats].map(({ id, title, type }) => ({ id, title, type }));
+}
+
+// ---------- addon catalogs ----------
+
+// The account's installed addons, as Stremio's apps see them.
+const addons = () => cached('addons', 3600e3, () =>
+  withAuth((key) => post('addonCollectionGet', { authKey: key, update: true }))
+    .then((r) => (Array.isArray(r?.addons) ? r.addons : [])));
+
+const catKey = (url, type, id) => `cat-${createHash('sha1').update(`${url}|${type}|${id}`).digest('hex').slice(0, 10)}`;
+let catIndex = new Map();
+// Catalogs a screen can page through: films and series, and nothing that needs an input first
+// (search, or a catalog that insists on a genre).
+export async function catalogs() {
+  const list = [];
+  for (const a of await addons()) {
+    const base = String(a.transportUrl || '').replace(/\/manifest\.json$/, '');
+    const m = a.manifest || {};
+    if (!/^https?:\/\//.test(base)) continue;
+    for (const c of m.catalogs || []) {
+      if (!['movie', 'series'].includes(c.type)) continue;
+      const extras = c.extra || [];
+      if ((c.extraRequired || []).length || extras.some((e) => e.isRequired)) continue;
+      const kind = c.type === 'series' ? 'Series' : 'Films';
+      const name = c.name || c.id;
+      const title = /cinemeta/i.test(m.name || m.id || '') ? `${name} ${kind.toLowerCase()}` : `${name} · ${kind}`;
+      list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip') });
+    }
+  }
+  catIndex = new Map(list.map((c) => [c.id, c]));
+  return list;
+}
+
+async function addonCatalog(def, { skip = 0 } = {}) {
+  const extra = skip && def.paged ? `/skip=${skip}` : '';
+  const url = `${def.base}/catalog/${def.catType}/${encodeURIComponent(def.catId)}${extra}.json`;
+  const metas = await cached(`addoncat:${url}`, 30 * 60e3, async () => (await getJson(url, 12000))?.metas || []);
+  // Titles the panel can open are the IMDb-keyed ones (Cinemeta has their details and seasons).
+  return metas.filter((m) => /^tt\d+$/.test(m.id || ''));
 }
 
 const SORTS = {
@@ -294,8 +336,18 @@ function shuffle(list) {
 }
 
 export async function listLibrary(libId, { filters = [], genre, sort = 'added', start = 0, size = 60 } = {}) {
-  const def = LIBS.find((l) => l.id === libId);
+  let def = LIBS.find((l) => l.id === libId) || catIndex.get(libId);
+  if (!def && String(libId).startsWith('cat-')) { await catalogs(); def = catIndex.get(libId); }
   if (!def) throw httpError(404, 'No such library');
+  if (def.source === 'addon') {
+    const [metas, lib] = await Promise.all([addonCatalog(def, { skip: start }), libraryIndex().catch(() => null)]);
+    let items = metas.map((m) => fromMeta({ type: def.catType, ...m }, lib));
+    if (filters.includes('unwatched')) items = items.filter((it) => !it.watched);
+    if (filters.includes('short')) items = items.filter((it) => !it.duration || it.duration < 7200000);
+    if (sort === 'random') items = shuffle(items);
+    items = items.slice(0, size);
+    return { total: start + items.length + (def.paged && metas.length >= 20 ? size : 0), items };
+  }
   if (def.source === 'catalog') {
     const [metas, lib] = await Promise.all([catalog(stremioType(def.type), { genre, skip: start || undefined }), libraryIndex().catch(() => null)]);
     let items = metas.map((m) => fromMeta({ type: stremioType(def.type), ...m }, lib));
@@ -315,7 +367,7 @@ export async function listLibrary(libId, { filters = [], genre, sort = 'added', 
 // Cinemeta's genres for the catalog tabs (the library tabs have none to filter on).
 export async function genres(libId) {
   const def = LIBS.find((l) => l.id === libId);
-  if (!def || def.source !== 'catalog') return [];
+  if (!def || def.source !== 'catalog') return [];   // library tabs and addon catalogs: no genre filter
   const manifest = await cached('manifest', 24 * 3600e3, () => getJson(`${CINEMETA}/manifest.json`));
   const cat = (manifest?.catalogs || []).find((c) => c.type === stremioType(def.type) && c.id === 'top');
   const opts = (cat?.extra || []).find((e) => e.name === 'genre')?.options || cat?.genres || [];
@@ -461,3 +513,9 @@ export async function clearProgress() { return { ok: false }; }
 export async function setStreams() { return { ok: false }; }
 export const RECENT_FROM = () => new Date().getFullYear() - (config.mystery?.years || 10);
 export const RATED_MIN = () => config.mystery?.minRating || 0;
+
+// The lobby's rows: your films and shows, then each addon catalog, first page only.
+export async function shelves() {
+  const cats = await catalogs().catch(() => []);
+  return [...LIBS, ...cats].map(({ id, title, type, addon }) => ({ id, title, type, addon: addon || 'Your library' }));
+}
