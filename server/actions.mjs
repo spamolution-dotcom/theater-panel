@@ -37,7 +37,7 @@ export async function runAction(ha, body) {
       }
       // The break gets its jingle: the panel shows the snack bar, the room hears the march.
       if (body.name === 'intermission' && config.intermission.url && body.quiet !== true) {
-        const speaker = e.musicPlayers[0] || e.musicPlayer;
+        const speaker = e.soundSpeaker;
         if (up(ha, speaker)) {
           script(ha, 'snipe', { speaker, url: config.intermission.url })
             .catch((err) => console.warn('[intermission] no march:', err.message));
@@ -54,7 +54,7 @@ export async function runAction(ha, body) {
       if (!body.noPreroll && wantsPreroll(body)) {
         // The theater's speaker is the Apple TV over AirPlay, which is asleep whenever a film
         // plays on the projector. Then the lights still go down and the panel plays the swell.
-        const speaker = e.musicPlayers[0] || e.musicPlayer;
+        const speaker = e.soundSpeaker;
         const url = prerollUrl();
         const onSpeaker = up(ha, speaker);
         await script(ha, 'preroll', { speaker, url: onSpeaker ? url : '' });
@@ -120,7 +120,7 @@ export async function runAction(ha, body) {
     // same way the pre-roll and the march travel. The panel counts down before asking.
     case 'thx': {
       if (!config.thxUrl) throw new Error('No THX sound on the settings page');
-      const speaker = e.musicPlayers[0] || e.musicPlayer;
+      const speaker = e.soundSpeaker;
       if (up(ha, speaker)) return script(ha, 'snipe', { speaker, url: config.thxUrl });
       if (panelPath(config.thxUrl)) { toPanels({ url: panelPath(config.thxUrl) }); return { panel: true }; }
       throw new Error('The theater speaker is not up');
