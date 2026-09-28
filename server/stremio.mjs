@@ -134,7 +134,10 @@ export const warmMovies = () => rawLibrary().then((l) => console.log(`[stremio] 
   .catch((e) => console.warn('[stremio] library:', e.message));
 
 const inLibrary = (it) => !it.removed && !it.temp && (it.type === 'movie' || it.type === 'series');
-const inProgress = (it) => (it.type === 'movie' || it.type === 'series') && (!it.removed || it.temp) && (it.state?.timeOffset || 0) > 0;
+const finished = (offset, duration) => Boolean(duration) && (offset || 0) >= 0.9 * duration;
+// A film watched to the end is done; a series stays, because its next episode is up next.
+const inProgress = (it) => (it.type === 'movie' || it.type === 'series') && (!it.removed || it.temp) && (it.state?.timeOffset || 0) > 0
+  && !(it.type === 'movie' && finished(it.state.timeOffset, it.state.duration));
 const watchedFlag = (it) => (it.state?.timesWatched || 0) > 0 || (it.state?.flaggedWatched || 0) > 0;
 const lastWatched = (it) => ms(it.state?.lastWatched) || 0;
 
@@ -238,7 +241,18 @@ async function libraryEpisode(it) {
   const show = await meta('series', it._id).catch(() => null);
   const vid = s.video_id && s.video_id !== it._id ? s.video_id : null;
   const v = show?.videos?.find((x) => x.id === vid);
-  if (show && v) return { ...fromVideo(v, show, { offset: s.timeOffset || 0, duration: s.duration || null }), lastViewedAt: lastWatched(it) || null };
+  if (show && v) {
+    // Stremio keeps the position of an episode watched to the end. Past 90% it is finished: offer
+    // the next episode from the start, as Stremio's own Continue Watching does.
+    const dur = s.duration || minutes(show.runtime);
+    if (finished(s.timeOffset, dur)) {
+      const order = (show.videos || []).filter((x) => Number(x.season) > 0)
+        .sort((a, b) => Number(a.season) - Number(b.season) || episodeNo(a) - episodeNo(b));
+      const next = order[order.findIndex((x) => x.id === v.id) + 1];
+      if (next) return { ...fromVideo(next, show), lastViewedAt: lastWatched(it) || null };
+    }
+    return { ...fromVideo(v, show, { offset: finished(s.timeOffset, dur) ? 0 : s.timeOffset || 0, duration: dur }), lastViewedAt: lastWatched(it) || null };
+  }
   const [, season, episode] = String(vid || '').split(':');
   return {
     ...fromLibrary(it),
