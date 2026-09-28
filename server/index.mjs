@@ -284,6 +284,7 @@ get(/^\/api\/state$/, () => ({
   effectFavourites: config.effectFavourites,
   build: config.build,
   idleMinutes: config.idleMinutes,
+  hallway: { dashboardUrl: config.dashboardUrl, returnMinutes: config.hallwayReturnMinutes },
   sleep: sleep.get(),
   preroll: { enabled: Boolean(config.preroll.url) && config.preroll.enabled, seconds: config.preroll.seconds, moviesOnly: config.preroll.moviesOnly },
   intermission: { minutes: config.intermission.minutes, sound: Boolean(config.intermission.url) },

@@ -333,6 +333,7 @@ function Rail({ current }) {
     if (taps.current.length >= 7) { taps.current = []; openTweaks(); }
   };
   const build = useStore((s) => s.build) || {};
+  const dashboardUrl = useStore((s) => s.hallway?.dashboardUrl);
   const ha = useStore((s) => ({ ok: s.haConnected, configured: s.haConfigured, live: s.connected }));
   // The holiday accent: its glow fills the rail while the accents are off, and its glyph sits
   // over the clock. An override from the route only knows the id, so look the rest up.
@@ -348,6 +349,7 @@ function Rail({ current }) {
     <a href="#/lobby?mystery=1" title="Mystery box" onClick=${(e) => { e.preventDefault(); go('lobby', { mystery: '1' }); }}><${Icon} name="sparkle" size=${32} /><span>Mystery</span></a>
     <div class="grow"></div>
     ${ha.live === false ? html`<div class="offline">Server offline</div>` : ha.live && !ha.ok ? html`<div class="offline">${ha.configured ? 'HA offline' : 'HA not set up'}</div>` : null}
+    ${hallway && dashboardUrl && html`<a href=${dashboardUrl} class="to-dashboard"><${Icon} name="app" size=${30} /><span>Dashboard</span></a>`}
     <a href="#/showtime" class="to-showtime" onClick=${(e) => { e.preventDefault(); go('showtime'); }}><${Icon} name="moon" size=${30} /><span>Showtime</span></a>
     ${hol && html`<div class="glyph" title=${hol.who ? `${hol.who}'s birthday` : hol.name}><${Emblem} id=${hol.id} size=${68} />${hol.who && html`<span>${hol.who}</span>`}</div>`}
     <div class="clock">${now.hm}</div><div class="ampm">${now.ampm}</div>
@@ -396,6 +398,12 @@ function App() {
     const t = setInterval(() => {
       const idleMin = getState().idleMinutes ?? 8;
       if (idleMin > 0 && !['showtime', 'showing', 'intermission', 'warmup'].includes(route.name) && Date.now() - lastManual > idleMin * 60000) go('showing', { auto: true });
+      // The hallway tablet, left on the panel with the cinema off: back to the HA dashboard.
+      if (hallway) {
+        const { states, entities, hallway: h = {} } = getState();
+        const cinemaOn = states[entities?.roomOn]?.state === 'on' || states[entities?.warmupScript]?.state === 'on';
+        if (h.dashboardUrl && h.returnMinutes > 0 && !cinemaOn && Date.now() - lastManual > h.returnMinutes * 60000) location.href = h.dashboardUrl;
+      }
     }, 15000);
     const back = () => { if (route.name === 'showing') go('lobby'); };
     addEventListener('pointerdown', back, true);
