@@ -128,7 +128,11 @@ function build(env) {
     plexPlayer: env.ENTITY_PLEX_PLAYER || '',
     // The projector's own Plex client, as HA's Plex integration names it.
     projectorPlexPlayer: env.ENTITY_PROJECTOR_PLEX_PLAYER || '',
-    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.cinema_google_mini',
+    // The Music screen plays on the Denon through Music Assistant (its HEOS player there).
+    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.home_theater_3',
+    // Pre-show swell, intermission march and THX: the Google Mini, so the Denon never leaves the
+    // Streamer's input mid-film.
+    soundSpeaker: env.ENTITY_SOUND_SPEAKER || 'media_player.cinema_google_mini',
     // Music Assistant players offered under "Play on"; the first is the theater's own.
     musicPlayers: list(env.ENTITY_MUSIC_PLAYERS, []),
     // Android Debug Bridge media_player for the projector. Empty until ADB is tested.
@@ -343,7 +347,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
+    e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',
