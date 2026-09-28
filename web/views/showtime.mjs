@@ -42,6 +42,7 @@ export function Showtime() {
   const state = useStore((s) => playbackState(s));
   const sessionsAt = useStore((s) => s.sessionsAt) || Date.now();
   const playing = state === 'playing';
+  const autoplayOn = useStore((s) => s.states[s.entities?.autoplay]?.state === 'on');
   const title = session?.showTitle || session?.title || a.media_series_title || a.media_title || 'Now showing';
   const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : (a.media_series_title ? a.media_title : '');
   // Position: the Plex session when there is one (it is the film, wherever it plays), carried
@@ -63,7 +64,7 @@ export function Showtime() {
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
           ${session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
-          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? 'Pick a stream on the TV with the remote' : 'Standing by'}</div>
+          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}</div>
             <h1 class="ellipsis">${title}</h1>
             ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}</div>
         </div>

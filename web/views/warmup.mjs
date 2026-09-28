@@ -40,6 +40,10 @@ export function Warmup() {
     { name: 'Stremio', ok: inStremio },
   ].filter((s, i) => i !== 2 || e.projectorPower);
 
+  const autoplay = states[e.autoplay]?.state === 'on';
+  const nowPlaying = useStore((s) => s.sessions?.[0]?.state === 'playing');
+  // When the stream list came up: auto-play gets 30 s to start the first stream before we ask.
+  const [readyAt, setReadyAt] = useState(null);
   const elapsed = Math.floor((now - startedAt) / 1000);
   const left = Math.max(0, WARMUP_SECONDS - elapsed);
   // With a title: ready once Stremio has it on screen. Without one: once the script has finished.
@@ -47,12 +51,16 @@ export function Warmup() {
   const stuck = !ready && elapsed > GIVE_UP_SECONDS;
   const late = steps.filter((s) => !s.ok).map((s) => s.name);
 
-  // Ready: give people a moment to read "pick a stream", then hand over to Showtime.
+  useEffect(() => { if (ready && !readyAt) setReadyAt(Date.now()); }, [ready]);
+  const starting = picked && autoplay && readyAt && now - readyAt < 30000 && !nowPlaying;
+  // Ready: give people a moment to read the message, then hand over to Showtime (straight away
+  // once the film is actually playing).
   useEffect(() => {
     if (!ready) return undefined;
-    const t = setTimeout(() => { if (route.name === 'warmup') go(picked ? 'showtime' : 'lobby', { auto: true }); }, picked ? 20000 : 8000);
+    const wait = picked && nowPlaying ? 2000 : picked ? (autoplay ? 35000 : 20000) : 8000;
+    const t = setTimeout(() => { if (route.name === 'warmup') go(picked ? 'showtime' : 'lobby', { auto: true }); }, wait);
     return () => clearTimeout(t);
-  }, [ready]);
+  }, [ready, nowPlaying]);
 
   const mm = Math.floor(left / 60);
   const ss = String(left % 60).padStart(2, '0');
@@ -66,7 +74,7 @@ export function Warmup() {
       ${p.sub ? html`<div class="wu-sub">${p.sub}</div>` : !picked && html`<div class="wu-sub">Pick something while you wait</div>`}
 
       ${ready
-        ? html`<div class="wu-big"><${Icon} name="remote" size=${44} />${picked ? ' Pick a stream on the TV with the remote' : ' The cinema is on. Pick something to watch'}</div>`
+        ? html`<div class="wu-big"><${Icon} name="remote" size=${44} />${!picked ? ' The cinema is on. Pick something to watch' : nowPlaying ? ' Starting' : starting ? ' Starting the first stream…' : ' Pick a stream on the TV with the remote'}</div>`
         : stuck
           ? html`<div class="wu-big warn">Still waiting for ${late.join(', ')}. Check the Media Control Switch plug, or turn the movie scene off and on again.</div>`
           : html`<div class="wu-count"><span class="n">${mm}:${ss}</span><span class="l">${left > 0 ? 'to go, roughly' : 'any moment now'}</span></div>
