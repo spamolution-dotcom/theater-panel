@@ -290,7 +290,9 @@ function build(env) {
     qualityBadges: env.SHOW_QUALITY_BADGES !== 'false',
     networkBadges: env.SHOW_NETWORK_BADGES === 'true',
     // Plex sessions are only the theater's own when the player name is set.
-    theaterSessions: Boolean(env.PLEX_PLAYER_NAME),
+    // Sessions belong to this room: Plex with PLEX_PLAYER_NAME, or always with Stremio (the panel
+    // builds them from the Streamer).
+    theaterSessions: Boolean(env.PLEX_PLAYER_NAME) || Boolean((env.STREMIO_EMAIL && env.STREMIO_PASSWORD) || env.STREMIO_AUTH_KEY),
   },
   // Extra origins allowed to embed the panel (the HA dashboard), space- or comma-separated.
   frameAncestors: (env.FRAME_ANCESTORS || '').split(/[\s,]+/).filter((o) => /^https?:\/\/[\w.-]+(:\d+)?$/.test(o)),
