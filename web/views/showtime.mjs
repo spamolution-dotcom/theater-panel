@@ -59,11 +59,16 @@ export function Showtime() {
   const poke = () => { if (native) return; setAwake(true); wake(); };
   const t = (cmd, extra) => act({ action: 'transport', cmd, ...extra });
 
-  return html`<div class="showtime" style=${bg} onPointerDown=${poke}>
+  // The hallway board: the poster full height down the left, the controls beside it over the
+  // film's artwork, brighter than the in-room remote.
+  const bigPoster = session?.posterLarge || session?.poster;
+  return html`<div class=${`showtime${hallway ? ' hall' : ''}`} style=${hallway ? '' : bg} onPointerDown=${poke}>
+    ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : html`<div class="st-poster-t">${title}</div>`}</div>`}
+    ${hallway && html`<div class="st-art" style=${bg}></div>`}
     <div class="wrap" style=${`--glow:${native || awake ? 1 : 0.55}`}>
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
-          ${session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
+          ${!hallway && session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
           <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}</div>
             <h1 class="ellipsis">${title}</h1>
             ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}</div>
@@ -78,9 +83,9 @@ export function Showtime() {
         <div class="times"><span>${mmss(pos)}</span><span>${left != null ? `${mmss(left)} left` : ''}</span></div>
       </div>
       <div style="flex-grow:1;display:flex;gap:28px;min-height:0">
-        <div style="width:220px;display:flex;flex-direction:column;gap:20px">
+        <div class="st-side" style="width:220px;display:flex;flex-direction:column;gap:20px">
           <button type="button" class="dbtn" style="flex-grow:1" aria-label="Volume up" disabled=${sb && Number(sbVolume?.state) >= 100} onClick=${() => t('vol_up')}><${Icon} name="volp" size=${48} w=${1.8} /></button>
-          <button type="button" class="dbtn" style="height:110px" aria-label="Mute" aria-pressed=${muted ? 'true' : 'false'} onClick=${() => { setMuted(!muted); t('mute', { muted: !muted }); }}><${Icon} name="mute" size=${40} w=${1.8} /><span class="s">${muted ? 'Unmute' : 'Mute'}</span></button>
+          <button type="button" class="dbtn st-mute" style="height:110px" aria-label="Mute" aria-pressed=${muted ? 'true' : 'false'} onClick=${() => { setMuted(!muted); t('mute', { muted: !muted }); }}><${Icon} name="mute" size=${40} w=${1.8} /><span class="s">${muted ? 'Unmute' : 'Mute'}</span></button>
           <button type="button" class="dbtn" style="flex-grow:1" aria-label="Volume down" disabled=${sb && sbVolume && Number(sbVolume.state) <= 0} onClick=${() => t('vol_down')}><${Icon} name="volm" size=${48} w=${1.8} /></button>
           ${sb && html`<div class="sb-level" title="Soundbar volume"><i style=${`width:${sbVolume && !['unknown', 'unavailable'].includes(sbVolume.state) ? Number(sbVolume.state) : 0}%`}></i><span class="mono">${sbVolume && !['unknown', 'unavailable'].includes(sbVolume.state) ? sbVolume.state : '–'}</span></div>
           <button type="button" class="dbtn" style="height:90px" aria-pressed=${lateNight ? 'true' : 'false'} onClick=${() => act({ action: 'soundbar', cmd: 'late_night', on: !lateNight })}><${Icon} name="moon" size=${32} w=${1.8} /><span class="s">Late night</span></button>`}
@@ -91,12 +96,12 @@ export function Showtime() {
             ${playing ? html`<${Pause} size=${110} color="var(--d-text)" />` : html`<${Play} size=${110} color="var(--d-text)" />`}</button>
           <button type="button" class="skip" aria-label="Forward 30 seconds" onClick=${() => t('seek_rel', { seconds: 30 })}><${Icon} name="fwd" size=${64} w=${1.6} /><span class="mono" style="font-size:20px;color:var(--d-dim)">30s</span></button>
         </div>
-        <div style="width:220px;display:flex;flex-direction:column;gap:20px">
+        <div class="st-side" style="width:220px;display:flex;flex-direction:column;gap:20px">
           <button type="button" class="dbtn" style="flex-grow:1" onClick=${() => act({ action: 'aisle_glow' })}><${Icon} name="bulb" size=${48} w=${1.8} /><span class="s">Aisle glow</span></button>
           <button type="button" class="dbtn" style="flex-grow:1" onClick=${() => act({ action: 'transport', cmd: 'stop' })}><${Icon} name="x" size=${48} w=${1.8} /><span class="s">Stop</span></button>
         </div>
       </div>
-      <div style="display:flex;gap:28px">
+      <div class="st-bottom" style="display:flex;gap:28px">
         <button type="button" class="dbtn" style="flex-grow:1;height:150px" onClick=${() => act({ action: 'scene', name: 'intermission' })}>
           <span class="big"><${Icon} name="cup" size=${40} w=${1.8} />Intermission</span><span class="s">Pause · lights 30%</span></button>
         <button type="button" class="dbtn" style="flex-grow:1;height:150px" onClick=${() => act({ action: 'scene', name: 'lights_up' })}>

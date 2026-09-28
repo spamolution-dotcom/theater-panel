@@ -138,6 +138,14 @@ const STREMIO_APP = 'com.stremio.one';
 const NETFLIX_APP = 'com.netflix.ninja';
 const FRESH = 15 * 60e3;
 const CHOOSING_MAX = 3 * 60e3;   // how long 'pick a stream' may stay up after a title is opened
+// Stremio's artwork for an IMDb id: the usual poster, a large one for the hallway's Now Showing
+// board, and the wide background.
+function metahubPics(imdb) {
+  if (!/^tt\d+$/.test(imdb || '')) return {};
+  const m = (kind, size) => extImage(`https://images.metahub.space/${kind}/${size}/${imdb}/img`);
+  return { poster: m('poster', 'medium'), posterLarge: m('poster', 'large'), art: m('background', 'medium') };
+}
+
 function streamerSessions() {
   const e = config.entities;
   const tv = ha.states[e.appleTv];
@@ -155,12 +163,14 @@ function streamerSessions() {
     const a = cast.attributes;
     const pos = livePosition(a, cast.state);
     const same = l && Date.now() - l.at < 6 * 3600e3;
+    const imdb = same ? String(l.id).split(':')[0] : '';
+    const pics = metahubPics(imdb);
     return [{
       id: same ? l.id : 'stremio', type: same ? l.type : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
       title: same && l.title ? l.title : a.media_title || 'Stremio', showTitle: same ? l.showTitle : undefined,
       season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : undefined,
       viewOffset: pos != null ? Math.round(pos * 1000) : 0, duration: a.media_duration ? Math.round(a.media_duration * 1000) : 0,
-      poster: same ? l.poster : null,
+      poster: pics.poster || (same ? l.poster : null), posterLarge: pics.posterLarge, art: pics.art,
     }];
   }
   // Stremio's 'Current Watching' sensor updates within seconds of playback starting, with the
@@ -181,7 +191,7 @@ function streamerSessions() {
       title: isEp ? a.episode_title || `Episode ${a.episode}` : show, showTitle: isEp ? show : undefined,
       season: isEp ? Number(a.season) : undefined, episode: isEp ? Number(a.episode) : undefined,
       viewOffset: Number(a.time_offset) || 0, duration: Number(a.duration) || 0,
-      poster: /^tt\d+$/.test(imdb) ? extImage(`https://images.metahub.space/poster/medium/${imdb}/img`) : null,
+      ...metahubPics(imdb),
     }];
   }
   // Opened by the panel, stream not picked yet (or Stremio has not synced playback yet): no clock.
