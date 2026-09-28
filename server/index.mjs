@@ -137,32 +137,44 @@ async function pollSessions() {
 const STREMIO_APP = 'com.stremio.one';
 const NETFLIX_APP = 'com.netflix.ninja';
 const FRESH = 15 * 60e3;
+const CHOOSING_MAX = 3 * 60e3;   // how long 'pick a stream' may stay up after a title is opened
 function streamerSessions() {
   const e = config.entities;
   const tv = ha.states[e.appleTv];
   const app = tv?.attributes?.app_id;
   if (!tv || ['off', 'unavailable', 'unknown'].includes(tv.state)) return [];
-  if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing', viewOffset: 0, duration: 0 }];
+  // Netflix: something is on, but neither title nor position is known, so no clock.
+  if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing' }];
   if (app !== STREMIO_APP) return [];
-  const sp = ha.states[e.stremioPlayer];
-  const a = sp?.attributes || {};
-  const fresh = sp && sp.state === 'playing' && Date.now() - Date.parse(sp.last_updated || 0) < FRESH;
-  if (fresh && a.media_title) {
-    const imdb = a.imdb_id || '';
+  const l = lastLaunched();
+  // Stremio's 'Current Watching' sensor updates within seconds of playback starting, with the
+  // episode, position and length. It counts once it has changed since the panel last opened a title
+  // (until then Stremio is showing the stream list); with no title opened by the panel, a recent one.
+  const cw = ha.states[e.stremioWatching];
+  const a = cw?.attributes || {};
+  const updated = Date.parse(cw?.last_updated || 0);
+  const current = cw && !['unknown', 'unavailable', ''].includes(cw.state) && a.imdb_id
+    && (l ? updated > l.at : Date.now() - updated < FRESH);
+  if (current) {
+    const imdb = a.imdb_id;
     const isEp = a.type === 'series' && a.season != null;
+    // The sensor's state is "Show S06E03 Episode title"; the show's name is the part before SxxEyy.
+    const show = isEp ? String(cw.state).replace(/\s+S\d+E\d+.*$/, '') : cw.state;
     return [{
       id: isEp ? `${imdb}:${a.season}:${a.episode}` : imdb, type: isEp ? 'episode' : 'movie', app: 'stremio', state: 'playing',
-      title: isEp ? a.episode_title || `Episode ${a.episode}` : a.media_title, showTitle: isEp ? a.media_title : undefined,
-      season: isEp ? Number(a.season) : undefined, episode: isEp ? Number(a.episode) : undefined, year: Number(a.year) || undefined,
-      viewOffset: Number(a.media_position) || 0, duration: Number(a.media_duration) || 0,
+      title: isEp ? a.episode_title || `Episode ${a.episode}` : show, showTitle: isEp ? show : undefined,
+      season: isEp ? Number(a.season) : undefined, episode: isEp ? Number(a.episode) : undefined,
+      viewOffset: Number(a.time_offset) || 0, duration: Number(a.duration) || 0,
       poster: /^tt\d+$/.test(imdb) ? extImage(`https://images.metahub.space/poster/medium/${imdb}/img`) : null,
     }];
   }
-  const l = lastLaunched();
+  // Opened by the panel, stream not picked yet (or Stremio has not synced playback yet): no clock.
+  // After a few minutes in Stremio a stream has almost certainly been picked, even if the player
+  // entity (synced from Stremio's cloud) has not caught up: say it is on, still without a clock.
   if (l && Date.now() - l.at < 6 * 3600e3) {
-    return [{ id: l.id, type: l.type, app: 'stremio', state: 'playing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster, viewOffset: 0, duration: l.duration || 0 }];
+    return [{ id: l.id, type: l.type, app: 'stremio', state: Date.now() - l.at > CHOOSING_MAX ? 'playing' : 'choosing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster }];
   }
-  return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'playing', viewOffset: 0, duration: 0 }];
+  return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'choosing' }];
 }
 
 // ---------- HTTP ----------

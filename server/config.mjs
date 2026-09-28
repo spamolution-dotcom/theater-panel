@@ -111,7 +111,15 @@ function build(env) {
     // The Denon receiver (volume, mute) and the HACS Stremio integration's player (what is on).
     avr: env.ENTITY_AVR || 'media_player.home_theater',
     stremioPlayer: env.ENTITY_STREMIO_PLAYER || 'media_player.stairs_cabinet_stremio_stremio',
+    // The integration's 'Current Watching' sensor: it updates within seconds of playback starting
+    // (the media_player above can sit on an old title for a day).
+    stremioWatching: env.ENTITY_STREMIO_WATCHING || 'sensor.stairs_cabinet_stremio_current_watching',
     roomOn: env.ENTITY_ROOM_ON || 'input_boolean.movie_scene',
+    // What the warm-up screen watches come on: the plug the Denon and Xbox hang off, and the projector.
+    plug: env.ENTITY_PLUG || 'light.media_control_switch',
+    projectorPower: env.ENTITY_PROJECTOR_POWER || 'media_player.epson_projector',
+    // The start-up sequence the movie scene runs (~2 min); while it runs the panel shows the warm-up screen.
+    warmupScript: env.ENTITY_WARMUP_SCRIPT || 'script.turn_on_theatre_sequence',
     // The Plex client entity HA creates for the Apple TV once "Advertise as player" is on.
     plexPlayer: env.ENTITY_PLEX_PLAYER || '',
     // The projector's own Plex client, as HA's Plex integration names it.
@@ -327,7 +335,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.avr, e.stremioPlayer, e.roomOn, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
+    e.appleTv, e.appleTvRemote, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

@@ -63,7 +63,7 @@ export function Showtime() {
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
           ${session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
-          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : 'Standing by'}</div>
+          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? 'Pick a stream on the TV with the remote' : 'Standing by'}</div>
             <h1 class="ellipsis">${title}</h1>
             ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}</div>
         </div>

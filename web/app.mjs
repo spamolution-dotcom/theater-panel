@@ -16,6 +16,7 @@ import { Watch } from './views/watch.mjs';
 import { Request } from './views/request.mjs';
 import { Music } from './views/music.mjs';
 import { Showtime } from './views/showtime.mjs';
+import { Warmup } from './views/warmup.mjs';
 import { Games } from './views/games.mjs';
 import { Stats } from './views/stats.mjs';
 import { Showing } from './views/showing.mjs';
@@ -26,7 +27,7 @@ import { TweaksSheet } from './views/tweaks.mjs';
 import { TonightSheet, GuestSheet } from './views/tonight.mjs';
 import { SoundSheet } from './views/soundbar.mjs';
 
-const VIEWS = { lobby: Lobby, watch: Watch, request: Request, music: Music, games: Games, showtime: Showtime, stats: Stats, showing: Showing, pick: Pick, year: Year, intermission: Intermission };
+const VIEWS = { lobby: Lobby, watch: Watch, request: Request, music: Music, games: Games, showtime: Showtime, warmup: Warmup, stats: Stats, showing: Showing, pick: Pick, year: Year, intermission: Intermission };
 const NAV = [['lobby', 'Home', 'home'], ['watch', 'Watch', 'film'], ['request', 'Request', 'plus'], ['music', 'Music', 'music'], ['games', 'Games', 'pad']];
 
 // Hash routes, with optional query params: #/watch?lib=networks&brand=netflix
@@ -367,11 +368,16 @@ function App() {
   // Playback drives the screen: start playing -> Showtime; stop -> Lobby. If someone leaves
   // Showtime while a movie plays, return there after 90 s without a touch.
   useEffect(() => {
-    if (tvState === 'playing' && route.name !== 'showtime' && Date.now() - lastManual > 90000) go('showtime', { auto: true });
+    if (tvState === 'playing' && !['showtime', 'warmup'].includes(route.name) && Date.now() - lastManual > 90000) go('showtime', { auto: true });
     // The Streamer reports only on/off: with nothing on it (no session) Showtime has nothing to show.
     const nothingOn = tvState === 'on' && !getState().sessions?.length;
     if ((['idle', 'off', 'standby'].includes(tvState) || nothingOn) && route.name === 'showtime') go('lobby', { auto: true });
   }, [tvState]);
+  // The start-up sequence running (from the tablet, Play, voice, anywhere): show the warm-up screen.
+  const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
+  useEffect(() => {
+    if (warming && !['warmup', 'showtime', 'intermission'].includes(route.name)) go('warmup', { auto: true });
+  }, [warming]);
   // Intermission is a screen as well as a scene: whoever calls for the break - the panel, a Pico
   // remote, "hey Jarvis, intermission" - gets the snack bar on the wall, and leaving the scene
   // takes it away again.
@@ -389,7 +395,7 @@ function App() {
   useEffect(() => {
     const t = setInterval(() => {
       const idleMin = getState().idleMinutes ?? 8;
-      if (idleMin > 0 && !['showtime', 'showing', 'intermission'].includes(route.name) && Date.now() - lastManual > idleMin * 60000) go('showing', { auto: true });
+      if (idleMin > 0 && !['showtime', 'showing', 'intermission', 'warmup'].includes(route.name) && Date.now() - lastManual > idleMin * 60000) go('showing', { auto: true });
     }, 15000);
     const back = () => { if (route.name === 'showing') go('lobby'); };
     addEventListener('pointerdown', back, true);
@@ -401,7 +407,7 @@ function App() {
       const { states, entities } = getState();
       const st = playbackState(getState());
       const tv = states[entities.appleTv]?.state;
-      if (st === 'playing' && route.name !== 'showtime' && Date.now() - lastManual > 90000) go('showtime', { auto: true });
+      if (st === 'playing' && !['showtime', 'warmup'].includes(route.name) && Date.now() - lastManual > 90000) go('showtime', { auto: true });
       // The Apple TV entity gone (unavailable, unknown, missing) for over a minute mid-film: leave
       // Showtime too, or the panel stays dark with the backlight down until someone reloads it.
       // (a Plezy film on the projector keeps Showtime up whatever the Apple TV entity does)
@@ -421,7 +427,7 @@ function App() {
   useEffect(() => {
     const t = setInterval(() => {
       if (!getState().stale) return;
-      if (['showtime', 'intermission'].includes(route.name)) return;
+      if (['showtime', 'intermission', 'warmup'].includes(route.name)) return;
       if (Date.now() - lastManual < 60000) return;
       location.reload();
     }, 15000);
@@ -447,7 +453,7 @@ function App() {
   const View = VIEWS[r.name] || Lobby;
   // Showtime, the idle screen and the intermission snack bar fill the panel on their own.
   // The idle board is mostly empty floor, so it gets the weather and, at Christmas, a lit tree.
-  if (r.name === 'showtime' || r.name === 'showing' || r.name === 'intermission') return html`<${View} key=${r.name} />
+  if (r.name === 'showtime' || r.name === 'showing' || r.name === 'intermission' || r.name === 'warmup') return html`<${View} key=${r.name} />
     ${r.name === 'showing' && html`<${Weather} decor="tree" />`}
     <${DogAtDoor} />
     <${RateCard} />

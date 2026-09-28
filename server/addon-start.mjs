@@ -48,4 +48,7 @@ set('IMAGE_REPO', process.env.IMAGE_REPO || 'spamolution-dotcom/theater-panel-ad
 
 console.log(`[addon] options: ${Object.keys(options).join(', ') || '(none)'}; HA via ${process.env.HA_URL || '(not set)'}`);
 
+// Stop promptly when the Supervisor asks (it otherwise waits, then kills the app).
+process.on('SIGTERM', () => process.exit(0));
+
 await import('./index.mjs');

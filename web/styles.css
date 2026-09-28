@@ -835,3 +835,25 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .sound .cal { display: flex; align-items: center; gap: 16px; font-size: 17px; }
 .sound .cal b { font-family: var(--disp); font-size: 44px; line-height: 1; color: var(--gold); }
 .sound .volume .dbtn:disabled, .showtime .dbtn:disabled { opacity: .35; }
+
+/* ---------- warm-up (this fork): the cinema coming up after Play from a cold room ---------- */
+.warmup { position: absolute; inset: 0; display: flex; gap: 64px; align-items: center; padding: 70px 90px; color: #F4ECE0; }
+.warmup .wu-poster { width: 420px; flex-shrink: 0; }
+.warmup .wu-poster .poster { box-shadow: 0 20px 50px rgba(0,0,0,.5); }
+.warmup .wu-blank { width: 420px; height: 630px; border-radius: 14px; background: #1f140e; display: flex; align-items: center; justify-content: center; color: var(--gold); }
+.warmup .wu-body { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+.warmup h1 { margin: 0; font-family: var(--disp); font-weight: 800; font-size: 84px; line-height: .92; text-transform: uppercase; }
+.warmup .wu-sub { font-size: 24px; color: var(--on-choc2); }
+.warmup .wu-count { display: flex; align-items: baseline; gap: 18px; margin-top: 10px; }
+.warmup .wu-count .n { font-family: var(--mono); font-size: 96px; font-weight: 600; color: var(--gold); line-height: 1; }
+.warmup .wu-count .l { font-size: 22px; color: var(--on-choc2); }
+.warmup .bar { height: 10px; border-radius: 5px; background: rgba(255,255,255,.12); overflow: hidden; }
+.warmup .bar i { display: block; height: 100%; background: var(--gold); transition: width .5s linear; }
+.warmup .wu-big { display: flex; align-items: center; gap: 18px; font-size: 36px; font-weight: 700; color: var(--gold); margin-top: 10px; }
+.warmup .wu-big.warn { font-size: 26px; color: #F2B28C; }
+.warmup .wu-steps { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 12px; }
+.warmup .wu-steps li { display: flex; align-items: center; gap: 10px; padding: 12px 20px; border-radius: 999px; background: rgba(255,255,255,.07); font-size: 20px; font-weight: 600; color: var(--on-choc2); }
+.warmup .wu-steps li.ok { background: rgba(214,160,72,.18); color: #F4ECE0; }
+.warmup .wu-steps .tick { font-family: var(--mono); width: 22px; text-align: center; color: var(--gold); }
+.warmup .wu-actions { display: flex; gap: 14px; margin-top: 16px; }
+.warmup .wu-actions .btn { height: 64px; padding: 0 30px; font-size: 20px; }
