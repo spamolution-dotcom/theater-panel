@@ -52,6 +52,7 @@ export function Lobby() {
       ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
       ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
       <button type="button" class=${`chip ${plan ? 'on' : ''}`} onClick=${() => openTonight()}><${Icon} name="film" size=${20} />${plan ? `Tonight · ${plan.at ? new Date(plan.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : plan.state === 'feature' ? 'on' : 'ready'}` : 'Tonight'}</button>
+      <${AllOffChip} />
       <button type="button" class="chip" onClick=${() => openGuest()}><${Icon} name="remote" size=${20} />Guest remote</button>
       ${soundbar && html`<button type="button" class=${`chip ${undocked.length ? 'warn' : ''}`} onClick=${() => openSound()}><${Icon} name="spk" size=${20} />${undocked.length ? `${undocked.join(' and ')} rear off its dock` : 'Sound'}</button>`}
       <button type="button" class="chip" onClick=${() => go('pick')}><${Icon} name="dice" size=${20} />Movie night</button>
@@ -204,6 +205,17 @@ export async function play(item, resume = true, extra = {}) {
   }
   toast(r.preroll ? `Lights down… ${name} in ${r.preroll}s` : `Opening ${name} on the TV · pick a stream with the remote`);
   go('showtime');
+}
+
+// The cinema is on: a way to turn it all off (your End Movie Scene, through the movie scene switch).
+// A second tap within 4 s confirms, so a stray touch does nothing.
+function AllOffChip() {
+  const roomOn = useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
+  if (!roomOn) return null;
+  return html`<button type="button" class=${`chip ${armed ? 'warn' : ''}`} onClick=${() => { if (!armed) { setArmed(true); return; } setArmed(false); act({ action: 'scene', name: 'all_off' }); toast('Turning the cinema off'); }}>
+    <${Icon} name="power" size=${20} />${armed ? 'Tap again to turn off' : 'All off'}</button>`;
 }
 
 function Scenes() {

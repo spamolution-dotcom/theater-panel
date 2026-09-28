@@ -57,6 +57,10 @@ export function Showtime() {
   // With native theater mode the app swallows the first touch and peeks by itself.
   const poke = () => { if (native) return; setAwake(true); wake(); };
   const t = (cmd, extra) => act({ action: 'transport', cmd, ...extra });
+  // All off turns the whole cinema off (your End Movie Scene), so it takes a second tap within 4 s.
+  const [offArmed, setOffArmed] = useState(false);
+  useEffect(() => { if (!offArmed) return undefined; const x = setTimeout(() => setOffArmed(false), 4000); return () => clearTimeout(x); }, [offArmed]);
+  const allOff = () => { if (!offArmed) { setOffArmed(true); return; } setOffArmed(false); act({ action: 'scene', name: 'all_off' }); go('lobby'); };
 
   return html`<div class="showtime" style=${bg} onPointerDown=${poke}>
     <div class="wrap" style=${`--glow:${native || awake ? 1 : 0.55}`}>
@@ -92,14 +96,14 @@ export function Showtime() {
         </div>
         <div style="width:220px;display:flex;flex-direction:column;gap:20px">
           <button type="button" class="dbtn" style="flex-grow:1" onClick=${() => act({ action: 'aisle_glow' })}><${Icon} name="bulb" size=${48} w=${1.8} /><span class="s">Aisle glow</span></button>
-          <button type="button" class="dbtn" style="flex-grow:1" onClick=${() => act({ action: 'transport', cmd: 'stop' })}><${Icon} name="x" size=${48} w=${1.8} /><span class="s">Stop</span></button>
+          <button type="button" class=${`dbtn ${offArmed ? 'armed' : ''}`} style="flex-grow:1" onClick=${allOff}><${Icon} name="power" size=${48} w=${1.8} /><span class="s">${offArmed ? 'Tap again to turn off' : 'All off'}</span></button>
         </div>
       </div>
       <div style="display:flex;gap:28px">
         <button type="button" class="dbtn" style="flex-grow:1;height:150px" onClick=${() => act({ action: 'scene', name: 'intermission' })}>
           <span class="big"><${Icon} name="cup" size=${40} w=${1.8} />Intermission</span><span class="s">Pause · lights 30%</span></button>
         <button type="button" class="dbtn" style="flex-grow:1;height:150px" onClick=${() => act({ action: 'scene', name: 'lights_up' })}>
-          <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">End show</span></button>
+          <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">Lights 100%</span></button>
         <button type="button" class="dbtn" style="width:280px;height:150px" aria-pressed=${sleep ? 'true' : 'false'} onClick=${() => setSleepOpen(true)}>
           <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? sleepLabel(sleep) : 'Off'}</span></button>
         <button type="button" class="dbtn" style="width:260px;height:150px;background:#000" onClick=${() => go('lobby', { manual: true })}>
