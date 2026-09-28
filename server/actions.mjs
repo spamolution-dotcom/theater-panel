@@ -62,6 +62,7 @@ export async function runAction(ha, body) {
         setTimeout(() => runAction(ha, { ...body, noPreroll: true }).catch((err) => console.warn('[preroll] film did not start:', err.message)), config.preroll.seconds * 1000);
         return { preroll: config.preroll.seconds };
       }
+      if (config.playTarget === 'stremio') return playStremio(ha, body);
       // Store the chosen tracks on the Plex part first, then hand over to HA, which wakes the
       // projector, opens Plex on the Apple TV, starts playback and runs Movie time.
       // Both ids become path segments on the Plex server, so only plain numbers are accepted.
@@ -126,6 +127,7 @@ export async function runAction(ha, body) {
     }
 
     case 'transport': {
+      if (config.playTarget === 'stremio') return streamerTransport(ha, body);
       // Volume and mute go to the soundbar once there is one: it is the thing making the sound.
       if (e.soundbar && ['vol_up', 'vol_down', 'mute'].includes(body.cmd)) return soundbar(ha, { cmd: body.cmd, on: body.muted });
       // Films in Plezy play on the projector's own Android, where the Apple TV cannot pause
@@ -362,4 +364,48 @@ export async function musicQueue(ha, entityId) {
     // get_queue returns the current and next item only; items is the queue length.
     count: typeof q.items === 'number' ? q.items : (q.items || []).length,
   };
+}
+
+// ---------- Stremio on the Google TV Streamer (this fork) ----------
+
+// The title the panel last sent to the Streamer. Stremio's own "now playing" comes from its cloud
+// sync and can be hours stale, so the panel remembers what it asked for.
+let launched = null;
+export const lastLaunched = () => launched;
+
+// A Stremio deep link opens the title's stream list in the Stremio app on the Streamer; someone in
+// the room picks the stream with the remote. Ids: tt… (film or series), tt…:S:E (episode).
+export function stremioLink(id, type) {
+  const s = String(id || '');
+  if (!/^[A-Za-z0-9_.%-]+(?::\d+:\d+)?$/.test(s)) throw httpError(400, 'Bad title id');
+  const [base, season, episode] = s.split(':');
+  if (season && episode) return `stremio:///detail/series/${base}/${s}`;
+  if (type === 'show') return `stremio:///detail/series/${base}`;
+  return `stremio:///detail/movie/${base}/${base}`;
+}
+
+async function playStremio(ha, body) {
+  const link = stremioLink(body.ratingKey, body.type);
+  const kind = body.type === 'episode' || body.type === 'show' ? 'episode' : 'movie';
+  launched = { id: String(body.ratingKey), type: body.type, title: body.title || null, at: Date.now() };
+  plex.item(String(body.ratingKey)).then((it) => { if (launched?.id === String(body.ratingKey)) launched = { ...launched, ...it, at: launched.at }; }).catch(() => {});
+  plex.staleMovies();
+  return script(ha, 'play_stremio', { link, kind });
+}
+
+// Pause and play are key presses on the Streamer's remote (Stremio's player takes them); volume and
+// mute go to the Denon, which is the thing making the sound.
+async function streamerTransport(ha, body) {
+  const e = config.entities;
+  const key = { play_pause: 'MEDIA_PLAY_PAUSE', play: 'MEDIA_PLAY', pause: 'MEDIA_PAUSE', stop: 'MEDIA_STOP' }[body.cmd];
+  if (key) return ha.callService('remote', 'send_command', { command: key }, { target: { entity_id: e.appleTvRemote } });
+  if (body.cmd === 'seek_rel') {
+    const n = Number(body.seconds || 0);
+    return ha.callService('remote', 'send_command', { command: n < 0 ? 'MEDIA_REWIND' : 'MEDIA_FAST_FORWARD' }, { target: { entity_id: e.appleTvRemote } });
+  }
+  const target = { entity_id: e.avr };
+  if (body.cmd === 'vol_up') return ha.callService('media_player', 'volume_up', {}, { target });
+  if (body.cmd === 'vol_down') return ha.callService('media_player', 'volume_down', {}, { target });
+  if (body.cmd === 'mute') return ha.callService('media_player', 'volume_mute', { is_volume_muted: Boolean(body.muted) }, { target });
+  throw new Error('Unknown transport command');
 }

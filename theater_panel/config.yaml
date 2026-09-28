@@ -20,7 +20,11 @@ watchdog: http://[HOST]:[PORT:8787]/healthz
 options:
   allow_open: false
   image_cache_mb: 300
+  public_url: http://192.168.107.55:8787
+  preroll: true
 schema:
+  public_url: url?
+  preroll: bool
   stremio_email: str?
   stremio_password: password?
   admin_password: password?

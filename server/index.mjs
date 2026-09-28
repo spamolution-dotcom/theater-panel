@@ -18,7 +18,7 @@ import * as sleep from './sleep.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
-import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue } from './actions.mjs';
+import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
 import * as admin from './admin.mjs';
 import * as icons from './icons.mjs';
@@ -122,7 +122,47 @@ async function pollSessions() {
     const tv = ha.states[config.entities.appleTv]?.state;
     if (tv === 'playing' || tv === 'paused') next = 5000;
   }
+  if (config.media.on) {
+    const mine = streamerSessions();
+    if (JSON.stringify(mine) !== JSON.stringify(sessions)) { sessions = mine; broadcast('sessions', sessions); hass.sessions(sessions, []); }
+    if (mine.length) next = 5000;
+  }
   pollTimer = setTimeout(pollSessions, next);
+}
+
+// This fork: what is on the Streamer. The Android TV Remote integration says which app is in front;
+// Stremio's own player entity (HACS) says what it is, but it syncs from Stremio's cloud and can be
+// hours stale, so it counts only when it changed recently. Otherwise the title the panel itself
+// last opened stands in. No reliable playing/paused state exists for either app.
+const STREMIO_APP = 'com.stremio.one';
+const NETFLIX_APP = 'com.netflix.ninja';
+const FRESH = 15 * 60e3;
+function streamerSessions() {
+  const e = config.entities;
+  const tv = ha.states[e.appleTv];
+  const app = tv?.attributes?.app_id;
+  if (!tv || ['off', 'unavailable', 'unknown'].includes(tv.state)) return [];
+  if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing', viewOffset: 0, duration: 0 }];
+  if (app !== STREMIO_APP) return [];
+  const sp = ha.states[e.stremioPlayer];
+  const a = sp?.attributes || {};
+  const fresh = sp && sp.state === 'playing' && Date.now() - Date.parse(sp.last_updated || 0) < FRESH;
+  if (fresh && a.media_title) {
+    const imdb = a.imdb_id || '';
+    const isEp = a.type === 'series' && a.season != null;
+    return [{
+      id: isEp ? `${imdb}:${a.season}:${a.episode}` : imdb, type: isEp ? 'episode' : 'movie', app: 'stremio', state: 'playing',
+      title: isEp ? a.episode_title || `Episode ${a.episode}` : a.media_title, showTitle: isEp ? a.media_title : undefined,
+      season: isEp ? Number(a.season) : undefined, episode: isEp ? Number(a.episode) : undefined, year: Number(a.year) || undefined,
+      viewOffset: Number(a.media_position) || 0, duration: Number(a.media_duration) || 0,
+      poster: /^tt\d+$/.test(imdb) ? extImage(`https://images.metahub.space/poster/medium/${imdb}/img`) : null,
+    }];
+  }
+  const l = lastLaunched();
+  if (l && Date.now() - l.at < 6 * 3600e3) {
+    return [{ id: l.id, type: l.type, app: 'stremio', state: 'playing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster, viewOffset: 0, duration: l.duration || 0 }];
+  }
+  return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'playing', viewOffset: 0, duration: 0 }];
 }
 
 // ---------- HTTP ----------

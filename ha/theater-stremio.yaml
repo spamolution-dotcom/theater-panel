@@ -1,0 +1,303 @@
+# Theater panel (Stremio fork): Home Assistant scripts, helpers and one automation.
+#
+# DRAFT FOR REVIEW. Nothing here is applied until Ramit approves it. When approved, each item is
+# created through HA's UI storage (Settings > Automations & scenes), not as a YAML package, so it
+# can be edited in the UI like everything else in Fallon Home.
+#
+# The panel calls only script.theater_* (server/actions.mjs). It reuses the existing movie scene
+# for power-up: input_boolean.movie_scene -> automation.toggle_movie_scene_in_media_room ->
+# script.turn_on_theatre_sequence (plug, Denon, projector, Streamer; ~2 min) and
+# script.end_movie_scene (everything off, plug last). Nothing below changes those.
+#
+# Entities used:
+#   media_player.media_room_tv   Google TV Streamer (Android TV Remote): deep links, app_id
+#   remote.media_room_tv         Streamer remote: pause / play keys
+#   media_player.home_theater    Denon AVR (volume, and "is the room powered")
+#   light.media                  Hue group: Front L/R, Rear L/R
+#   media_player.cinema_google_mini  pre-roll swell and intermission march
+
+# ---------------------------------------------------------------- helpers (2 new)
+
+input_select:
+  theater_scene:
+    name: Theater scene
+    icon: mdi:theater
+    options: ["Off", "Pre-show", "Movie time", "Intermission", "Lights up"]
+
+input_boolean:
+  theater_auto_lights:
+    name: Theater lights follow playback
+    icon: mdi:lightbulb-auto
+
+# ---------------------------------------------------------------- scripts (13 new)
+
+script:
+  # Play: open a title's stream list in Stremio on the Streamer. If the room is off, start the
+  # movie scene first and wait for the Streamer and Denon (the theatre sequence takes ~2 min).
+  theater_play_stremio:
+    alias: "Theater: open a title in Stremio"
+    icon: mdi:play-box
+    mode: restart
+    fields:
+      link:
+        description: Stremio deep link, e.g. stremio:///detail/series/tt9288030/tt9288030:1:1
+      kind:
+        description: movie or episode
+    variables:
+      was_off: "{{ is_state('input_boolean.movie_scene', 'off') }}"
+    sequence:
+      - condition: template
+        value_template: "{{ link is defined and link.startswith('stremio:///detail/') }}"
+      - if:
+          - condition: template
+            value_template: "{{ was_off }}"
+        then:
+          - action: input_boolean.turn_on
+            target: { entity_id: input_boolean.movie_scene }
+        else:
+          # Room already on but the Streamer was switched off on its own.
+          - if:
+              - condition: state
+                entity_id: media_player.media_room_tv
+                state: "off"
+            then:
+              - action: media_player.turn_on
+                target: { entity_id: media_player.media_room_tv }
+      - wait_template: >-
+          {{ is_state('media_player.media_room_tv', 'on')
+             and states('media_player.home_theater') not in ['unavailable', 'unknown'] }}
+        timeout: "00:03:30"
+        continue_on_timeout: true
+      - if:
+          - condition: template
+            value_template: "{{ not wait.completed }}"
+        then:
+          - action: persistent_notification.create
+            data:
+              title: Theater panel
+              message: >-
+                The cinema did not come up within 3.5 minutes (Streamer or Denon still off), so
+                nothing was opened. Check the movie scene and the Media Control Switch plug.
+          - stop: Room did not come up
+      # A Streamer that has just woken ignores links for a moment.
+      - if:
+          - condition: template
+            value_template: "{{ was_off }}"
+        then:
+          - delay: "00:00:05"
+      - action: media_player.play_media
+        target: { entity_id: media_player.media_room_tv }
+        data:
+          media_content_type: url
+          media_content_id: "{{ link }}"
+
+  # ---------- scenes (panel buttons, voice, remotes) ----------
+
+  theater_pre_show:
+    alias: "Theater: Pre-show"
+    icon: mdi:music
+    sequence:
+      - action: light.turn_on
+        target: { entity_id: light.media }
+        data: { brightness_pct: 40, color_temp_kelvin: 2700, transition: 3 }
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: Pre-show }
+
+  theater_movie_time:
+    alias: "Theater: Movie time"
+    icon: mdi:filmstrip
+    mode: queued
+    sequence:
+      - action: script.theater_lights_movie
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: Movie time }
+
+  theater_intermission:
+    alias: "Theater: Intermission"
+    icon: mdi:coffee
+    sequence:
+      # Pause in Stremio (Netflix ignores remote commands; the lights still come up).
+      - action: remote.send_command
+        target: { entity_id: remote.media_room_tv }
+        data: { command: MEDIA_PAUSE }
+        continue_on_error: true
+      - action: script.theater_lights_intermission
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: Intermission }
+
+  theater_lights_up:
+    alias: "Theater: Lights up"
+    icon: mdi:weather-sunny
+    sequence:
+      - action: script.theater_lights_bright
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: Lights up }
+
+  # All off = your existing end of the movie scene (restores lights/blind, Streamer, Denon,
+  # projector off, plug last).
+  theater_all_off:
+    alias: "Theater: All off"
+    icon: mdi:power
+    sequence:
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: "Off" }
+      - action: input_boolean.turn_off
+        target: { entity_id: input_boolean.movie_scene }
+
+  # ---------- lights only ----------
+
+  theater_lights_movie:
+    alias: "Theater: lights for the movie"
+    mode: queued
+    sequence:
+      - action: light.turn_off
+        target: { entity_id: light.media }
+        data: { transition: 6 }
+
+  theater_lights_intermission:
+    alias: "Theater: lights for intermission"
+    mode: queued
+    sequence:
+      - action: light.turn_on
+        target: { entity_id: light.media }
+        data: { brightness_pct: 30, color_temp_kelvin: 2700, transition: 3 }
+
+  theater_lights_bright:
+    alias: "Theater: lights up (lights only)"
+    mode: queued
+    sequence:
+      - action: light.turn_on
+        target: { entity_id: light.media }
+        data: { brightness_pct: 100, color_temp_kelvin: 4000, transition: 4 }
+
+  # The slow curtain: at the end, the lights come up over 90 s like a cinema's. Only if the room is
+  # still in movie mode, so stopping something at lunchtime does nothing.
+  theater_curtain:
+    alias: "Theater: slow curtain"
+    icon: mdi:curtains
+    mode: restart
+    fields:
+      seconds: { description: How long the lights take to come up, example: 90 }
+    sequence:
+      - condition: state
+        entity_id: input_select.theater_scene
+        state: ["Movie time", "Intermission"]
+      - action: light.turn_on
+        target: { entity_id: light.media }
+        data:
+          brightness_pct: 55
+          color_temp_kelvin: 2700
+          transition: "{{ seconds | default(90) | int }}"
+      - action: input_select.select_option
+        target: { entity_id: input_select.theater_scene }
+        data: { option: Lights up }
+
+  # Low glow to find a seat without lighting the screen (toggles).
+  theater_aisle_glow:
+    alias: "Theater: Aisle glow"
+    icon: mdi:lightbulb-night
+    mode: single
+    sequence:
+      - if:
+          - condition: state
+            entity_id: light.media
+            state: "on"
+          - condition: numeric_state
+            entity_id: light.media
+            attribute: brightness
+            above: 30
+        then:
+          - action: light.turn_on
+            target: { entity_id: light.media }
+            data: { brightness_pct: 4, transition: 2 }
+        else:
+          - action: light.turn_on
+            target: { entity_id: light.media }
+            data: { brightness_pct: 12, color_temp_kelvin: 2200, transition: 2 }
+
+  # ---------- sounds (the panel passes the speaker and a URL it serves itself) ----------
+
+  # Pre-roll: lights down over 8 s while the swell plays; the panel sends the title after it.
+  theater_preroll:
+    alias: "Theater: pre-roll"
+    mode: restart
+    fields:
+      speaker: { example: media_player.cinema_google_mini }
+      url: { example: "http://192.168.107.55:8787/assets/preroll.mp3" }
+    sequence:
+      - action: light.turn_off
+        target: { entity_id: light.media }
+        data: { transition: 8 }
+      - condition: template
+        value_template: "{{ speaker is defined and speaker and url is defined and url }}"
+      - action: media_player.play_media
+        target: { entity_id: "{{ speaker }}" }
+        data: { media_content_id: "{{ url }}", media_content_type: music }
+
+  # Any sound in the room (the intermission march).
+  theater_snipe:
+    alias: "Theater: play a sound in the room"
+    mode: restart
+    fields:
+      speaker: { example: media_player.cinema_google_mini }
+      url: { example: "http://192.168.107.55:8787/assets/intermission.mp3" }
+    sequence:
+      - condition: template
+        value_template: "{{ speaker is defined and speaker and url is defined and url }}"
+      - action: media_player.play_media
+        target: { entity_id: "{{ speaker }}" }
+        data: { media_content_id: "{{ url }}", media_content_type: music }
+
+# ---------------------------------------------------------------- automation (1 new)
+
+automation:
+  # Lights follow the Streamer: Stremio or Netflix in front for 45 s -> movie lights (the 45 s
+  # leaves time to pick a stream in the light); back on the Google TV home screen for 20 s ->
+  # slow curtain. Only while the movie scene is on, and only if the auto-lights helper is on.
+  - id: theater_lights_follow_playback
+    alias: "Theater: lights follow the Streamer"
+    mode: restart
+    triggers:
+      - trigger: state
+        entity_id: media_player.media_room_tv
+        attribute: app_id
+        to: [com.stremio.one, com.netflix.ninja]
+        for: "00:00:45"
+        id: watching
+      - trigger: state
+        entity_id: media_player.media_room_tv
+        attribute: app_id
+        from: [com.stremio.one, com.netflix.ninja]
+        to: com.google.android.apps.tv.launcherx
+        for: "00:00:20"
+        id: stopped
+    conditions:
+      - condition: state
+        entity_id: input_boolean.theater_auto_lights
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.movie_scene
+        state: "on"
+    actions:
+      - choose:
+          - conditions:
+              - condition: trigger
+                id: watching
+              - condition: not
+                conditions:
+                  - condition: state
+                    entity_id: input_select.theater_scene
+                    state: Intermission
+            sequence:
+              - action: script.theater_movie_time
+          - conditions:
+              - condition: trigger
+                id: stopped
+            sequence:
+              - action: script.theater_curtain
+                data: { seconds: 90 }

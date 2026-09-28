@@ -245,7 +245,7 @@ function Detail({ id, onOpen }) {
       ${preroll.enabled && target && html`<button type="button" class="filter" style="align-self:flex-start" aria-pressed=${swellOn ? 'true' : 'false'} onClick=${() => setSwell(!swellOn)}>
         <${Icon} name="spk" size=${18} />Pre-roll swell${swellOn ? ` · ${preroll.seconds}s` : ''}</button>`}
       ${target ? html`<button type="button" class="btn primary big" onClick=${() => play(target, true, { partId: it.partId, subtitleStreamID: subs, preroll: swellOn })}>
-          <${Play} size=${30} />${target.viewOffset ? 'Resume on projector' : 'Play on projector'}</button>`
+          <${Play} size=${30} />${target.viewOffset ? 'Resume on TV' : 'Open on TV'}</button>`
         : html`<button type="button" class="btn big" disabled>Nothing to play</button>`}
       ${!isShow && it.viewOffset > 0 && html`<button type="button" class="btn sm" onClick=${() => play(it, false, { partId: it.partId, subtitleStreamID: subs, preroll: swellOn })}>Start over</button>`}
     </div>
