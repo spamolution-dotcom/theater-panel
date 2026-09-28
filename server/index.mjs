@@ -142,11 +142,16 @@ function streamerSessions() {
   const tv = ha.states[e.appleTv];
   const app = tv?.attributes?.app_id;
   if (!tv || ['off', 'unavailable', 'unknown'].includes(tv.state)) return [];
-  if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing', viewOffset: 0, duration: 0 }];
+  // Netflix: something is on, but neither title nor position is known, so no clock.
+  if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing' }];
   if (app !== STREMIO_APP) return [];
   const sp = ha.states[e.stremioPlayer];
   const a = sp?.attributes || {};
-  const fresh = sp && sp.state === 'playing' && Date.now() - Date.parse(sp.last_updated || 0) < FRESH;
+  const l = lastLaunched();
+  // Stremio's player entity counts once it has moved since the panel last opened a title: until
+  // then Stremio is showing the stream list, and nothing is playing yet.
+  const updated = Date.parse(sp?.last_updated || 0);
+  const fresh = sp && sp.state === 'playing' && Date.now() - updated < FRESH && updated > (l?.at || 0);
   if (fresh && a.media_title) {
     const imdb = a.imdb_id || '';
     const isEp = a.type === 'series' && a.season != null;
@@ -158,11 +163,11 @@ function streamerSessions() {
       poster: /^tt\d+$/.test(imdb) ? extImage(`https://images.metahub.space/poster/medium/${imdb}/img`) : null,
     }];
   }
-  const l = lastLaunched();
+  // Opened by the panel, stream not picked yet (or Stremio has not synced playback yet): no clock.
   if (l && Date.now() - l.at < 6 * 3600e3) {
-    return [{ id: l.id, type: l.type, app: 'stremio', state: 'playing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster, viewOffset: 0, duration: l.duration || 0 }];
+    return [{ id: l.id, type: l.type, app: 'stremio', state: 'choosing', title: l.title || 'Stremio', showTitle: l.showTitle, season: l.season, episode: l.episode, year: l.year, poster: l.poster }];
   }
-  return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'playing', viewOffset: 0, duration: 0 }];
+  return [{ id: 'stremio', type: 'movie', app: 'stremio', title: 'Stremio', state: 'choosing' }];
 }
 
 // ---------- HTTP ----------
