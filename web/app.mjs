@@ -373,6 +373,11 @@ function App() {
     const nothingOn = tvState === 'on' && !getState().sessions?.length;
     if ((['idle', 'off', 'standby'].includes(tvState) || nothingOn) && route.name === 'showtime') go('lobby', { auto: true });
   }, [tvState]);
+  // The start-up sequence running (from the tablet, Play, voice, anywhere): show the warm-up screen.
+  const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
+  useEffect(() => {
+    if (warming && !['warmup', 'showtime', 'intermission'].includes(route.name)) go('warmup', { auto: true });
+  }, [warming]);
   // Intermission is a screen as well as a scene: whoever calls for the break - the panel, a Pico
   // remote, "hey Jarvis, intermission" - gets the snack bar on the wall, and leaving the scene
   // takes it away again.

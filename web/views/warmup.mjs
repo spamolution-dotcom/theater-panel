@@ -1,4 +1,4 @@
-// Getting the cinema ready: after Play from a cold room, the movie scene takes about two minutes
+// Getting the cinema ready: while the theatre start-up sequence runs (about two minutes)
 // (plug, Denon, projector, Streamer, then the title opens in Stremio). This screen shows what the
 // film is, a live checklist of the devices as Home Assistant reports them coming up, and a
 // countdown, then tells people to pick a stream on the TV and moves on to Showtime.
@@ -20,7 +20,12 @@ export function Warmup() {
   const e = useStore((s) => s.entities) || {};
   const states = useStore((s) => s.states);
   const p = route.params;
-  const startedAt = Number(p.at) || Date.now();
+  // The countdown runs from when the start-up script started, however it was started.
+  const script = states[e.warmupScript];
+  const running = script?.state === 'on';
+  const scriptAt = Date.parse(script?.attributes?.last_triggered || '') || 0;
+  const startedAt = (running && scriptAt) || Number(p.at) || Date.now();
+  const picked = Boolean(p.title);
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
 
@@ -36,14 +41,15 @@ export function Warmup() {
 
   const elapsed = Math.floor((now - startedAt) / 1000);
   const left = Math.max(0, WARMUP_SECONDS - elapsed);
-  const ready = inStremio;
+  // With a title: ready once Stremio has it on screen. Without one: once the script has finished.
+  const ready = picked ? inStremio : !running && up(tv);
   const stuck = !ready && elapsed > GIVE_UP_SECONDS;
   const late = steps.filter((s) => !s.ok).map((s) => s.name);
 
   // Ready: give people a moment to read "pick a stream", then hand over to Showtime.
   useEffect(() => {
     if (!ready) return undefined;
-    const t = setTimeout(() => { if (route.name === 'warmup') go('showtime', { auto: true }); }, 20000);
+    const t = setTimeout(() => { if (route.name === 'warmup') go(picked ? 'showtime' : 'lobby', { auto: true }); }, picked ? 20000 : 8000);
     return () => clearTimeout(t);
   }, [ready]);
 
@@ -55,11 +61,11 @@ export function Warmup() {
     <div class="wu-poster">${p.poster ? html`<${Poster} src=${p.poster} title=${p.title || ''} />` : html`<div class="wu-blank"><${Icon} name="film" size=${64} /></div>`}</div>
     <div class="wu-body">
       <div class="eyebrow">${ready ? 'Ready' : stuck ? 'Taking longer than usual' : 'Getting the cinema ready'}</div>
-      <h1>${p.title || 'Your film'}</h1>
-      ${p.sub && html`<div class="wu-sub">${p.sub}</div>`}
+      <h1>${p.title || 'Cinema warming up'}</h1>
+      ${p.sub ? html`<div class="wu-sub">${p.sub}</div>` : !picked && html`<div class="wu-sub">Pick something while you wait</div>`}
 
       ${ready
-        ? html`<div class="wu-big"><${Icon} name="remote" size=${44} /> Pick a stream on the TV with the remote</div>`
+        ? html`<div class="wu-big"><${Icon} name="remote" size=${44} />${picked ? ' Pick a stream on the TV with the remote' : ' The cinema is on. Pick something to watch'}</div>`
         : stuck
           ? html`<div class="wu-big warn">Still waiting for ${late.join(', ')}. Check the Media Control Switch plug, or turn the movie scene off and on again.</div>`
           : html`<div class="wu-count"><span class="n">${mm}:${ss}</span><span class="l">${left > 0 ? 'to go, roughly' : 'any moment now'}</span></div>
@@ -70,17 +76,20 @@ export function Warmup() {
       </ul>
 
       <div class="wu-actions">
-        ${ready && html`<button type="button" class="btn primary" onClick=${() => go('showtime')}>Now playing</button>`}
+        ${ready && picked && html`<button type="button" class="btn primary" onClick=${() => go('showtime')}>Now playing</button>`}
+        ${!picked && html`<button type="button" class="btn primary" onClick=${() => go('watch')}>Browse while you wait</button>`}
         <button type="button" class="btn ghost" onClick=${() => go('lobby')}>Back to home</button>
       </div>
     </div>
   </main>`;
 }
 
-// Whether Play should show this screen: the room was off (or the Streamer was) when it was pressed.
+// Whether Play should show this screen: the start-up sequence is running, or the room (or the
+// Streamer) is off so Play will start it.
 export function needsWarmup() {
   const s = getState();
   const e = s.entities || {};
+  if (s.states[e.warmupScript]?.state === 'on') return true;
   const room = e.roomOn ? s.states[e.roomOn]?.state : 'on';
   return room !== 'on' || !up(s.states[e.appleTv]);
 }
