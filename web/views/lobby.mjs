@@ -66,8 +66,11 @@ export function Lobby() {
     <div class="lobby-grid">
       <${Continue} />
       <${Scenes} />
-      <${Cinema} />
-      <${Lights} />
+      <div class="left-block">
+        <${Cinema} />
+        <div class="lb-stack"><${Lights} /><${Blind} /></div>
+        <${Apps} />
+      </div>
       <div class="right-col">
         <${JustAdded} />
       </div>
@@ -350,7 +353,6 @@ function Lights() {
     <${H2} title="Lights"><button type="button" class="link" onClick=${() => act({ action: 'aisle_glow' })}>Aisle glow</button><//>
     <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px">
       ${ids.map((id) => html`<${LightRow} id=${id} onEffects=${setPicking} />`)}
-      <${BlindRow} />
     </div>
     ${(picking || (route.params.fxopen && ids.find((x) => /accent/.test(x)))) && html`<${EffectSheet} id=${picking || ids.find((x) => /accent/.test(x))} onClose=${() => setPicking(null)} />`}
   </section>`;
@@ -435,7 +437,33 @@ function EffectSheet({ id, onClose }) {
 
 // The cinema's blind: where it is, a slider, and Open / Movie (20%, as the theatre sequence sets
 // it) / Close.
-function BlindRow() {
+// Apps on the Streamer. With the cinema off, a tap starts it (the warm-up screen shows) and the
+// app opens once the Streamer and Denon are up. Icons: web/assets/apps/<id>.png if present.
+const APPS = [
+  { id: 'netflix', name: 'Netflix', bg: '#141414', fg: '#E50914' },
+  { id: 'youtube', name: 'YouTube', bg: '#FFFFFF', fg: '#FF0000' },
+  { id: 'prime', name: 'Prime Video', bg: '#0F171E', fg: '#1FA8E0' },
+  { id: 'stremio', name: 'Stremio', bg: '#19163A', fg: '#8B5CF6' },
+];
+function AppTile({ app }) {
+  const [icon, setIcon] = useState(true);
+  const open = async () => {
+    const r = await act({ action: 'app', id: app.id });
+    if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
+  };
+  return html`<button type="button" class="app-tile" style=${`background:${app.bg};color:${app.fg}`} onClick=${open} aria-label=${`Open ${app.name}`}>
+    ${icon && html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`}
+    ${!icon && html`<span>${app.name}</span>`}
+  </button>`;
+}
+function Apps() {
+  return html`<section class="card apps-card">
+    <${H2} title="Apps"><span class="muted" style="font-size:15px">Opens on the TV · starts the cinema if needed</span><//>
+    <div class="apps-row">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
+  </section>`;
+}
+
+function Blind() {
   const id = useStore((s) => s.entities.blind);
   const st = useEntity(id);
   if (!id || !st) return null;
@@ -444,15 +472,15 @@ function BlindRow() {
   const moving = ['opening', 'closing'].includes(st.state);
   const label = gone ? 'Unavailable' : moving ? `${st.state === 'opening' ? 'Opening' : 'Closing'}…` : pos <= 0 ? 'Closed' : pos >= 100 ? 'Open' : `${pos}% open`;
   const to = (data) => act({ action: 'cinema', cmd: 'blind', ...data });
-  return html`<div class="light blind">
-    <div class="head"><span class="name" style="cursor:default">Blind</span><span class="mono muted" style="font-size:15px">${label}</span></div>
+  return html`<section class="card blind-card">
+    <${H2} title="Blind"><span class="mono muted" style="font-size:16px">${label}</span><//>
     <${Range} value=${pos} label="Blind position" fill="#7D8C99" onCommit=${(v) => to({ position: v })} />
     <div class="blind-btns">
       <button type="button" class="filter" aria-pressed=${pos >= 100 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'open' })}>Open</button>
       <button type="button" class="filter" aria-pressed=${pos === 20 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ position: 20 })}>Movie</button>
       <button type="button" class="filter" aria-pressed=${pos <= 0 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'close' })}>Close</button>
     </div>
-  </div>`;
+  </section>`;
 }
 
 function LightRow({ id, onEffects }) {
@@ -548,7 +576,6 @@ function Cinema() {
       <${Range} value=${vol} label="Denon volume" onCommit=${(v) => act({ action: 'cinema', cmd: 'volume', value: v })} />
       <div class="label" style="margin:14px 0 8px">Input</div>
       <div class="tiles">${[['GoogleTVStreamer', 'Streamer', 'tv'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${26} /><span>${name}</span></button>`)}</div>`}
-    ${isUp(tv) && html`<button type="button" class="btn ghost netflix" onClick=${() => act({ action: 'cinema', cmd: 'netflix' })}><${Icon} name="playc" size=${24} />Open Netflix</button>`}
   </section>`;
 }
 

@@ -963,8 +963,18 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .genre-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
 .genre-grid .filter { justify-content: center; }
 
-/* Lights card: the blind. */
-.light.blind .blind-btns { display: flex; gap: 10px; margin-top: 10px; }
-.light.blind .blind-btns .filter { flex: 1; justify-content: center; height: 44px; }
-/* Cinema card: Open Netflix. */
-.cinema-card .netflix { margin-top: 12px; width: 100%; height: 52px; }
+
+/* Home: Cinema | (Lights over Blind), with Apps across both underneath. */
+.left-block { grid-column: span 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) auto; gap: 22px; min-height: 0; }
+.left-block .lb-stack { display: flex; flex-direction: column; gap: 22px; min-height: 0; }
+.left-block .lb-stack > .card { flex: 1; min-height: 0; }
+.left-block .apps-card { grid-column: span 2; }
+.left-block .cinema-card .row { margin-top: 10px; }
+.left-block .cinema-card .devs { margin-top: 12px; }
+.blind-card .blind-btns { display: flex; gap: 10px; margin-top: 12px; }
+.blind-card .blind-btns .filter { flex: 1; justify-content: center; height: 44px; }
+.blind-card .range { margin-top: 12px; }
+.apps-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
+.app-tile { height: 64px; border-radius: 14px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 20px; padding: 0; overflow: hidden; }
+.app-tile img { height: 44px; max-width: 80%; object-fit: contain; }
+.app-tile:active { transform: scale(.97); }
