@@ -50,9 +50,6 @@ export function Lobby() {
         <span><b>New in your library</b> ${arrivals.list[0].title}</span>${arrivals.list.length > 1 && html`<span class="more">+${arrivals.list.length - 1}</span>`}
         <span class="x" role="button" aria-label="Dismiss" onClick=${(e) => { e.stopPropagation(); arrivals.dismiss(arrivals.list[0].id); }}>×</span></button>`}
       <${StreamsChip} onClick=${() => setStreamsOpen(true)} />
-      ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
-      ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
-      ${roomTemp && !isNaN(Number(roomTemp.state)) && html`<span class="chip" title="Cinema temperature"><${Icon} name="therm" size=${20} />Cinema ${Number(roomTemp.state).toFixed(1)}°C</span>`}
       <button type="button" class=${`chip ${plan ? 'on' : ''}`} onClick=${() => openTonight()}><${Icon} name="film" size=${20} />${plan ? `Tonight · ${plan.at ? new Date(plan.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : plan.state === 'feature' ? 'on' : 'ready'}` : 'Tonight'}</button>
       <${AllOffChip} />
       <button type="button" class="chip" onClick=${() => openGuest()}><${Icon} name="remote" size=${20} />Guest remote</button>
@@ -62,6 +59,9 @@ export function Lobby() {
       <${SleepChip} />
       ${services.seerr && html`<button type="button" class="chip" onClick=${() => setScanOpen(true)}><${Icon} name="plus" size=${20} />Scan to request</button>`}
       ${downloading > 0 && html`<button type="button" class="chip warn" onClick=${() => go('request')}><${Icon} name="dl" size=${20} />${downloading} downloading</button>`}
+      ${occ && html`<span class="chip info"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
+      ${tv && html`<span class="chip info"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
+      ${roomTemp && !isNaN(Number(roomTemp.state)) && html`<span class="chip info" title="Cinema temperature"><${Icon} name="therm" size=${20} />${Number(roomTemp.state).toFixed(1)}°C</span>`}
     <//>
     <div class="lobby-grid">
       <${Continue} />
@@ -459,7 +459,6 @@ function AppTile({ app }) {
 }
 function Apps() {
   return html`<section class="card apps-card">
-    <${H2} title="Apps"><span class="muted" style="font-size:15px">Opens on the TV · starts the cinema if needed</span><//>
     <div class="apps-row">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
   </section>`;
 }

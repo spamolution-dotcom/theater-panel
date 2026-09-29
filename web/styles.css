@@ -974,9 +974,10 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .blind-card .blind-btns { display: flex; gap: 10px; margin-top: 12px; }
 .blind-card .blind-btns .filter { flex: 1; justify-content: center; height: 44px; }
 .blind-card .range { margin-top: 12px; }
-.apps-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-top: 12px; }
-.app-tile { height: 72px; border-radius: 16px; border: 1px solid var(--line); background: #FBF8F3; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 12px; font-weight: 700; font-size: 17px; color: var(--ink); overflow: hidden; }
-.app-tile img, .app-tile .swatch { width: 52px; height: 52px; border-radius: 13px; flex-shrink: 0; object-fit: cover; box-shadow: 0 2px 6px rgba(40,20,5,.18); }
+.apps-card { padding: 16px 18px; }
+.apps-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 0; }
+.app-tile { height: 112px; border-radius: 16px; border: 1px solid var(--line); background: #FBF8F3; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 12px; font-weight: 700; font-size: 17px; color: var(--ink); overflow: hidden; }
+.app-tile img, .app-tile .swatch { width: 80px; height: 80px; border-radius: 20px; flex-shrink: 0; object-fit: cover; box-shadow: 0 2px 6px rgba(40,20,5,.18); }
 .app-tile .swatch { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
 .app-tile .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .app-tile:active { transform: scale(.97); }
