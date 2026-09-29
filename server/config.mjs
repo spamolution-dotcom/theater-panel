@@ -150,6 +150,7 @@ function build(env) {
     projectorTemps: list(env.ENTITY_PROJECTOR_TEMPS, []),
     lights: list(env.ENTITY_LIGHTS, ['light.media']),
     temperature: env.ENTITY_TEMPERATURE || 'sensor.cinema_temperature',
+    birthdayMode: env.ENTITY_BIRTHDAY_MODE || 'input_boolean.birthday_mode',
     occupancy: env.ENTITY_OCCUPANCY || 'binary_sensor.media_room_occupancy',
     tautulli: env.ENTITY_TAUTULLI || 'sensor.tautulli_watching',
     // Accent-light effect speed and intensity helpers (input_number), shown in the effect picker.
@@ -294,6 +295,8 @@ function build(env) {
   // Hallway tablet (?role=hallway): its Dashboard button, and the minutes untouched with the
   // cinema off before it goes back to the dashboard by itself (0 = never).
   dashboardUrl: /^https?:\/\//.test(env.DASHBOARD_URL || '') ? env.DASHBOARD_URL : '',
+  // Private files for the birthday show live in HA's media folder, never in this repo.
+  birthdayDir: env.BIRTHDAY_DIR || '/media/birthday',
   hallwayReturnMinutes: Math.max(0, Number(env.HALLWAY_RETURN_MINUTES ?? 5) || 0),
   // Which build this is: stamped into the image by `npm run push`.
   build: { version: env.BUILD_VERSION || 'dev', time: env.BUILD_TIME || '' },
@@ -353,7 +356,7 @@ export function watchedEntities() {
   const e = config.entities;
   return [
     e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
-    ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
+    ...e.lights, e.temperature, e.birthdayMode, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',
   ].filter(Boolean);
