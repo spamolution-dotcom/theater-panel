@@ -135,9 +135,8 @@ function build(env) {
     musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.media_room_tv_2',
     // Pre-show swell, intermission march and THX: the Google Mini, so the Denon never leaves the
     // Streamer's input mid-film.
-    // The cinema's blind and air conditioner (Lights and Cinema cards on Home).
+    // The cinema's blind (Lights card on Home).
     blind: env.ENTITY_BLIND || 'cover.media_room_blind',
-    ac: env.ENTITY_AC || 'climate.ac_downstair_cinema',
     soundSpeaker: env.ENTITY_SOUND_SPEAKER || 'media_player.cinema_google_mini',
     // Music Assistant players offered under "Play on"; the first is the theater's own.
     musicPlayers: list(env.ENTITY_MUSIC_PLAYERS, []),
@@ -353,7 +352,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.ac, e.projector,
+    e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

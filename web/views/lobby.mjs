@@ -26,6 +26,7 @@ export function Lobby() {
   // A rear speaker left off its dock is the thing that goes wrong with detachable rears.
   const undocked = useStore((s) => (s.entities.soundbar?.rears || []).filter((r) => s.states[r.docked]?.state === 'off').map((r) => r.channel));
   const tv = useEntity(ents.appleTv);
+  const roomTemp = useEntity(ents.temperature);
   const [requests] = useLoad(() => get('/api/seerr/requests?take=10').catch(() => null), []);
   const downloading = requests?.results?.filter((r) => r.label === 'Downloading').length || 0;
   const arrivals = useArrivals();
@@ -51,6 +52,7 @@ export function Lobby() {
       <${StreamsChip} onClick=${() => setStreamsOpen(true)} />
       ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
       ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
+      ${roomTemp && !isNaN(Number(roomTemp.state)) && html`<span class="chip" title="Cinema temperature"><${Icon} name="therm" size=${20} />Cinema ${Number(roomTemp.state).toFixed(1)}°C</span>`}
       <button type="button" class=${`chip ${plan ? 'on' : ''}`} onClick=${() => openTonight()}><${Icon} name="film" size=${20} />${plan ? `Tonight · ${plan.at ? new Date(plan.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : plan.state === 'feature' ? 'on' : 'ready'}` : 'Tonight'}</button>
       <${AllOffChip} />
       <button type="button" class="chip" onClick=${() => openGuest()}><${Icon} name="remote" size=${20} />Guest remote</button>
@@ -533,13 +535,6 @@ function Cinema() {
     { name: 'Streamer', ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
-  // The room's temperature and its air conditioner.
-  const temp = useEntity(e.temperature);
-  const ac = useEntity(e.ac);
-  const roomTemp = temp && !isNaN(Number(temp.state)) ? Number(temp.state).toFixed(1) : ac?.attributes?.current_temperature ?? null;
-  const acGone = !ac || ['unavailable', 'unknown'].includes(ac.state);
-  const acOn = Boolean(ac) && !acGone && ac.state !== 'off';
-  const acSet = Number(ac?.attributes?.temperature) || 22;
   return html`<section class="card cinema-card">
     <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
     <div class="row">
@@ -549,14 +544,6 @@ function Cinema() {
         <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Powers the Denon, projector and Streamer (about 2 min)'}</div></div>
     </div>
     <div class="devs">${devices.map((d) => html`<div class=${`dev ${d.ok ? 'ok' : ''}`}><span class=${`dot ${d.ok ? 'on' : ''}`}></span><b>${d.name}</b><span class="muted">${d.note}</span></div>`)}</div>
-    ${(temp || ac) && html`<div class="climate">
-      <${Icon} name="therm" size=${24} color="var(--acc)" /><b>${roomTemp != null ? `${roomTemp}°C` : '–'}</b><span class="muted">room</span>
-      <div style="flex-grow:1"></div>
-      ${ac && html`<button type="button" class="filter" aria-pressed=${acOn ? 'true' : 'false'} disabled=${acGone} onClick=${() => act({ action: 'cinema', cmd: 'ac', on: !acOn })}>AC ${acOn ? 'on' : 'off'}</button>
-        ${acOn && html`<button type="button" class="filter step" aria-label="Cooler" onClick=${() => act({ action: 'cinema', cmd: 'ac', temperature: acSet - 1 })}>−</button>
-          <span class="mono set">${acSet}°</span>
-          <button type="button" class="filter step" aria-label="Warmer" onClick=${() => act({ action: 'cinema', cmd: 'ac', temperature: acSet + 1 })}>+</button>`}`}
-    </div>`}
     ${isUp(avr) && html`<div class="label" style="margin:14px 0 8px">Volume · ${vol}%</div>
       <${Range} value=${vol} label="Denon volume" onCommit=${(v) => act({ action: 'cinema', cmd: 'volume', value: v })} />
       <div class="label" style="margin:14px 0 8px">Input</div>
