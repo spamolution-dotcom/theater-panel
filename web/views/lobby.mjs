@@ -20,12 +20,11 @@ const SCENES = [
 export function Lobby() {
   const ents = useStore((s) => s.entities);
   const temp = useEntity(ents.temperature);
-  const occ = useEntity(ents.occupancy);
   const plan = useStore((s) => s.tonight);
   const soundbar = useStore((s) => s.entities.soundbar);
   // A rear speaker left off its dock is the thing that goes wrong with detachable rears.
   const undocked = useStore((s) => (s.entities.soundbar?.rears || []).filter((r) => s.states[r.docked]?.state === 'off').map((r) => r.channel));
-  const tv = useEntity(ents.appleTv);
+  const roomTemp = useEntity(ents.temperature);
   const [requests] = useLoad(() => get('/api/seerr/requests?take=10').catch(() => null), []);
   const downloading = requests?.results?.filter((r) => r.label === 'Downloading').length || 0;
   const arrivals = useArrivals();
@@ -49,8 +48,6 @@ export function Lobby() {
         <span><b>New in your library</b> ${arrivals.list[0].title}</span>${arrivals.list.length > 1 && html`<span class="more">+${arrivals.list.length - 1}</span>`}
         <span class="x" role="button" aria-label="Dismiss" onClick=${(e) => { e.stopPropagation(); arrivals.dismiss(arrivals.list[0].id); }}>×</span></button>`}
       <${StreamsChip} onClick=${() => setStreamsOpen(true)} />
-      ${occ && html`<span class="chip"><${Icon} name="user" size=${20} />${occ.state === 'on' ? 'Occupied' : 'Empty'}</span>`}
-      ${tv && html`<span class="chip"><${Icon} name="screen" size=${20} />TV · ${tv.state}</span>`}
       <button type="button" class=${`chip ${plan ? 'on' : ''}`} onClick=${() => openTonight()}><${Icon} name="film" size=${20} />${plan ? `Tonight · ${plan.at ? new Date(plan.at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : plan.state === 'feature' ? 'on' : 'ready'}` : 'Tonight'}</button>
       <${AllOffChip} />
       <button type="button" class="chip" onClick=${() => openGuest()}><${Icon} name="remote" size=${20} />Guest remote</button>
@@ -60,12 +57,16 @@ export function Lobby() {
       <${SleepChip} />
       ${services.seerr && html`<button type="button" class="chip" onClick=${() => setScanOpen(true)}><${Icon} name="plus" size=${20} />Scan to request</button>`}
       ${downloading > 0 && html`<button type="button" class="chip warn" onClick=${() => go('request')}><${Icon} name="dl" size=${20} />${downloading} downloading</button>`}
+      ${roomTemp && !isNaN(Number(roomTemp.state)) && html`<span class="chip info" title="Cinema temperature"><${Icon} name="therm" size=${20} />${Number(roomTemp.state).toFixed(1)}°C</span>`}
     <//>
     <div class="lobby-grid">
       <${Continue} />
       <${Scenes} />
-      <${Cinema} />
-      <${Lights} />
+      <div class="left-block">
+        <${Cinema} />
+        <div class="lb-stack"><${Lights} /><${Blind} /></div>
+        <${Apps} />
+      </div>
       <div class="right-col">
         <${JustAdded} />
       </div>
@@ -348,7 +349,6 @@ function Lights() {
     <${H2} title="Lights"><button type="button" class="link" onClick=${() => act({ action: 'aisle_glow' })}>Aisle glow</button><//>
     <div style="display:flex;flex-direction:column;gap:16px;margin-top:16px">
       ${ids.map((id) => html`<${LightRow} id=${id} onEffects=${setPicking} />`)}
-      <${BlindRow} />
     </div>
     ${(picking || (route.params.fxopen && ids.find((x) => /accent/.test(x)))) && html`<${EffectSheet} id=${picking || ids.find((x) => /accent/.test(x))} onClose=${() => setPicking(null)} />`}
   </section>`;
@@ -433,7 +433,34 @@ function EffectSheet({ id, onClose }) {
 
 // The cinema's blind: where it is, a slider, and Open / Movie (20%, as the theatre sequence sets
 // it) / Close.
-function BlindRow() {
+// Apps on the Streamer. With the cinema off, a tap starts it (the warm-up screen shows) and the
+// app opens once the Streamer and Denon are up. Icons: web/assets/apps/<id>.png if present.
+const APPS = [
+  { id: 'netflix', name: 'Netflix', bg: '#141414', fg: '#E50914' },
+  { id: 'youtube', name: 'YouTube', bg: '#FFFFFF', fg: '#FF0000' },
+  { id: 'prime', name: 'Prime Video', bg: '#0F171E', fg: '#1FA8E0' },
+  { id: 'stremio', name: 'Stremio', bg: '#19163A', fg: '#8B5CF6' },
+];
+function AppTile({ app }) {
+  const [icon, setIcon] = useState(true);
+  const open = async () => {
+    const r = await act({ action: 'app', id: app.id });
+    if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
+    else if (r) toast(`Opening ${app.name} on the TV`);
+  };
+  return html`<button type="button" class="app-tile" onClick=${open} aria-label=${`Open ${app.name}`}>
+    ${icon ? html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`
+      : html`<span class="swatch" style=${`background:${app.bg};color:${app.fg}`}>${app.name[0]}</span>`}
+    ${!icon && html`<span class="name">${app.name}</span>`}
+  </button>`;
+}
+function Apps() {
+  return html`<section class="card apps-card">
+    <div class="apps-row">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
+  </section>`;
+}
+
+function Blind() {
   const id = useStore((s) => s.entities.blind);
   const st = useEntity(id);
   if (!id || !st) return null;
@@ -442,15 +469,15 @@ function BlindRow() {
   const moving = ['opening', 'closing'].includes(st.state);
   const label = gone ? 'Unavailable' : moving ? `${st.state === 'opening' ? 'Opening' : 'Closing'}…` : pos <= 0 ? 'Closed' : pos >= 100 ? 'Open' : `${pos}% open`;
   const to = (data) => act({ action: 'cinema', cmd: 'blind', ...data });
-  return html`<div class="light blind">
-    <div class="head"><span class="name" style="cursor:default">Blind</span><span class="mono muted" style="font-size:15px">${label}</span></div>
+  return html`<section class="card blind-card">
+    <${H2} title="Blind"><span class="mono muted" style="font-size:16px">${label}</span><//>
     <${Range} value=${pos} label="Blind position" fill="#7D8C99" onCommit=${(v) => to({ position: v })} />
     <div class="blind-btns">
       <button type="button" class="filter" aria-pressed=${pos >= 100 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'open' })}>Open</button>
       <button type="button" class="filter" aria-pressed=${pos === 20 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ position: 20 })}>Movie</button>
       <button type="button" class="filter" aria-pressed=${pos <= 0 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'close' })}>Close</button>
     </div>
-  </div>`;
+  </section>`;
 }
 
 function LightRow({ id, onEffects }) {
@@ -533,13 +560,6 @@ function Cinema() {
     { name: 'Streamer', ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
-  // The room's temperature and its air conditioner.
-  const temp = useEntity(e.temperature);
-  const ac = useEntity(e.ac);
-  const roomTemp = temp && !isNaN(Number(temp.state)) ? Number(temp.state).toFixed(1) : ac?.attributes?.current_temperature ?? null;
-  const acGone = !ac || ['unavailable', 'unknown'].includes(ac.state);
-  const acOn = Boolean(ac) && !acGone && ac.state !== 'off';
-  const acSet = Number(ac?.attributes?.temperature) || 22;
   return html`<section class="card cinema-card">
     <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
     <div class="row">
@@ -549,19 +569,10 @@ function Cinema() {
         <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Powers the Denon, projector and Streamer (about 2 min)'}</div></div>
     </div>
     <div class="devs">${devices.map((d) => html`<div class=${`dev ${d.ok ? 'ok' : ''}`}><span class=${`dot ${d.ok ? 'on' : ''}`}></span><b>${d.name}</b><span class="muted">${d.note}</span></div>`)}</div>
-    ${(temp || ac) && html`<div class="climate">
-      <${Icon} name="therm" size=${24} color="var(--acc)" /><b>${roomTemp != null ? `${roomTemp}°C` : '–'}</b><span class="muted">room</span>
-      <div style="flex-grow:1"></div>
-      ${ac && html`<button type="button" class="filter" aria-pressed=${acOn ? 'true' : 'false'} disabled=${acGone} onClick=${() => act({ action: 'cinema', cmd: 'ac', on: !acOn })}>AC ${acOn ? 'on' : 'off'}</button>
-        ${acOn && html`<button type="button" class="filter step" aria-label="Cooler" onClick=${() => act({ action: 'cinema', cmd: 'ac', temperature: acSet - 1 })}>−</button>
-          <span class="mono set">${acSet}°</span>
-          <button type="button" class="filter step" aria-label="Warmer" onClick=${() => act({ action: 'cinema', cmd: 'ac', temperature: acSet + 1 })}>+</button>`}`}
-    </div>`}
     ${isUp(avr) && html`<div class="label" style="margin:14px 0 8px">Volume · ${vol}%</div>
       <${Range} value=${vol} label="Denon volume" onCommit=${(v) => act({ action: 'cinema', cmd: 'volume', value: v })} />
       <div class="label" style="margin:14px 0 8px">Input</div>
       <div class="tiles">${[['GoogleTVStreamer', 'Streamer', 'tv'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${26} /><span>${name}</span></button>`)}</div>`}
-    ${isUp(tv) && html`<button type="button" class="btn ghost netflix" onClick=${() => act({ action: 'cinema', cmd: 'netflix' })}><${Icon} name="playc" size=${24} />Open Netflix</button>`}
   </section>`;
 }
 

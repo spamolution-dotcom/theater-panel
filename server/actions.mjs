@@ -9,6 +9,15 @@ import { extImage } from './images.mjs';
 import * as games from './games.mjs';
 import { httpError } from './admin.mjs';
 
+// Launch links as documented for the Android TV Remote integration
+// (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
+// its stremio:/// scheme is the one already proven by the play-stream script.
+const APP_URLS = {
+  netflix: 'https://www.netflix.com/title',
+  youtube: 'https://www.youtube.com',
+  prime: 'https://app.primevideo.com',
+  stremio: 'stremio:///',
+};
 const SCENES = ['pre_show', 'movie_time', 'intermission', 'lights_up', 'all_off'];
 // When the room's speaker is not there, a sound goes to the wall panel instead (it plays it
 // through its own speaker). index.mjs wires this to the live connection.
@@ -160,6 +169,38 @@ export async function runAction(ha, body) {
 
     case 'aisle_glow': return script(ha, 'aisle_glow');
 
+    // An app on the Streamer. The cinema off: start it, answer at once (the panel shows the warm-up
+    // screen), and open the app once the Streamer and the Denon are up.
+    case 'app': {
+      const url = APP_URLS[body.id];
+      if (!url) throw httpError(400, 'Unknown app');
+      const open = async () => {
+        // A link sent while the Google Photos screensaver is up may be swallowed: wake it first.
+        if (SCREENSAVER.test(ha.states[e.appleTv]?.attributes?.app_id || '')) {
+          await ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: url } }, { target: { entity_id: e.appleTv } });
+      };
+      const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state);
+      // Always bring the movie scene on (lights, blind), even when the kit is already up.
+      const sceneOff = ha.states[e.roomOn]?.state !== 'on';
+      if (ready()) {
+        await open();
+        if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+        return { ok: true };
+      }
+      if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+      (async () => {
+        const until = Date.now() + 210e3;
+        while (!ready() && Date.now() < until) await new Promise((r) => setTimeout(r, 2000));
+        if (!ready()) return console.warn(`[app] ${body.id}: the cinema did not come up in time`);
+        await new Promise((r) => setTimeout(r, 5000));   // a Streamer that has just woken ignores links for a moment
+        await open().catch((err) => console.warn(`[app] ${body.id}:`, err.message));
+      })();
+      return { ok: true, warming: true };
+    }
+
     // This fork's Cinema card: start the room (your movie scene), Denon volume and input.
     case 'cinema': {
       if (body.cmd === 'on') return ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
@@ -179,25 +220,6 @@ export async function runAction(ha, body) {
         if (body.to === 'open') return ha.callService('cover', 'open_cover', {}, { target });
         if (body.to === 'close') return ha.callService('cover', 'close_cover', {}, { target });
         return ha.callService('cover', 'set_cover_position', { position: Math.round(clamp(Number(body.position), 0, 100)) }, { target });
-      }
-      // The cinema's air conditioner: on (its heat/cool mode) or off, and the set temperature.
-      if (body.cmd === 'ac' && e.ac) {
-        const target = { entity_id: e.ac };
-        const st = ha.states[e.ac];
-        if (body.on === false) return ha.callService('climate', 'set_hvac_mode', { hvac_mode: 'off' }, { target });
-        if (body.on === true) {
-          const mode = (st?.attributes?.hvac_modes || []).find((m) => m !== 'off') || 'heat_cool';
-          return ha.callService('climate', 'set_hvac_mode', { hvac_mode: mode }, { target });
-        }
-        if (body.temperature != null) {
-          const a = st?.attributes || {};
-          const t = clamp(Number(body.temperature), a.min_temp ?? 16, a.max_temp ?? 32);
-          return ha.callService('climate', 'set_temperature', { temperature: t }, { target });
-        }
-      }
-      // Netflix on the Streamer (its titles cannot be opened directly: the app's home screen).
-      if (body.cmd === 'netflix') {
-        return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: 'https://www.netflix.com/' } }, { target: { entity_id: e.appleTv } });
       }
       throw httpError(400, 'Unknown cinema command');
     }

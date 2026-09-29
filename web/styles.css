@@ -183,6 +183,8 @@ header.top .right { display: flex; align-items: center; gap: 12px; }
 /* ---------- controls ---------- */
 .chip { display: inline-flex; align-items: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 22px; background: rgba(244,240,232,.85); border: 1px solid rgba(58,36,25,.12); color: var(--ink); font-size: 17px; font-weight: 600; white-space: nowrap; }
 button.chip { cursor: pointer; }
+.chip.info { background: transparent; border-color: transparent; padding: 0 6px; color: var(--muted); font-weight: 500; }
+html.cinema .chip.info { background: transparent; border-color: transparent; }
 .chip.warn { background: var(--amb-soft); color: var(--amb); }
 
 .btn { height: 64px; padding: 0 24px; border: 0; border-radius: 32px; background: var(--track); color: var(--ink); font-size: 20px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; gap: 10px; white-space: nowrap; }
@@ -963,12 +965,21 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .genre-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
 .genre-grid .filter { justify-content: center; }
 
-/* Lights card: the blind. */
-.light.blind .blind-btns { display: flex; gap: 10px; margin-top: 10px; }
-.light.blind .blind-btns .filter { flex: 1; justify-content: center; height: 44px; }
-/* Cinema card: room temperature and the AC, and Open Netflix. */
-.cinema-card .climate { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 14px; border-radius: 14px; background: var(--track); font-size: 18px; }
-.cinema-card .climate .filter { height: 42px; padding: 0 16px; }
-.cinema-card .climate .filter.step { width: 42px; padding: 0; justify-content: center; font-size: 22px; }
-.cinema-card .climate .set { font-size: 18px; min-width: 38px; text-align: center; }
-.cinema-card .netflix { margin-top: 12px; width: 100%; height: 52px; }
+
+/* Home: Cinema | (Lights over Blind), with Apps across both underneath. */
+.left-block { grid-column: span 2; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: minmax(0, 1fr) auto; gap: 22px; min-height: 0; }
+.left-block .lb-stack { display: flex; flex-direction: column; gap: 22px; min-height: 0; }
+.left-block .lb-stack > .card { flex: 1; min-height: 0; }
+.left-block .apps-card { grid-column: span 2; }
+.left-block .cinema-card .row { margin-top: 10px; }
+.left-block .cinema-card .devs { margin-top: 12px; }
+.blind-card .blind-btns { display: flex; gap: 10px; margin-top: 12px; }
+.blind-card .blind-btns .filter { flex: 1; justify-content: center; height: 44px; }
+.blind-card .range { margin-top: 12px; }
+.apps-card { padding: 16px 18px; }
+.apps-row { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-top: 0; }
+.app-tile { height: 112px; border-radius: 16px; border: 1px solid var(--line); background: #FBF8F3; display: flex; align-items: center; justify-content: center; gap: 10px; padding: 0 12px; font-weight: 700; font-size: 17px; color: var(--ink); overflow: hidden; }
+.app-tile img, .app-tile .swatch { width: 80px; height: 80px; border-radius: 20px; flex-shrink: 0; object-fit: cover; box-shadow: 0 2px 6px rgba(40,20,5,.18); }
+.app-tile .swatch { display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; }
+.app-tile .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app-tile:active { transform: scale(.97); }

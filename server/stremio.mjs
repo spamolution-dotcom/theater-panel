@@ -330,7 +330,10 @@ export async function catalogs() {
       if (genreRequired && !genreOpts.length) continue;
       const genreLabel = genreOpts.length && genreOpts.every((o) => /^\d{4}$/.test(o)) ? 'Year' : 'Genre';
       const kind = c.type === 'series' ? 'Series' : 'Films';
-      const name = c.name || c.id;
+      // Addons often tag their lists with their own name ("Hindi - IndianRegional"): drop that tag.
+      const squash = (x) => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const addonKey = squash(`${m.name || ''} ${m.id || ''}`);
+      const name = String(c.name || c.id).replace(/\s+[-–|·]\s+([^-–|·]+)$/, (all, tag) => (squash(tag) && addonKey.includes(squash(tag)) ? '' : all));
       const title = /cinemeta/i.test(m.name || m.id || '') ? `${name} ${kind.toLowerCase()}` : `${name} · ${kind}`;
       list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip'), genres: genreOpts, genreRequired, genreLabel });
     }
