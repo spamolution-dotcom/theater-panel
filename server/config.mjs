@@ -128,8 +128,11 @@ function build(env) {
     plexPlayer: env.ENTITY_PLEX_PLAYER || '',
     // The projector's own Plex client, as HA's Plex integration names it.
     projectorPlexPlayer: env.ENTITY_PROJECTOR_PLEX_PLAYER || '',
-    // The Music screen plays on the Denon through Music Assistant (its HEOS player there).
-    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.home_theater_3',
+    // The Music screen plays on the Streamer through Music Assistant (its Cast player there): the
+    // projector shows the track and cover, the sound still comes through the Denon over HDMI, and
+    // the Denon stays on the Streamer's input. (Straight to the Denon's HEOS, it only showed
+    // "Url Stream" and left the Denon on its music input.)
+    musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.media_room_tv_2',
     // Pre-show swell, intermission march and THX: the Google Mini, so the Denon never leaves the
     // Streamer's input mid-film.
     soundSpeaker: env.ENTITY_SOUND_SPEAKER || 'media_player.cinema_google_mini',

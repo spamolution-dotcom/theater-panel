@@ -945,3 +945,20 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .ja-dots span { margin-right: 6px; }
 .ja-dots button { width: 12px; height: 12px; border-radius: 6px; border: 1.5px solid var(--muted); background: transparent; padding: 0; }
 .ja-dots button.on { background: var(--muted); }
+
+/* All off: armed after the first tap. */
+.showtime .dbtn.armed { border-color: #C2562B; background: rgba(194,86,43,.18); }
+.showtime .dbtn.armed .s { color: #F2B28C; }
+
+/* Watch: catalog tabs on their own row (scrolling, with a "more" button), filters below. */
+.tabs-row { position: relative; }
+.tabs-row .seg { padding-right: 70px; }
+.tabs-row::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 120px; border-radius: 0 28px 28px 0; background: linear-gradient(90deg, rgba(228,220,210,0), var(--track) 65%); pointer-events: none; }
+.tabs-more { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 22px; border: 0; background: var(--choc); display: flex; align-items: center; justify-content: center; padding: 0; z-index: 2; }
+.tb-sep { width: 1px; height: 32px; background: var(--line); margin: 0 6px; flex-shrink: 0; }
+.filter[aria-pressed="true"] svg { flex-shrink: 0; }
+.sheet-back { position: fixed; inset: 0; z-index: 50; background: rgba(20,10,5,.45); display: flex; align-items: center; justify-content: center; }
+.genre-sheet { width: 860px; max-height: 820px; overflow-y: auto; padding: 30px; }
+.genre-sheet h2 { font-family: var(--disp); font-weight: 800; font-size: 40px; text-transform: uppercase; }
+.genre-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 20px; }
+.genre-grid .filter { justify-content: center; }

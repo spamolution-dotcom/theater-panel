@@ -27,6 +27,9 @@ export function Watch() {
   const [lib, setLib] = useState(route.params.lib || (route.params.brand ? 'networks' : null));
   const [filters, setFilters] = useState(['unwatched']);
   const [sort, setSort] = useState('added');
+  const [genre, setGenre] = useState(null);         // a catalog's genre (or year); null = all / its default
+  const [genreOpen, setGenreOpen] = useState(false);
+  const tabsRef = useRef();
   const [query, setQuery] = useState('');
   const q = useDebounced(query.trim());
   const [selected, setSelected] = useState(route.params.item || null);
@@ -46,6 +49,11 @@ export function Watch() {
   const byNetwork = libId === 'networks';
   const forYou = libId === 'foryou';
   const libType = byNetwork ? null : libs?.find((l) => l.id === libId)?.type;
+  // Catalogs that can be narrowed by genre (Cinemeta's Popular, Featured) or year (Cinemeta's New).
+  const genreKind = libs?.find((l) => l.id === libId)?.genre || null;
+  const [genreList] = useLoad(() => (genreKind ? get(`/api/plex/genres/${libId}`).catch(() => []) : Promise.resolve([])), [libId, Boolean(genreKind)]);
+  const genreNow = genre || (genreKind?.required ? genreKind.first : null);
+  const gq = genre && genreKind ? `&genre=${encodeURIComponent(genre)}` : '';
   // Catalog tabs are ranked lists from Stremio: they keep their own order, so only Random applies.
   const isCatalog = libs?.find((l) => l.id === libId)?.source === 'catalog';
   const sorts = isCatalog ? SORTS.filter((s) => s.value === 'random') : SORTS;
@@ -61,7 +69,7 @@ export function Watch() {
     setItems(null);
     const req = q ? get(`/api/plex/search?q=${encodeURIComponent(q)}`).then((r) => ({ items: r, total: r.length }))
       : byNetwork ? get(`/api/plex/brand/${brand}?filters=${filters.includes('unwatched') ? 'unwatched' : ''}&size=90`)
-      : get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}&size=${PAGE}`);
+      : get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}${gq}&size=${PAGE}`);
     req.then((r) => {
       if (!live) return;
       setItems(r.items); setTotal(r.total); setCursor(r.next != null ? { next: r.next, more: r.more } : null);
@@ -69,13 +77,13 @@ export function Watch() {
       gridRef.current?.scrollTo(0, 0);
     }).catch((e) => live && (setItems([]), toast(e.message, true)));
     return () => { live = false; };
-  }, [libId, activeFilters, sortNow, q, seed, brand, forYou]);
+  }, [libId, activeFilters, sortNow, gq, q, seed, brand, forYou]);
 
   async function more() {
     if (loadingMore || q || byNetwork || !items || items.length >= MAX_ITEMS || (cursor ? !cursor.more : items.length >= total)) return;
     setLoadingMore(true);
     try {
-      const r = await get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}&size=${PAGE}&start=${cursor ? cursor.next : items.length}`);
+      const r = await get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}${gq}&size=${PAGE}&start=${cursor ? cursor.next : items.length}`);
       setItems([...items, ...r.items]);
       if (r.next != null) { setCursor({ next: r.next, more: r.more }); setTotal(items.length + r.items.length + (r.more ? PAGE : 0)); }
     } finally { setLoadingMore(false); }
@@ -85,22 +93,28 @@ export function Watch() {
   const libTitle = libs?.find((l) => l.id === libId)?.title;
 
   return html`<main class="view">
-    <${Header} title="Watch" kicker=${q ? `Stremio search · ${total} results` : forYou ? 'Stremio · picked from what you watch' : byNetwork ? `Stremio · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Stremio · ${libTitle || ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
+    <${Header} title="Watch" kicker=${q ? `Stremio search · ${total} results` : forYou ? 'Stremio · picked from what you watch' : byNetwork ? `Stremio · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Stremio · ${libTitle || ''}${genreNow ? ` · ${genreNow}` : ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
       <label class="search" style="width:420px"><${Icon} name="search" color="var(--muted)" /><span class="sr">Search Stremio</span>
         <input type="search" placeholder="Search films and series" value=${query} onInput=${(e) => setQuery(e.target.value)} />
         ${query && html`<button type="button" class="icon-btn" aria-label="Clear search" style="width:40px;height:40px" onClick=${() => setQuery('')}><${Icon} name="x" size=${20} /></button>`}
       </label>
     <//>
-    <div style="display:flex;align-items:center;gap:14px">
-      <div style="width:620px;flex-shrink:0">
-        <${Seg} cls="scroll" options=${(libs || []).map((l) => ({ value: l.id, label: l.title }))} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); }} />
-      </div>
-      <div class="hscroll" style="display:flex;gap:10px;min-width:0">
+    <div class="tabs-row" ref=${tabsRef}>
+      <${Seg} cls="scroll" options=${(libs || []).map((l) => ({ value: l.id, label: l.title }))} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); setGenre(null); }} />
+      <button type="button" class="tabs-more" aria-label="More catalogs" onClick=${() => {
+        const el = tabsRef.current?.querySelector('.seg');
+        if (el) el.scrollTo({ left: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 ? 0 : el.scrollLeft + el.clientWidth * 0.7, behavior: 'smooth' });
+      }}><${Icon} name="chev" size=${26} w=${2.2} color="#F4F0E8" /></button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="hscroll" style="display:flex;gap:10px;min-width:0;align-items:center">
         ${forYou && !q ? html`<button type="button" class="filter" onClick=${() => setMystery(true)}><${Icon} name="sparkle" size=${18} />Mystery box</button>
           <button type="button" class="filter" onClick=${() => go('year')}><${Icon} name="chart" size=${18} />Year in review</button>` : null}
         ${byNetwork && brand && html`<button type="button" class="filter" onClick=${() => { setBrand(null); setSelected(null); }}><${Icon} name="left" size=${18} />All networks</button>`}
         ${forYou ? null : byNetwork ? html`<button type="button" class="filter" aria-pressed=${filters.includes('unwatched') ? 'true' : 'false'} onClick=${() => toggle('unwatched')}>${filters.includes('unwatched') && html`<${Icon} name="check" size=${18} />`}Unwatched</button>` : FILTERS.filter((f) => !(f.movieOnly && libType === 'show') && !(f.showOnly && libType !== 'show')).map((f) => html`<button type="button" class="filter" aria-pressed=${filters.includes(f.key) ? 'true' : 'false'} disabled=${!!q} onClick=${() => toggle(f.key)}>
           ${filters.includes(f.key) && html`<${Icon} name="check" size=${18} />`}${f.label}</button>`)}
+        ${!byNetwork && !forYou && genreKind && html`<button type="button" class="filter" aria-pressed=${genre ? 'true' : 'false'} disabled=${!!q} onClick=${() => setGenreOpen(true)}>${genreKind.label}: ${genreNow || 'All'}<${Icon} name="down" size=${18} w=${2.2} /></button>`}
+        ${!byNetwork && !forYou && html`<span class="tb-sep"></span>`}
         ${!byNetwork && !forYou && isCatalog && html`<button type="button" class="filter" aria-pressed=${sort !== 'random' ? 'true' : 'false'} disabled=${!!q} onClick=${() => setSort('added')}>Catalog order</button>`}
         ${!byNetwork && !forYou && sorts.map((s) => html`<button type="button" class="filter" aria-pressed=${sort === s.value ? 'true' : 'false'} disabled=${!!q}
           onClick=${() => { setSort(s.value); if (s.value === 'random') setSeed(seed + 1); }}>
@@ -119,6 +133,15 @@ export function Watch() {
       ${(byNetwork && !brand && !q) || (forYou && !q && !selected) ? null : selected ? html`<${Detail} id=${selected} key=${selected} onOpen=${setSelected} />` : html`<aside class="detail"><div class="empty" style="flex-grow:1">Pick a title</div></aside>`}
     </div>
     ${mystery && html`<${MysterySheet} onClose=${() => setMystery(false)} />`}
+    ${genreOpen && html`<div class="sheet-back" onClick=${() => setGenreOpen(false)}>
+      <div class="card genre-sheet" onClick=${(e) => e.stopPropagation()}>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><h2 style="margin:0">${genreKind?.label || 'Genre'}</h2><span class="muted">${libTitle || ''}</span></div>
+        <div class="genre-grid">
+          ${!genreKind?.required && html`<button type="button" class="filter" aria-pressed=${!genre ? 'true' : 'false'} onClick=${() => { setGenre(null); setGenreOpen(false); }}>All</button>`}
+          ${(genreList || []).map((g) => html`<button type="button" class="filter" key=${g.id} aria-pressed=${genreNow === g.id ? 'true' : 'false'} onClick=${() => { setGenre(g.id); setGenreOpen(false); }}>${g.title}</button>`)}
+        </div>
+      </div>
+    </div>`}
   </main>`;
 }
 
