@@ -9,7 +9,7 @@ image: ghcr.io/spamolution-dotcom/theater-panel-addon-{arch}
 startup: application
 boot: auto
 homeassistant_api: true
-# Read-only: the birthday show reads its private files (poster, teaser text) from /media/birthday.
+# Read-only: the birthday show reads its private poster from HA's media folder.
 map:
   - type: media
     read_only: true
