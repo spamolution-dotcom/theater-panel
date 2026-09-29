@@ -11,6 +11,7 @@ $('tagline').textContent = t.tagline || '';
 $('meta').innerHTML = (t.meta || []).map(([k, v]) => `<span><b>${esc(k)}</b>${esc(v)}</span>`).join('');
 if (t.after) $('after').textContent = t.after;
 $('poster').src = '/api/birthday/poster.jpg';
+if (t.posterPos) $('poster').style.objectPosition = t.posterPos;
 $('poster').onerror = () => $('poster').remove();
 if (test) $('hint').textContent = 'Silent test · no sound, blind stays put';
 document.querySelector('.wrap').hidden = false;
