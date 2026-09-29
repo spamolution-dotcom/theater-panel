@@ -48,7 +48,8 @@ async function getJson(url, timeoutMs = 15000) {
   const r = await fetch(url, { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(timeoutMs) });
   if (r.status === 404) return null;
   if (!r.ok) throw httpError(502, `${new URL(url).host} ${r.status}`);
-  return r.json();
+  // A retired addon often answers with a web page instead of data.
+  try { return await r.json(); } catch { throw httpError(502, `${new URL(url).host} sent a web page, not catalog data`); }
 }
 
 const ms = (v) => (v == null ? null : typeof v === 'number' ? v : Date.parse(v) || null);
@@ -278,8 +279,21 @@ const LIBS = [
 // The Watch tabs and the lobby's shelves: your library first, then every catalog your installed
 // Stremio addons offer, in the order Stremio lists them (Cinemeta's Popular / New / Featured, and
 // whatever the other addons add).
+// Catalogs whose addon is not answering (retired, down, sending web pages): hidden from the tabs
+// for an hour, then tried again.
+const deadUntil = new Map();
+const isDead = (id) => (deadUntil.get(id) || 0) > Date.now();
+function markDead(def, e) {
+  if (!isDead(def.id)) console.warn(`[stremio] hiding "${def.title}" (${def.addon}) for an hour: ${e.message}`);
+  deadUntil.set(def.id, Date.now() + 3600e3);
+}
+
 export async function libraries() {
-  const cats = await catalogs().catch((e) => { console.warn('[stremio] addon catalogs:', e.message); return []; });
+  let cats = await catalogs().catch((e) => { console.warn('[stremio] addon catalogs:', e.message); return []; });
+  // Check each catalog answers (the first page is cached for 30 min, so this is cheap after once).
+  const alive = await Promise.all(cats.map((c) => (isDead(c.id) ? false
+    : addonCatalog(c).then(() => true, (e) => { markDead(c, e); return false; }))));
+  cats = cats.filter((c, i) => alive[i]);
   return [...LIBS, ...cats].map(({ id, title, type, source, genres, genreRequired, genreLabel }) => ({
     id, title, type, source: source === 'library' ? 'library' : 'catalog',
     // Catalogs that can be narrowed by genre (or year): the Watch screen offers a picker.
@@ -398,7 +412,11 @@ export async function listLibrary(libId, { filters = [], genre, sort = 'added', 
     // Family friendly: ask the catalog for its Family genre when it has one (Cinemeta does).
     const family = filters.includes('family');
     const g = genre || (family && (def.source === 'catalog' || (def.genres || []).includes('Family')) ? 'Family' : undefined);
-    const page = (skip) => (def.source === 'addon' ? addonCatalog(def, { skip, genre: g }) : catalog(type, { genre: g, skip: skip || undefined }));
+    const page = (skip) => (def.source === 'addon' ? addonCatalog(def, { skip, genre: g }) : catalog(type, { genre: g, skip: skip || undefined }))
+      .catch((e) => {
+        if (def.source === 'addon') markDead(def, e);
+        throw httpError(502, `This catalog isn't responding (${def.addon || 'Cinemeta'}). Try another tab.`);
+      });
     // A filter can empty most of a page, so read on (up to 6 pages) until there is a screenful.
     let skip = start, items = [], more = true;
     for (let n = 0; n < 6 && more && items.length < Math.min(size, 24); n++) {
