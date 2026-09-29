@@ -173,6 +173,32 @@ export async function runAction(ha, body) {
         if (!allowed.includes(body.source)) throw httpError(400, 'Unknown source');
         return ha.callService('media_player', 'select_source', { source: body.source }, { target: { entity_id: e.avr } });
       }
+      // The cinema's blind: open, closed, or a position (0 closed .. 100 open).
+      if (body.cmd === 'blind' && e.blind) {
+        const target = { entity_id: e.blind };
+        if (body.to === 'open') return ha.callService('cover', 'open_cover', {}, { target });
+        if (body.to === 'close') return ha.callService('cover', 'close_cover', {}, { target });
+        return ha.callService('cover', 'set_cover_position', { position: Math.round(clamp(Number(body.position), 0, 100)) }, { target });
+      }
+      // The cinema's air conditioner: on (its heat/cool mode) or off, and the set temperature.
+      if (body.cmd === 'ac' && e.ac) {
+        const target = { entity_id: e.ac };
+        const st = ha.states[e.ac];
+        if (body.on === false) return ha.callService('climate', 'set_hvac_mode', { hvac_mode: 'off' }, { target });
+        if (body.on === true) {
+          const mode = (st?.attributes?.hvac_modes || []).find((m) => m !== 'off') || 'heat_cool';
+          return ha.callService('climate', 'set_hvac_mode', { hvac_mode: mode }, { target });
+        }
+        if (body.temperature != null) {
+          const a = st?.attributes || {};
+          const t = clamp(Number(body.temperature), a.min_temp ?? 16, a.max_temp ?? 32);
+          return ha.callService('climate', 'set_temperature', { temperature: t }, { target });
+        }
+      }
+      // Netflix on the Streamer (its titles cannot be opened directly: the app's home screen).
+      if (body.cmd === 'netflix') {
+        return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: 'https://www.netflix.com/' } }, { target: { entity_id: e.appleTv } });
+      }
       throw httpError(400, 'Unknown cinema command');
     }
 

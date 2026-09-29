@@ -538,7 +538,12 @@ get(/^\/api\/pick$/, async (m, q) => {
   const n = Math.min(6, Math.max(2, Number(q.get('n')) || 3));
   const want = q.get('season');
   if (want !== '0') {
-    const shelves = await seasonal.shelves(['halloween', 'christmas'].includes(want) ? want : undefined).catch(() => []);
+    // The season's shelves can take a while to build the first time: give them 5 s, then fall back to
+    // the unwatched films (the shelves keep building and are ready for the next shuffle).
+    const shelves = await Promise.race([
+      seasonal.shelves(['halloween', 'christmas'].includes(want) ? want : undefined).catch(() => []),
+      new Promise((r) => setTimeout(() => r([]), 5000)),
+    ]);
     let pool = shelves.flatMap((s) => s.items.map((it) => ({ ...it, shelf: s.title }))).filter((it) => !it.watched);
     if (filters.includes('short')) pool = pool.filter((it) => !it.duration || it.duration < 7200000);
     if (filters.includes('family')) pool = pool.filter((it) => !it.contentRating || ['G', 'PG', 'TV-Y', 'TV-Y7', 'TV-G', 'TV-PG'].includes(it.contentRating));

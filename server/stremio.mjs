@@ -588,6 +588,23 @@ export async function collectionItems() { return []; }
 export async function rate() { return { ok: false }; }
 export async function clearProgress() { return { ok: false }; }
 export async function setStreams() { return { ok: false }; }
+// The Mystery box's pool with Stremio: unwatched films from your library and Cinemeta's Popular
+// films, recent enough and rated well enough on IMDb (Stremio has no studio, age rating or
+// date-added for catalogue titles, so those rules do not apply here).
+export async function mysteryPool({ years = 10, minRating = 7, filters = [] } = {}) {
+  const lib = await libraryIndex().catch(() => null);
+  const mine = (await rawLibrary()).filter((it) => inLibrary(it) && it.type === 'movie').map(fromLibrary);
+  const pages = await Promise.all([0, 50, 100].map((skip) => catalog('movie', { skip: skip || undefined }).catch(() => [])));
+  const popular = pages.flat().map((m) => fromMeta({ type: 'movie', ...m }, lib));
+  const seen = new Set();
+  let items = [...mine, ...popular].filter((it) => !it.watched && !seen.has(it.id) && seen.add(it.id));
+  await enrich(items, { genres: true, rating: true, runtime: true });
+  const from = new Date().getFullYear() - years;
+  items = items.filter((it) => (!years || (it.year || 0) >= from) && (!minRating || (it.rating || 0) >= minRating));
+  items = await applyFilters(items, filters.filter((f) => ['family', 'short'].includes(f)), null);
+  return shuffle(items);
+}
+
 export const RECENT_FROM = () => new Date().getFullYear() - (config.mystery?.years || 10);
 export const RATED_MIN = () => config.mystery?.minRating || 0;
 

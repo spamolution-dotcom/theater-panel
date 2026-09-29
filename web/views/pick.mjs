@@ -63,6 +63,7 @@ export function Pick() {
     <//>
     <div class="pick-body">
       <div class="pick-cards">
+        ${!items?.length && html`<div class="empty" style="grid-column:1/-1;align-self:center;font-size:22px">${busy || items === null ? 'Picking three films…' : 'Nothing unwatched matches. Try removing a filter.'}</div>`}
         ${(items || []).map((m) => {
           const count = votes?.tally?.[m.id] ?? 0;
           const winning = leader && String(leader[0]) === String(m.id) && leader[1] > 0;
