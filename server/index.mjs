@@ -146,6 +146,26 @@ function metahubPics(imdb) {
   return { poster: m('poster', 'medium'), posterLarge: m('poster', 'large'), art: m('background', 'medium') };
 }
 
+// A title playing in Stremio that the panel did not open (started from the TV itself): Cast gives
+// only its name (and, for an episode, the episode's name as the 'artist'). Look the name up once in
+// Stremio's catalogs to get its IMDb id, and so its poster and art. Async: the first poll after a
+// new title has no poster yet; the next one does.
+const castTitles = new Map();
+const normTitle = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+function castTitleId(title, series) {
+  const key = `${series ? 's' : 'm'}:${normTitle(title)}`;
+  if (castTitles.has(key)) return castTitles.get(key);
+  castTitles.set(key, null);
+  if (castTitles.size > 200) castTitles.delete(castTitles.keys().next().value);
+  plex.search(title, 12).then((list) => {
+    const same = list.filter((m) => normTitle(m.title) === normTitle(title) && /^tt\d+$/.test(m.id || ''));
+    const want = (m) => (series ? m.type !== 'movie' : m.type === 'movie');
+    const pick = same.find(want) || same[0] || null;
+    castTitles.set(key, pick ? { imdb: pick.id, year: pick.year } : false);
+  }).catch(() => castTitles.delete(key));
+  return null;
+}
+
 function streamerSessions() {
   const e = config.entities;
   const tv = ha.states[e.appleTv];
@@ -162,13 +182,18 @@ function streamerSessions() {
   if (cast) {
     const a = cast.attributes;
     const pos = livePosition(a, cast.state);
-    const same = l && Date.now() - l.at < 6 * 3600e3;
-    const imdb = same ? String(l.id).split(':')[0] : '';
+    // The panel's last launch counts only if it is what Cast says is playing (a title started on
+    // the TV itself would otherwise wear the previous launch's poster).
+    const castName = normTitle(a.media_title);
+    const same = l && Date.now() - l.at < 6 * 3600e3 && (!castName || [l.showTitle, l.title].some((t) => normTitle(t) === castName));
+    const series = Boolean(a.media_artist);
+    const found = !same && a.media_title ? castTitleId(a.media_title, series) : null;
+    const imdb = same ? String(l.id).split(':')[0] : found?.imdb || '';
     const pics = metahubPics(imdb);
     return [{
-      id: same ? l.id : 'stremio', type: same ? l.type : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
-      title: same && l.title ? l.title : a.media_title || 'Stremio', showTitle: same ? l.showTitle : undefined,
-      season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : undefined,
+      id: same ? l.id : imdb || 'stremio', type: same ? l.type : series ? 'episode' : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
+      title: same && l.title ? l.title : series ? a.media_artist : a.media_title || 'Stremio', showTitle: same ? l.showTitle : series ? a.media_title : undefined,
+      season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : found?.year,
       viewOffset: pos != null ? Math.round(pos * 1000) : 0, duration: a.media_duration ? Math.round(a.media_duration * 1000) : 0,
       poster: pics.poster || (same ? l.poster : null), posterLarge: pics.posterLarge, art: pics.art,
     }];
