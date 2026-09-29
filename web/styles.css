@@ -945,3 +945,7 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .ja-dots span { margin-right: 6px; }
 .ja-dots button { width: 12px; height: 12px; border-radius: 6px; border: 1.5px solid var(--muted); background: transparent; padding: 0; }
 .ja-dots button.on { background: var(--muted); }
+
+/* All off: armed after the first tap. */
+.showtime .dbtn.armed { border-color: #C2562B; background: rgba(194,86,43,.18); }
+.showtime .dbtn.armed .s { color: #F2B28C; }

@@ -80,6 +80,10 @@ export function Showtime() {
   // With native theater mode the app swallows the first touch and peeks by itself.
   const poke = () => { if (native) return; setAwake(true); wake(); };
   const t = (cmd, extra) => press(cmd === 'seek_rel' ? `seek${extra?.seconds}` : cmd, { action: 'transport', cmd, ...extra });
+  // All off turns the whole cinema off (your End Movie Scene), so it takes a second tap within 4 s.
+  const [offArmed, setOffArmed] = useState(false);
+  useEffect(() => { if (!offArmed) return undefined; const x = setTimeout(() => setOffArmed(false), 4000); return () => clearTimeout(x); }, [offArmed]);
+  const allOff = () => { if (!offArmed) { setOffArmed(true); return; } setOffArmed(false); press('alloff', { action: 'scene', name: 'all_off' }).then(() => go('lobby')); };
 
   // The hallway board: the poster full height down the left, the controls beside it over the
   // film's artwork, brighter than the in-room remote.
@@ -123,14 +127,14 @@ export function Showtime() {
         </div>
         <div class="st-side" style="width:220px;display:flex;flex-direction:column;gap:20px">
           <button type="button" class=${fxc('aisle', glowOn)} style="flex-grow:1" aria-pressed=${glowOn ? 'true' : 'false'} onClick=${() => press('aisle', { action: 'aisle_glow' })}><${Icon} name="bulb" size=${48} w=${1.8} /><span class="s">Aisle glow</span><span class="sub">${media?.state === 'on' ? `Lights ${mediaPct}%` : 'Off'}</span></button>
-          <button type="button" class=${fxc('stop')} style="flex-grow:1" onClick=${() => t('stop')}><${Icon} name="x" size=${48} w=${1.8} /><span class="s">Stop</span></button>
+          <button type="button" class=${`${fxc('alloff')}${offArmed ? ' armed' : ''}`} style="flex-grow:1" onClick=${allOff}><${Icon} name="power" size=${48} w=${1.8} /><span class="s">${offArmed ? 'Tap again to turn off' : 'All off'}</span></button>
         </div>
       </div>
       <div class="st-bottom" style="display:flex;gap:28px">
         <button type="button" class=${fxc('intermission', scene === 'Intermission')} style="flex-grow:1;height:150px" onClick=${() => press('intermission', { action: 'scene', name: 'intermission' })}>
           <span class="big"><${Icon} name="cup" size=${40} w=${1.8} />Intermission</span><span class="s">Pause · lights 30%</span></button>
         <button type="button" class=${fxc('lights_up', scene === 'Lights up')} style="flex-grow:1;height:150px" onClick=${() => press('lights_up', { action: 'scene', name: 'lights_up' })}>
-          <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">End show</span></button>
+          <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">Lights 100%</span></button>
         <button type="button" class=${fxc('sleep', Boolean(sleep))} style="width:280px;height:150px" aria-pressed=${sleep ? 'true' : 'false'} onClick=${() => setSleepOpen(true)}>
           <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? sleepLabel(sleep) : 'Off'}</span></button>
         <button type="button" class="dbtn" style="width:260px;height:150px;background:#000" onClick=${() => go('lobby', { manual: true })}>
