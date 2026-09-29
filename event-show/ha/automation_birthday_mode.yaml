@@ -1,0 +1,84 @@
+alias: Birthday Mode – pause and restore
+description: 'While Birthday Mode is on: pauses automations that would interfere with the show, shows the teaser on the hallway
+  tablet and warms up the cinema. Off: switches the same automations back on. Backstop turns Birthday Mode off at 23:30.'
+triggers:
+- entity_id: input_boolean.birthday_mode
+  id: 'on'
+  to: 'on'
+  trigger: state
+- entity_id: input_boolean.birthday_mode
+  id: 'off'
+  to: 'off'
+  trigger: state
+- at: '23:30:00'
+  id: backstop
+  trigger: time
+actions:
+- choose:
+  - conditions:
+    - condition: trigger
+      id: 'on'
+    sequence:
+    - action: automation.turn_off
+      alias: Pause interfering automations
+      data:
+        stop_actions: true
+      target:
+        entity_id:
+        - automation.kiosk_display_priority_controller
+        - automation.theater_lights_follow_the_streamer
+        - automation.select_late_night_scene_at_10pm
+        - automation.apply_late_night_scene
+        - automation.select_sleep_scene_at_1am
+        - automation.apply_scene_on_home_arrival
+        - automation.apply_away_scene
+        - automation.away_actions_turn_off_lights_and_close_blinds
+        - automation.announce_welcome_home_from_work
+    - action: fully_kiosk.load_url
+      alias: Show the teaser on the hallway tablet
+      continue_on_error: true
+      data:
+        device_id: 5b908ea9e87ff26ca17a838a31438172
+        url: <output of teaser/encode_words.py>
+    - alias: Warm up the cinema (movie scene)
+      if:
+      - condition: state
+        entity_id: input_boolean.movie_scene
+        state: 'off'
+      then:
+      - action: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.movie_scene
+  - conditions:
+    - condition: trigger
+      id: 'off'
+    sequence:
+    - action: automation.turn_on
+      alias: Restore paused automations
+      target:
+        entity_id:
+        - automation.kiosk_display_priority_controller
+        - automation.theater_lights_follow_the_streamer
+        - automation.select_late_night_scene_at_10pm
+        - automation.apply_late_night_scene
+        - automation.select_sleep_scene_at_1am
+        - automation.apply_scene_on_home_arrival
+        - automation.apply_away_scene
+        - automation.away_actions_turn_off_lights_and_close_blinds
+        - automation.announce_welcome_home_from_work
+    - alias: Hallway tablet back to its start page
+      action: button.press
+      target:
+        entity_id: button.ramit_s_tab_s9_load_start_url
+      continue_on_error: true
+  - conditions:
+    - condition: trigger
+      id: backstop
+    - condition: state
+      entity_id: input_boolean.birthday_mode
+      state: 'on'
+    sequence:
+    - action: input_boolean.turn_off
+      target:
+        entity_id: input_boolean.birthday_mode
+mode: queued

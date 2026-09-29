@@ -1,0 +1,4 @@
+# Settings -> Helpers -> Toggle
+name: Birthday Mode
+icon: mdi:cake-variant
+# entity: input_boolean.birthday_mode

@@ -1,0 +1,191 @@
+alias: 'Theater: birthday show'
+description: 'Started by the hallway teaser''s button. Blind, Hue sparkle, casts card.mp4 from Local Media (then finale.jpg
+  as a still), plays the songs on the Denon, and when the music ends hands over to the end script. test=true: Denon muted,
+  blind left alone, stops a minute after the card. AS BUILT on 29 Sep 2026 - see ../README.md ''Fix before reuse'' first.'
+fields:
+  test:
+    default: false
+    description: Mute the Denon, leave the blind, stop soon after the card.
+    name: Silent test
+    selector:
+      boolean: {}
+icon: mdi:cake-variant
+mode: single
+sequence:
+- variables:
+    silent: '{{ test | default(false) | bool }}'
+- action: input_boolean.turn_on
+  alias: Birthday Mode on (pauses interfering automations)
+  target:
+    entity_id: input_boolean.birthday_mode
+- alias: Blind closes (not in the silent test)
+  if:
+  - condition: template
+    value_template: '{{ not silent }}'
+  then:
+  - action: cover.close_cover
+    continue_on_error: true
+    target:
+      entity_id: cover.media_room_blind
+- action: light.turn_on
+  alias: Warm gold
+  data:
+    brightness_pct: 45
+    rgb_color:
+    - 255
+    - 176
+    - 80
+    transition: 3
+  target:
+    entity_id: light.media
+- delay:
+    seconds: 3
+- action: light.turn_on
+  alias: Sparkle
+  continue_on_error: true
+  data:
+    effect: sparkle
+  target:
+    entity_id: &id001
+    - light.hue_color_downlight_1
+    - light.hue_color_downlight_1_2
+    - light.hue_color_downlight_2
+    - light.hue_color_downlight_3
+- alias: 'Wait until the cinema is up (FIX: do not wait for the music player here)'
+  repeat:
+    sequence:
+    - delay:
+        seconds: 2
+    until:
+    - condition: or
+      conditions:
+      - condition: and
+        conditions:
+        - condition: state
+          entity_id: media_player.epson_projector
+          state: 'on'
+        - condition: not
+          conditions:
+          - condition: state
+            entity_id: media_player.media_room_tv
+            state:
+            - 'off'
+            - standby
+            - unavailable
+            - unknown
+        - condition: not
+          conditions:
+          - condition: state
+            entity_id: media_player.home_theater
+            state:
+            - 'off'
+            - unavailable
+            - unknown
+        - condition: not
+          conditions:
+          - condition: state
+            entity_id: media_player.home_theater_3
+            state:
+            - unavailable
+            - unknown
+      - condition: template
+        value_template: '{{ repeat.index >= 150 }}'
+- alias: Let a just-woken Streamer settle
+  delay:
+    seconds: 6
+- action: media_player.volume_mute
+  alias: Denon muted for the silent test, unmuted for the real show
+  continue_on_error: true
+  data:
+    is_volume_muted: '{{ silent }}'
+  target:
+    entity_id: media_player.home_theater
+- action: media_player.play_media
+  alias: The card on the TV (40 s hold, then the card)
+  data:
+    media:
+      media_content_id: media-source://media_source/local/card.mp4
+      media_content_type: video/mp4
+  target:
+    entity_id: media_player.living_room_tv
+- action: music_assistant.play_media
+  alias: 'Songs on the Denon (FIX: continue_on_error + fallback)'
+  data:
+    enqueue: replace
+    media_id:
+    - <spotify track uri 1>
+    - <spotify track uri 2>
+    media_type: track
+  target:
+    entity_id: media_player.home_theater_3
+- alias: Wait for the music to start
+  continue_on_timeout: true
+  timeout:
+    seconds: 60
+  wait_for_trigger:
+  - entity_id: media_player.home_theater_3
+    to: playing
+    trigger: state
+- alias: 'Silent test: mute again once the music has started'
+  if:
+  - condition: template
+    value_template: '{{ silent }}'
+  then:
+  - action: media_player.volume_mute
+    target:
+      entity_id:
+      - media_player.home_theater
+      - media_player.home_theater_3
+    data:
+      is_volume_muted: true
+    continue_on_error: true
+- alias: Card reaches its finale (set to the card's hold + scenes length)
+  delay:
+    minutes: 3
+    seconds: 0
+- action: light.turn_on
+  alias: 'Finale: soft pink glisten'
+  continue_on_error: true
+  data:
+    rgb_color:
+    - 255
+    - 120
+    - 160
+  target:
+    entity_id: *id001
+- action: light.turn_on
+  continue_on_error: true
+  data:
+    effect: glisten
+  target:
+    entity_id: *id001
+- alias: 'Card video ends: wait for the Streamer to go idle'
+  wait_for_trigger:
+  - trigger: state
+    entity_id: media_player.living_room_tv
+    from: playing
+  timeout:
+    seconds: 45
+  continue_on_timeout: true
+- alias: Hold the finale as a still image until the music ends
+  action: media_player.play_media
+  target:
+    entity_id: media_player.living_room_tv
+  data:
+    media:
+      media_content_id: media-source://media_source/local/finale.jpg
+      media_content_type: image/jpeg
+  continue_on_error: true
+- alias: Wait for the music to finish
+  continue_on_timeout: true
+  timeout: '{{ ''00:01:00'' if silent else ''00:20:00'' }}'
+  wait_for_trigger:
+  - entity_id: media_player.home_theater_3
+    for:
+      seconds: 15
+    from: playing
+    trigger: state
+- action: script.turn_on
+  alias: Hand over to the end script
+  target:
+    entity_id: script.theater_birthday_end

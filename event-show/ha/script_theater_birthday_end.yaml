@@ -1,0 +1,56 @@
+alias: 'Theater: birthday show end'
+description: 'Ends the show (normally, or early from the panel''s Lobby chip): stops the card and music, settles the lights,
+  puts the Denon back on the Streamer and turns Birthday Mode off (which restores the paused automations).'
+icon: mdi:cake-variant-outline
+mode: single
+sequence:
+- action: script.turn_off
+  alias: Stop the show script if it is still running
+  target:
+    entity_id: script.theater_birthday_show
+- action: media_player.media_stop
+  alias: Stop the music
+  continue_on_error: true
+  target:
+    entity_id: media_player.home_theater_3
+- action: media_player.media_stop
+  alias: Stop the card on the Streamer
+  continue_on_error: true
+  target:
+    entity_id: media_player.living_room_tv
+- action: light.turn_on
+  alias: Hue effect off
+  continue_on_error: true
+  data:
+    effect: 'off'
+  target:
+    entity_id:
+    - light.hue_color_downlight_1
+    - light.hue_color_downlight_1_2
+    - light.hue_color_downlight_2
+    - light.hue_color_downlight_3
+- action: hue.hue_activate_scene
+  alias: Lights settle into the preferred scene
+  data:
+    group_name: Media
+    scene_name: Manvi's preferred
+    transition: 4
+- action: media_player.volume_mute
+  alias: 'Denon: unmute and back to the Streamer'
+  continue_on_error: true
+  data:
+    is_volume_muted: false
+  target:
+    entity_id:
+    - media_player.home_theater
+    - media_player.home_theater_3
+- action: media_player.select_source
+  continue_on_error: true
+  data:
+    source: GoogleTVStreamer
+  target:
+    entity_id: media_player.home_theater
+- action: input_boolean.turn_off
+  alias: Birthday Mode off (restores paused automations)
+  target:
+    entity_id: input_boolean.birthday_mode
