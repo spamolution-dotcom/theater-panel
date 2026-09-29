@@ -65,7 +65,6 @@ export function Lobby() {
       <div class="left-block">
         <${Cinema} />
         <div class="lb-stack"><${Lights} /><${Blind} /></div>
-        <${Apps} />
       </div>
       <div class="right-col">
         <${JustAdded} />
@@ -436,28 +435,18 @@ function EffectSheet({ id, onClose }) {
 // Apps on the Streamer. With the cinema off, a tap starts it (the warm-up screen shows) and the
 // app opens once the Streamer and Denon are up. Icons: web/assets/apps/<id>.png if present.
 const APPS = [
-  { id: 'netflix', name: 'Netflix', bg: '#141414', fg: '#E50914' },
-  { id: 'youtube', name: 'YouTube', bg: '#FFFFFF', fg: '#FF0000' },
-  { id: 'prime', name: 'Prime Video', bg: '#0F171E', fg: '#1FA8E0' },
-  { id: 'stremio', name: 'Stremio', bg: '#19163A', fg: '#8B5CF6' },
+  { id: 'netflix', name: 'Netflix', icon: 'film' },
+  { id: 'youtube', name: 'YouTube', icon: 'youtube' },
+  { id: 'prime', name: 'Prime Video', icon: 'screenplay' },
+  { id: 'stremio', name: 'Stremio', icon: 'diamondplay' },
 ];
 function AppTile({ app }) {
-  const [icon, setIcon] = useState(true);
   const open = async () => {
     const r = await act({ action: 'app', id: app.id });
     if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
     else if (r) toast(`Opening ${app.name} on the TV`);
   };
-  return html`<button type="button" class="app-tile" onClick=${open} aria-label=${`Open ${app.name}`}>
-    ${icon ? html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`
-      : html`<span class="swatch" style=${`background:${app.bg};color:${app.fg}`}>${app.name[0]}</span>`}
-    ${!icon && html`<span class="name">${app.name}</span>`}
-  </button>`;
-}
-function Apps() {
-  return html`<section class="card apps-card">
-    <div class="apps-row">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
-  </section>`;
+  return html`<button type="button" class="tile" onClick=${open} aria-label=${`Open ${app.name}`}><${Icon} name=${app.icon} size=${28} /><span>${app.name}</span></button>`;
 }
 
 function Blind() {
@@ -539,6 +528,22 @@ function ShelfRow({ row }) {
 // This fork: the cinema's own devices where the original had its projector. Power comes from your
 // movie scene (start it here; All off turns it off), then what HA reports for each device, the
 // Denon's volume and its input.
+// A device button: tap to switch that one device on or off. Power (the switch feeding the Denon)
+// asks for a second tap before turning off, like All off, so a stray tap can't cut the Denon mid-film.
+function DevButton({ d }) {
+  const [armed, setArmed] = useState(false);
+  useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
+  const tap = () => {
+    if (d.confirm && d.ok && !armed) { setArmed(true); return; }
+    setArmed(false);
+    act({ action: 'cinema', cmd: 'device', dev: d.id, on: !d.ok });
+    toast(`${d.name} ${d.ok ? 'off' : 'on'}`);
+  };
+  return html`<button type="button" class=${`dev ${d.ok ? 'ok' : ''} ${armed ? 'armed' : ''}`} aria-pressed=${d.ok ? 'true' : 'false'} onClick=${tap}
+    aria-label=${`${d.name}: ${d.ok ? 'on, tap to turn off' : 'off, tap to turn on'}`}>
+    <${Icon} name=${d.icon} size=${24} /><span class="dn"><b>${d.name}</b><span>${armed ? 'Tap again to turn off' : d.note}</span></span></button>`;
+}
+
 function Cinema() {
   const e = useStore((s) => s.entities) || {};
   const room = useEntity(e.roomOn);
@@ -554,10 +559,10 @@ function Cinema() {
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
   const src = avr?.attributes?.source;
   const devices = [
-    { name: 'Power', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off' },
-    { name: 'Denon', ok: isUp(avr), note: isUp(avr) ? `${vol}%` : 'Off' },
-    { name: 'Projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
-    { name: 'Streamer', ok: isUp(tv), note: appName || 'Off' },
+    { id: 'power', name: 'Power', icon: 'plug', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off', confirm: true },
+    { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}%` : 'Off' },
+    { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
+    { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
   return html`<section class="card cinema-card">
@@ -566,13 +571,14 @@ function Cinema() {
       <button type="button" class=${`power ${on ? 'on' : ''}`} aria-label=${on ? 'Cinema is on' : 'Start the cinema'} disabled=${on || warming}
         onClick=${() => act({ action: 'cinema', cmd: 'on' })}><${Icon} name="power" size=${40} color=${on ? '#F4F0E8' : 'var(--acc)'} /></button>
       <div style="min-width:0"><div style="font-size:21px;font-weight:600">${on ? 'Cinema is on' : warming ? 'Starting up' : 'Start the cinema'}</div>
-        <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Powers the Denon, projector and Streamer (about 2 min)'}</div></div>
+        <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Tap an app, or power on'}</div></div>
     </div>
-    <div class="devs">${devices.map((d) => html`<div class=${`dev ${d.ok ? 'ok' : ''}`}><span class=${`dot ${d.ok ? 'on' : ''}`}></span><b>${d.name}</b><span class="muted">${d.note}</span></div>`)}</div>
-    ${isUp(avr) && html`<div class="label" style="margin:14px 0 8px">Volume · ${vol}%</div>
-      <${Range} value=${vol} label="Denon volume" onCommit=${(v) => act({ action: 'cinema', cmd: 'volume', value: v })} />
-      <div class="label" style="margin:14px 0 8px">Input</div>
-      <div class="tiles">${[['GoogleTVStreamer', 'Streamer', 'tv'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${26} /><span>${name}</span></button>`)}</div>`}
+    <div class="label">Devices</div>
+    <div class="devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
+    ${isUp(avr) && html`<div class="label">Source</div>
+      <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
+    <div class="label apps-label">Apps</div>
+    <div class="tiles apps">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
   </section>`;
 }
 
