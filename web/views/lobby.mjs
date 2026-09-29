@@ -11,10 +11,10 @@ import { SleepChip } from './sleep.mjs';
 import { needsWarmup } from './warmup.mjs';
 
 const SCENES = [
-  { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
-  { name: 'movie_time', label: 'Movie time', desc: 'Lights fade · projector on', icon: 'film' },
+  { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · film scores', icon: 'music' },
+  { name: 'movie_time', label: 'Movie time', desc: 'Music fades · lights down', icon: 'film' },
   { name: 'intermission', label: 'Intermission', desc: 'Pause · lights 30%', icon: 'cup' },
-  { name: 'lights_up', label: 'Lights up', desc: 'Full bright · music off', icon: 'sun' },
+  { name: 'lights_up', label: 'Lights up', desc: 'Lights 100%', icon: 'sun' },
 ];
 
 export function Lobby() {
