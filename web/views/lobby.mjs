@@ -25,7 +25,6 @@ export function Lobby() {
   // A rear speaker left off its dock is the thing that goes wrong with detachable rears.
   const undocked = useStore((s) => (s.entities.soundbar?.rears || []).filter((r) => s.states[r.docked]?.state === 'off').map((r) => r.channel));
   const roomTemp = useEntity(ents.temperature);
-  const bday = useEntity(ents.birthdayMode);
   const [requests] = useLoad(() => get('/api/seerr/requests?take=10').catch(() => null), []);
   const downloading = requests?.results?.filter((r) => r.label === 'Downloading').length || 0;
   const arrivals = useArrivals();
@@ -58,7 +57,6 @@ export function Lobby() {
       <${SleepChip} />
       ${services.seerr && html`<button type="button" class="chip" onClick=${() => setScanOpen(true)}><${Icon} name="plus" size=${20} />Scan to request</button>`}
       ${downloading > 0 && html`<button type="button" class="chip warn" onClick=${() => go('request')}><${Icon} name="dl" size=${20} />${downloading} downloading</button>`}
-      ${bday?.state === 'on' && html`<button type="button" class="chip warn" onClick=${() => { act({ action: 'birthday', cmd: 'end' }); toast('Ending birthday mode'); }}><${Icon} name="sparkle" size=${20} />Birthday mode · End</button>`}
       ${roomTemp && !isNaN(Number(roomTemp.state)) && html`<span class="chip info" title="Cinema temperature"><${Icon} name="therm" size=${20} />${Number(roomTemp.state).toFixed(1)}°C</span>`}
     <//>
     <div class="lobby-grid">
