@@ -204,6 +204,12 @@ export async function runAction(ha, body) {
     // This fork's Cinema card: start the room (your movie scene), Denon volume and input.
     case 'cinema': {
       if (body.cmd === 'on') return ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+      // One device on or off from the Cinema card's device buttons.
+      if (body.cmd === 'device') {
+        const id = { power: e.plug, denon: e.avr, projector: e.projectorPower, chromecast: e.appleTv }[body.dev];
+        if (!id) throw httpError(400, 'Unknown device');
+        return ha.callService('homeassistant', body.on ? 'turn_on' : 'turn_off', {}, { target: { entity_id: id } });
+      }
       if (body.cmd === 'volume') {
         // Capped at 75%: a slip of the finger on a wall tablet should not blow the speakers.
         const level = Math.min(0.75, clamp(Number(body.value), 0, 100) / 100);

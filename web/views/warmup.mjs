@@ -36,7 +36,7 @@ export function Warmup() {
     { name: 'Cinema power', ok: up(states[e.plug]) || up(states[e.avr]) },
     { name: 'Denon', ok: up(states[e.avr]) },
     { name: 'Projector', ok: up(states[e.projectorPower]) },
-    { name: 'Streamer', ok: up(tv) },
+    { name: 'Chromecast', ok: up(tv) },
     { name: 'Stremio', ok: inStremio },
   ].filter((s, i) => i !== 2 || e.projectorPower);
 
