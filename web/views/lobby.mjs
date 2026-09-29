@@ -451,9 +451,10 @@ function AppTile({ app }) {
     const r = await act({ action: 'app', id: app.id });
     if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
   };
-  return html`<button type="button" class="app-tile" style=${`background:${app.bg};color:${app.fg}`} onClick=${open} aria-label=${`Open ${app.name}`}>
-    ${icon && html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`}
-    ${!icon && html`<span>${app.name}</span>`}
+  return html`<button type="button" class="app-tile" onClick=${open} aria-label=${`Open ${app.name}`}>
+    ${icon ? html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`
+      : html`<span class="swatch" style=${`background:${app.bg};color:${app.fg}`}>${app.name[0]}</span>`}
+    <span class="name">${app.name}</span>
   </button>`;
 }
 function Apps() {
