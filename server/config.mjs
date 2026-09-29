@@ -296,7 +296,7 @@ function build(env) {
   // cinema off before it goes back to the dashboard by itself (0 = never).
   dashboardUrl: /^https?:\/\//.test(env.DASHBOARD_URL || '') ? env.DASHBOARD_URL : '',
   // Private files for the birthday show live in HA's media folder, never in this repo.
-  birthdayDir: env.BIRTHDAY_DIR || '/media/birthday',
+  birthdayDir: env.BIRTHDAY_DIR || '/media',
   hallwayReturnMinutes: Math.max(0, Number(env.HALLWAY_RETURN_MINUTES ?? 5) || 0),
   // Which build this is: stamped into the image by `npm run push`.
   build: { version: env.BUILD_VERSION || 'dev', time: env.BUILD_TIME || '' },

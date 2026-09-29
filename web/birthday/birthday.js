@@ -4,7 +4,14 @@ const $ = (id) => document.getElementById(id);
 const test = new URLSearchParams(location.search).has('test');
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
-const t = await fetch('/api/birthday/teaser.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+// The teaser's words arrive in the URL (?d=<base64url JSON>, set by the HA automation that opens
+// this page) so they stay in HA; a teaser.json beside the poster is the fallback.
+const fromUrl = () => {
+  const d = new URLSearchParams(location.search).get('d');
+  if (!d) return null;
+  try { return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(d.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0)))); } catch { return null; }
+};
+const t = fromUrl() || await fetch('/api/birthday/teaser.json', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
 $('title').textContent = $('ptitle').textContent = t.name || 'Tonight';
 $('credit').textContent = t.credit || '';
 $('tagline').textContent = t.tagline || '';
