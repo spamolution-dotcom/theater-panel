@@ -446,6 +446,7 @@ function AppTile({ app }) {
   const open = async () => {
     const r = await act({ action: 'app', id: app.id });
     if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
+    else if (r) toast(`Opening ${app.name} on the TV`);
   };
   return html`<button type="button" class="app-tile" onClick=${open} aria-label=${`Open ${app.name}`}>
     ${icon ? html`<img src=${`/assets/apps/${app.id}.png`} alt="" onError=${() => setIcon(false)} />`

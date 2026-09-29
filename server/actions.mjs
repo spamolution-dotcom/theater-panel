@@ -9,11 +9,13 @@ import { extImage } from './images.mjs';
 import * as games from './games.mjs';
 import { httpError } from './admin.mjs';
 
-// What each app tile opens on the Streamer (URL links: launching by package name does not work).
+// Launch links as documented for the Android TV Remote integration
+// (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
+// its stremio:/// scheme is the one already proven by the play-stream script.
 const APP_URLS = {
-  netflix: 'https://www.netflix.com/',
-  youtube: 'https://www.youtube.com/',
-  prime: 'https://app.primevideo.com/',
+  netflix: 'https://www.netflix.com/title',
+  youtube: 'https://www.youtube.com',
+  prime: 'https://app.primevideo.com',
   stremio: 'stremio:///',
 };
 const SCENES = ['pre_show', 'movie_time', 'intermission', 'lights_up', 'all_off'];
@@ -172,10 +174,23 @@ export async function runAction(ha, body) {
     case 'app': {
       const url = APP_URLS[body.id];
       if (!url) throw httpError(400, 'Unknown app');
-      const open = () => ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: url } }, { target: { entity_id: e.appleTv } });
+      const open = async () => {
+        // A link sent while the Google Photos screensaver is up may be swallowed: wake it first.
+        if (SCREENSAVER.test(ha.states[e.appleTv]?.attributes?.app_id || '')) {
+          await ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: url } }, { target: { entity_id: e.appleTv } });
+      };
       const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state);
-      if (ready()) { await open(); return { ok: true }; }
-      if (ha.states[e.roomOn]?.state !== 'on') await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+      // Always bring the movie scene on (lights, blind), even when the kit is already up.
+      const sceneOff = ha.states[e.roomOn]?.state !== 'on';
+      if (ready()) {
+        await open();
+        if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+        return { ok: true };
+      }
+      if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
       (async () => {
         const until = Date.now() + 210e3;
         while (!ready() && Date.now() < until) await new Promise((r) => setTimeout(r, 2000));
