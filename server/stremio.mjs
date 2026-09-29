@@ -280,7 +280,11 @@ const LIBS = [
 // whatever the other addons add).
 export async function libraries() {
   const cats = await catalogs().catch((e) => { console.warn('[stremio] addon catalogs:', e.message); return []; });
-  return [...LIBS, ...cats].map(({ id, title, type, source }) => ({ id, title, type, source: source === 'library' ? 'library' : 'catalog' }));
+  return [...LIBS, ...cats].map(({ id, title, type, source, genres, genreRequired, genreLabel }) => ({
+    id, title, type, source: source === 'library' ? 'library' : 'catalog',
+    // Catalogs that can be narrowed by genre (or year): the Watch screen offers a picker.
+    genre: genres?.length ? { label: genreLabel, required: Boolean(genreRequired), first: genres[0] } : null,
+  }));
 }
 
 // ---------- addon catalogs ----------
@@ -303,11 +307,18 @@ export async function catalogs() {
     for (const c of m.catalogs || []) {
       if (!['movie', 'series'].includes(c.type)) continue;
       const extras = c.extra || [];
-      if ((c.extraRequired || []).length || extras.some((e) => e.isRequired)) continue;
+      // Catalogs that insist on an input first: only a genre (or year) one can be offered, with
+      // its first option chosen (Cinemeta's "New" wants a year: the current one).
+      const required = [...(c.extraRequired || []), ...extras.filter((e) => e.isRequired).map((e) => e.name)];
+      if (required.some((n) => n !== 'genre')) continue;
+      const genreOpts = extras.find((e) => e.name === 'genre')?.options || c.genres || [];
+      const genreRequired = required.includes('genre');
+      if (genreRequired && !genreOpts.length) continue;
+      const genreLabel = genreOpts.length && genreOpts.every((o) => /^\d{4}$/.test(o)) ? 'Year' : 'Genre';
       const kind = c.type === 'series' ? 'Series' : 'Films';
       const name = c.name || c.id;
       const title = /cinemeta/i.test(m.name || m.id || '') ? `${name} ${kind.toLowerCase()}` : `${name} · ${kind}`;
-      list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip'), genres: extras.find((e) => e.name === 'genre')?.options || [] });
+      list.push({ id: catKey(base, c.type, c.id), title, type: kind === 'Series' ? 'show' : 'movie', source: 'addon', base, catType: c.type, catId: c.id, addon: m.name || m.id, paged: extras.some((e) => e.name === 'skip'), genres: genreOpts, genreRequired, genreLabel });
     }
   }
   catIndex = new Map(list.map((c) => [c.id, c]));
@@ -315,7 +326,8 @@ export async function catalogs() {
 }
 
 async function addonCatalog(def, { skip = 0, genre } = {}) {
-  const parts = [genre && `genre=${encodeURIComponent(genre)}`, skip && def.paged && `skip=${skip}`].filter(Boolean);
+  const g = genre || (def.genreRequired ? def.genres[0] : undefined);
+  const parts = [g && `genre=${encodeURIComponent(g)}`, skip && def.paged && `skip=${skip}`].filter(Boolean);
   const extra = parts.length ? `/${parts.join('&')}` : '';
   const url = `${def.base}/catalog/${def.catType}/${encodeURIComponent(def.catId)}${extra}.json`;
   const metas = await cached(`addoncat:${url}`, 30 * 60e3, async () => (await getJson(url, 12000))?.metas || []);
@@ -409,6 +421,10 @@ export async function listLibrary(libId, { filters = [], genre, sort = 'added', 
 
 // Cinemeta's genres for the catalog tabs (the library tabs have none to filter on).
 export async function genres(libId) {
+  // An addon catalog (Cinemeta's Popular, New, Featured...): the genres (or years) it offers.
+  let addonCat = catIndex.get(libId);
+  if (!addonCat && String(libId).startsWith('cat-')) { await catalogs(); addonCat = catIndex.get(libId); }
+  if (addonCat) return (addonCat.genres || []).map((g) => ({ id: g, title: g }));
   const def = LIBS.find((l) => l.id === libId);
   if (!def || def.source !== 'catalog') return [];   // library tabs and addon catalogs: no genre filter
   const manifest = await cached('manifest', 24 * 3600e3, () => getJson(`${CINEMETA}/manifest.json`));
