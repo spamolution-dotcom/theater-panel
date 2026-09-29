@@ -748,6 +748,10 @@ const server = createServer(async (req, res) => {
     if (path === '/vote' || path === '/vote/') return serveFile(res, join(WEB, 'vote.html'));
     if (path === '/guest' || path === '/guest/') return serveFile(res, join(WEB, 'guest.html'));
     if (path === '/marquee' || path === '/marquee/') return serveFile(res, join(WEB, 'marquee.html'));
+    if (path === '/birthday' || path === '/birthday/') return serveFile(res, join(WEB, 'birthday.html'));
+    // The birthday show's private files, read from HA's media folder: only these two names.
+    const bd = /^\/api\/birthday\/(poster\.jpg|teaser\.json)$/.exec(path);
+    if (bd) return serveFile(res, join(config.birthdayDir, bd[1]), 'no-store');
 
     if (path.startsWith('/api/')) {
       for (const [method, re, fn] of routes) {

@@ -202,6 +202,14 @@ export async function runAction(ha, body) {
     }
 
     // This fork's Cinema card: start the room (your movie scene), Denon volume and input.
+    // The birthday show: the teaser's button starts it, the Lobby's chip ends it early.
+    // Both are HA scripts (script.theater_birthday_show / _end) so HA owns the sequence.
+    case 'birthday': {
+      if (body.cmd === 'start') return script(ha, 'birthday_show', { test: body.test === true });
+      if (body.cmd === 'end') return script(ha, 'birthday_end');
+      throw httpError(400, 'Unknown birthday command');
+    }
+
     case 'cinema': {
       if (body.cmd === 'on') return ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
       if (body.cmd === 'volume') {

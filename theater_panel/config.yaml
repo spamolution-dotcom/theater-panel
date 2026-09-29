@@ -1,5 +1,5 @@
 name: Theater Panel
-version: "0.9.9"
+version: "0.10.0"
 slug: theater_panel
 description: Home theater wall panel (a Stremio fork of davidcoulson/theater-panel)
 url: https://github.com/spamolution-dotcom/theater-panel
@@ -9,6 +9,10 @@ image: ghcr.io/spamolution-dotcom/theater-panel-addon-{arch}
 startup: application
 boot: auto
 homeassistant_api: true
+# Read-only: the birthday show reads its private files (poster, teaser text) from /media/birthday.
+map:
+  - type: media
+    read_only: true
 ports:
   8787/tcp: 8787
   6053/tcp: 6053
