@@ -28,7 +28,8 @@ import { TonightSheet, GuestSheet } from './views/tonight.mjs';
 import { SoundSheet } from './views/soundbar.mjs';
 
 const VIEWS = { lobby: Lobby, watch: Watch, request: Request, music: Music, games: Games, showtime: Showtime, warmup: Warmup, stats: Stats, showing: Showing, pick: Pick, year: Year, intermission: Intermission };
-const NAV = [['lobby', 'Home', 'home'], ['watch', 'Watch', 'film'], ['request', 'Request', 'plus'], ['music', 'Music', 'music'], ['games', 'Games', 'pad']];
+// Request (Seerr) is left off the rail: this fork has no request service. #/request still opens it.
+const NAV = [['lobby', 'Home', 'home'], ['watch', 'Watch', 'film'], ['music', 'Music', 'music'], ['games', 'Games', 'pad']];
 
 // Hash routes, with optional query params: #/watch?lib=networks&brand=netflix
 function parseHash() {

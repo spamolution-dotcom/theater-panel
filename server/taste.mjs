@@ -125,29 +125,34 @@ export async function mystery({ filters = [], exclude = [] } = {}) {
   const want = ['unwatched', 'recent', 'rated', rules.family ? 'family' : '', only, ...filters].filter(Boolean);
   // The merged index answers from memory, so the whole shuffled pile is cheap to ask for; the
   // rules below then thin it, and the first few hundred that survive are as random as any.
+  // With Stremio there is no studio, age rating or date added to go on: its own pool applies the
+  // year and IMDb-rating rules, and the Plex-only rules below are skipped.
+  const stremio = typeof plex.mysteryPool === 'function';
   const [pool, list] = await Promise.all([
-    plex.listLibrary(plex.MERGED, { filters: [...new Set(want)], sort: 'random', size: 5000 }),
+    stremio ? plex.mysteryPool({ years: rules.years, minRating: rules.minRating, filters: want }).then((items) => ({ items }))
+      : plex.listLibrary(plex.MERGED, { filters: [...new Set(want)], sort: 'random', size: 5000 }),
     seeds(8).catch(() => []),
   ]);
   const skip = new Set(exclude.map(String));
   const settledBefore = Date.now() / 1000 - rules.settleDays * 86400;
+  const plexOnly = (fn) => (i) => stremio || fn(i);
   const items = pool.items.filter((i) => !skip.has(String(i.id)))
     .filter((i) => !rules.maxMinutes || !i.duration || i.duration <= rules.maxMinutes * 60000)
     .filter((i) => !(i.genres || []).some((g) => rules.excludeGenres.includes(g.toLowerCase())))
-    .filter((i) => !rules.settleDays || !i.addedAt || i.addedAt < settledBefore)
+    .filter(plexOnly((i) => !rules.settleDays || !i.addedAt || i.addedAt < settledBefore))
     .filter((i) => !rules.excludeLibraries.includes((i.library || '').toLowerCase()))
     .filter((i) => !rules.skipDisliked || i.userRating == null || i.userRating > 4)
-    .filter((i) => !rules.ratedOnly || RATED.test(i.contentRating || ''))
-    .filter((i) => rules.minContentRating === 'any' || ratedAtLeast(i.contentRating, rules.minContentRating))
-    .filter((i) => !rules.mainstreamOnly || mainstream(i.studio, rules.studiosExtra))
+    .filter(plexOnly((i) => !rules.ratedOnly || RATED.test(i.contentRating || '')))
+    .filter(plexOnly((i) => rules.minContentRating === 'any' || ratedAtLeast(i.contentRating, rules.minContentRating)))
+    .filter(plexOnly((i) => !rules.mainstreamOnly || mainstream(i.studio, rules.studiosExtra)))
     .filter((i) => !rules.studiosExclude.some((s) => (i.studio || '').toLowerCase().includes(s)))
     .slice(0, 300);
   if (!items.length) {
     const limits = [rules.years ? `from ${plex.RECENT_FROM()} on` : '', rules.minRating ? `rated ${rules.minRating}+` : '',
       rules.maxMinutes ? `under ${rules.maxMinutes} min` : '', rules.family ? 'family-friendly' : '', only ? `in ${only.toUpperCase()}` : '',
       rules.excludeGenres.length ? `outside ${rules.excludeGenres.join(', ')}` : '', rules.excludeLibraries.length ? `not in ${rules.excludeLibraries.join(', ')}` : '',
-      rules.settleDays ? `older than ${rules.settleDays} days here` : '', rules.ratedOnly ? 'with a rating' : '',
-      rules.minContentRating === 'any' ? '' : `rated ${rules.minContentRating} or above`, rules.mainstreamOnly ? 'from a mainstream studio' : '',
+      !stremio && rules.settleDays ? `older than ${rules.settleDays} days here` : '', !stremio && rules.ratedOnly ? 'with a rating' : '',
+      stremio || rules.minContentRating === 'any' ? '' : `rated ${rules.minContentRating} or above`, !stremio && rules.mainstreamOnly ? 'from a mainstream studio' : '',
       rules.studiosExclude.length ? `not by ${rules.studiosExclude.join(', ')}` : ''].filter(Boolean).join(', ');
     throw new Error(`Nothing unwatched${limits ? ` ${limits}` : ''} matches that`);
   }

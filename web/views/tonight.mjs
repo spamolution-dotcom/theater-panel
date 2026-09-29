@@ -13,7 +13,7 @@ const hour12 = (h) => `${h % 12 || 12} ${h < 12 ? 'AM' : 'PM'}`;
 // Start times on offer: every half hour from the next one to midnight, "Now" first.
 function slots() {
   const out = [];
-  const d = new Date();
+  let d = new Date();   // reassigned below: a const here threw, and the sheet never opened
   d.setSeconds(0, 0);
   d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0);
   const end = new Date(); end.setHours(23, 59, 0, 0);
