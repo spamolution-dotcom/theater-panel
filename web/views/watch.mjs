@@ -19,12 +19,22 @@ const SORTS = [
   { value: 'rating', label: 'Top rated' },
   { value: 'random', label: 'Random pick' },
 ];
+// Short tab names under the Movies | TV Shows switch: the switch already says which kind, so
+// "Popular films", "Hindi · Films" and "Christmas Movies · Films" become Popular, Hindi, Christmas.
+export function shortTab(l) {
+  if (l.source === 'library') return l.type === 'show' ? 'My shows' : 'My movies';
+  const t = String(l.title || '').replace(/\s*·\s*(films|series)$/i, '').replace(/\s+(films|series|movies|shows|tv)$/i, '').trim();
+  return t || l.title;
+}
+const kindOf = (l) => (l?.type === 'show' ? 'show' : 'movie');
+
 const PAGE = 48;
 const MAX_ITEMS = 480;   // infinite scroll stops here; the filters are the way to go deeper
 
 export function Watch() {
   const [libs] = useLoad(() => get('/api/plex/libraries'), []);
   const [lib, setLib] = useState(route.params.lib || (route.params.brand ? 'networks' : null));
+  const [kind, setKind] = useState(null);           // 'movie' | 'show'; null = follow the open tab
   const [filters, setFilters] = useState(['unwatched']);
   const [sort, setSort] = useState('added');
   const [genre, setGenre] = useState(null);         // a catalog's genre (or year); null = all / its default
@@ -45,7 +55,16 @@ export function Watch() {
 
   // For you is where Watch opens. "?lib=library" (Browse library on Home) opens Movies instead.
   // This fork has no "For you" or "Networks" tabs (both need Plex/Seerr): My movies is the default.
-  const libId = lib === 'library' || lib === 'foryou' || !lib ? libs?.[0]?.id : lib;
+  const openLib = libs?.find((l) => l.id === lib);
+  const kindNow = kind || (openLib ? kindOf(openLib) : 'movie');
+  const kindLibs = (libs || []).filter((l) => kindOf(l) === kindNow);
+  const libId = lib === 'networks' ? lib : openLib && kindOf(openLib) === kindNow ? lib : kindLibs[0]?.id;
+  const switchKind = (k) => {
+    if (k === kindNow) return;
+    // Stay on the same kind of list where the other side has one (Popular -> Popular).
+    const same = (libs || []).find((l) => kindOf(l) === k && openLib && shortTab(l).replace(/^My .*/, 'My') === shortTab(openLib || {}).replace(/^My .*/, 'My'));
+    setQuery(''); setKind(k); setLib(same?.id || null); setBrand(null); setSelected(null); setGenre(null);
+  };
   const byNetwork = libId === 'networks';
   const forYou = libId === 'foryou';
   const libType = byNetwork ? null : libs?.find((l) => l.id === libId)?.type;
@@ -93,18 +112,23 @@ export function Watch() {
   const libTitle = libs?.find((l) => l.id === libId)?.title;
 
   return html`<main class="view">
-    <${Header} title="Watch" kicker=${q ? `Stremio search · ${total} results` : forYou ? 'Stremio · picked from what you watch' : byNetwork ? `Stremio · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Stremio · ${libTitle || ''}${genreNow ? ` · ${genreNow}` : ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
+    <${Header} title="Watch" kicker=${q ? `Stremio search · ${total} results` : forYou ? 'Stremio · picked from what you watch' : byNetwork ? `Stremio · ${brandName ? `${brandName} · ${total} titles` : 'Pick a network'}` : `Stremio · ${kindNow === 'show' ? 'TV Shows' : 'Movies'} · ${openLib || libId ? shortTab(libs?.find((l) => l.id === libId) || {}) : ''}${genreNow ? ` · ${genreNow}` : ''}${total ? ` · ${total.toLocaleString()} titles` : ''}`}>
       <label class="search" style="width:420px"><${Icon} name="search" color="var(--muted)" /><span class="sr">Search Stremio</span>
-        <input type="search" placeholder="Search films and series" value=${query} onInput=${(e) => setQuery(e.target.value)} />
+        <input type="search" placeholder="Search movies and TV shows" value=${query} onInput=${(e) => setQuery(e.target.value)} />
         ${query && html`<button type="button" class="icon-btn" aria-label="Clear search" style="width:40px;height:40px" onClick=${() => setQuery('')}><${Icon} name="x" size=${20} /></button>`}
       </label>
     <//>
+    <div class="watch-nav">
+    <div class="kind-toggle" role="group" aria-label="Movies or TV shows">
+      ${[['movie', 'Movies', 'film'], ['show', 'TV Shows', 'tv']].map(([k, label, icon]) => html`<button type="button" aria-pressed=${kindNow === k ? 'true' : 'false'} onClick=${() => switchKind(k)}><${Icon} name=${icon} size=${22} />${label}</button>`)}
+    </div>
     <div class="tabs-row" ref=${tabsRef}>
-      <${Seg} cls="scroll" options=${(libs || []).map((l) => ({ value: l.id, label: l.title }))} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); setGenre(null); }} />
+      <${Seg} cls="scroll" options=${kindLibs.map((l) => ({ value: l.id, label: shortTab(l) }))} value=${q ? null : libId} onChange=${(v) => { setQuery(''); setLib(v); setBrand(null); setSelected(null); setGenre(null); }} />
       <button type="button" class="tabs-more" aria-label="More catalogs" onClick=${() => {
         const el = tabsRef.current?.querySelector('.seg');
         if (el) el.scrollTo({ left: el.scrollLeft + el.clientWidth >= el.scrollWidth - 4 ? 0 : el.scrollLeft + el.clientWidth * 0.7, behavior: 'smooth' });
       }}><${Icon} name="chev" size=${26} w=${2.2} color="#F4F0E8" /></button>
+    </div>
     </div>
     <div style="display:flex;align-items:center;gap:12px">
       <div class="hscroll" style="display:flex;gap:10px;min-width:0;align-items:center">
