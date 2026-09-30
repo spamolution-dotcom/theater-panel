@@ -68,6 +68,7 @@ export function Lobby() {
       </div>
       <div class="right-col">
         <${JustAdded} />
+        <${ScenesRow} />
       </div>
     </div>
     ${streamsOpen && html`<${StreamsSheet} onClose=${() => setStreamsOpen(false)} />`}
@@ -433,8 +434,6 @@ function EffectSheet({ id, onClose }) {
   </div>`;
 }
 
-// The cinema's blind: where it is, a slider, and Open / Movie (20%, as the theatre sequence sets
-// it) / Close.
 // Apps on the Streamer. With the cinema off, a tap starts it (the warm-up screen shows) and the
 // app opens once the Streamer and Denon are up. Icons: web/assets/apps/<id>.png if present.
 const APPS = [
@@ -462,9 +461,9 @@ function Blind() {
     <${H2} title="Blind"><span class="mono muted" style="font-size:16px">${label}</span><//>
     <${Range} value=${pos} label="Blind position" fill="#7D8C99" onCommit=${(v) => to({ position: v })} />
     <div class="blind-btns">
-      <button type="button" class="filter" aria-pressed=${pos >= 100 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'open' })}>Open</button>
-      <button type="button" class="filter" aria-pressed=${pos === 20 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ position: 20 })}>Movie</button>
-      <button type="button" class="filter" aria-pressed=${pos <= 0 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'close' })}>Close</button>
+      <button type="button" class="filter" aria-pressed=${pos >= 100 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'open' })}><${Icon} name="blindOpen" size=${22} />Open</button>
+      <button type="button" class="filter" aria-pressed=${pos === 20 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ position: 20 })}><${Icon} name="blindMovie" size=${22} />Movie</button>
+      <button type="button" class="filter" aria-pressed=${pos <= 0 ? 'true' : 'false'} disabled=${gone} onClick=${() => to({ to: 'close' })}><${Icon} name="blindClose" size=${22} />Close</button>
     </div>
   </section>`;
 }
@@ -528,20 +527,20 @@ function ShelfRow({ row }) {
 // This fork: the cinema's own devices where the original had its projector. Power comes from your
 // movie scene (start it here; All off turns it off), then what HA reports for each device, the
 // Denon's volume and its input.
-// A device button: tap to switch that one device on or off. Power (the switch feeding the Denon)
-// asks for a second tap before turning off, like All off, so a stray tap can't cut the Denon mid-film.
+// A device button: tap to switch that one device on or off. Turning any device off takes a second
+// tap, like All off, so a stray tap on the wall tablet can't cut the picture or sound mid-film.
 function DevButton({ d }) {
   const [armed, setArmed] = useState(false);
   useEffect(() => { if (!armed) return; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
   const tap = () => {
-    if (d.confirm && d.ok && !armed) { setArmed(true); return; }
+    if (d.ok && !armed) { setArmed(true); return; }
     setArmed(false);
     act({ action: 'cinema', cmd: 'device', dev: d.id, on: !d.ok });
     toast(`${d.name} ${d.ok ? 'off' : 'on'}`);
   };
   return html`<button type="button" class=${`dev ${d.ok ? 'ok' : ''} ${armed ? 'armed' : ''}`} aria-pressed=${d.ok ? 'true' : 'false'} onClick=${tap}
     aria-label=${`${d.name}: ${d.ok ? 'on, tap to turn off' : 'off, tap to turn on'}`}>
-    <${Icon} name=${d.icon} size=${24} /><span class="dn"><b>${d.name}</b><span>${armed ? 'Tap again to turn off' : d.note}</span></span></button>`;
+    <${Icon} name=${d.icon} size=${32} /><span class="dn"><b>${d.name}</b><span>${armed ? 'Tap again to turn off' : d.note}</span></span></button>`;
 }
 
 function Cinema() {
@@ -559,13 +558,12 @@ function Cinema() {
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
   const src = avr?.attributes?.source;
   const devices = [
-    { id: 'power', name: 'Power', icon: 'plug', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off', confirm: true },
+    { id: 'power', name: 'Power', icon: 'plug', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off' },
     { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}%` : 'Off' },
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
     { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
-  const active = useActiveScene();
   return html`<section class="card cinema-card">
     <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
     <div class="row">
@@ -578,13 +576,20 @@ function Cinema() {
     <div class="devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
     ${isUp(avr) && html`<div class="label">Source</div>
       <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
-    <div class="label apps-label">Scenes</div>
-    <div class="scn-grid">${SCENES.map((sc) => html`<button type="button" class="scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'} onClick=${() => act({ action: 'scene', name: sc.name })}>
-      <${Icon} name=${sc.icon} size=${24} /><span class="dn"><b>${sc.label}</b><span>${sc.desc}</span></span></button>`)}</div>
   </section>`;
 }
 
-// Just added: your newest titles, four big posters at a time.
+// The room's scenes, in their own row under Just added: four big buttons, the active one dark.
+function ScenesRow() {
+  const active = useActiveScene();
+  return html`<section class="card scenes-row" aria-label="Scenes">
+    <div class="label">Scenes</div>
+    <div class="scn-grid">${SCENES.map((sc) => html`<button type="button" class="scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'} onClick=${() => act({ action: 'scene', name: sc.name })}>
+      <${Icon} name=${sc.icon} size=${32} /><span class="dn"><b>${sc.label}</b><span>${sc.desc}</span></span></button>`)}</div>
+  </section>`;
+}
+
+// Just added: your newest titles, five posters at a time (swipe for the next five).
 function JustAdded() {
   const [items] = useLoad(() => get('/api/plex/recent?size=20'), []);
   // One card per movie or show: collapse episodes into their show.
@@ -593,8 +598,7 @@ function JustAdded() {
     const k = m.showTitle || m.id;
     if (seen.has(k)) return false; seen.add(k); return true;
   }).slice(0, 12);
-  // Four big posters at a time; swipe (or tap a dot) for the next four.
-  const PER = 4;
+  const PER = 5;
   const pages = Math.max(1, Math.ceil(list.length / PER));
   const [page, setPage] = useState(0);
   const pg = Math.min(page, pages - 1);
@@ -620,7 +624,6 @@ function JustAdded() {
         <div class="ja-meta">${[m.year, kind(m)].filter(Boolean).join(' · ')}</div>
       </button>`)}
     </div>
-    ${pages > 1 && html`<div class="ja-dots"><span>Swipe for more</span>${Array.from({ length: pages }, (_, k) => html`<button type="button" class=${k === pg ? 'on' : ''} aria-label=${`Page ${k + 1}`} onClick=${() => setPage(k)}></button>`)}</div>`}
   </section>`;
 }
 
