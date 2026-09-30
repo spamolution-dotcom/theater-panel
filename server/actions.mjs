@@ -183,19 +183,28 @@ export async function runAction(ha, body) {
         return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: url } }, { target: { entity_id: e.appleTv } });
       };
       const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state);
+      // Pre-show or warm-up music fades out (HA's script.theater_music_fade, ~2.5 s) before the app
+      // opens, rather than being cut off by it. A missing script only costs the fade.
+      const fadeMusic = () => ha.callService('script', 'theater_music_fade', {}).catch((err) => console.warn('[app] no music fade:', err.message));
       // Always bring the movie scene on (lights, blind), even when the kit is already up.
       const sceneOff = ha.states[e.roomOn]?.state !== 'on';
       if (ready()) {
+        await fadeMusic();
         await open();
         if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
         return { ok: true };
       }
-      if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+      if (sceneOff) {
+        await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+        // Music on the cinema's Google Mini and warm lights while the kit comes up.
+        script(ha, 'warmup_music').catch((err) => console.warn('[app] no warm-up music:', err.message));
+      }
       (async () => {
         const until = Date.now() + 210e3;
         while (!ready() && Date.now() < until) await new Promise((r) => setTimeout(r, 2000));
-        if (!ready()) return console.warn(`[app] ${body.id}: the cinema did not come up in time`);
+        if (!ready()) { await fadeMusic(); return console.warn(`[app] ${body.id}: the cinema did not come up in time`); }
         await new Promise((r) => setTimeout(r, 5000));   // a Streamer that has just woken ignores links for a moment
+        await fadeMusic();
         await open().catch((err) => console.warn(`[app] ${body.id}:`, err.message));
       })();
       return { ok: true, warming: true };
