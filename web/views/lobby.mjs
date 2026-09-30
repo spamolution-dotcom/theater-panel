@@ -11,8 +11,8 @@ import { SleepChip } from './sleep.mjs';
 import { needsWarmup } from './warmup.mjs';
 
 const SCENES = [
-  { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · film scores', icon: 'music' },
-  { name: 'movie_time', label: 'Movie time', desc: 'Music fades · lights down', icon: 'film' },
+  { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
+  { name: 'movie_time', label: 'Movie time', desc: 'Lights down', icon: 'film' },
   { name: 'intermission', label: 'Intermission', desc: 'Pause · lights 30%', icon: 'cup' },
   { name: 'lights_up', label: 'Lights up', desc: 'Lights 100%', icon: 'sun' },
 ];
@@ -61,7 +61,7 @@ export function Lobby() {
     <//>
     <div class="lobby-grid">
       <${Continue} />
-      <${Scenes} />
+      <${AppsBoard} />
       <div class="left-block">
         <${Cinema} />
         <div class="lb-stack"><${Lights} /><${Blind} /></div>
@@ -232,19 +232,22 @@ function AllOffChip() {
     <${Icon} name="power" size=${20} />${armed ? 'Tap again to turn off' : 'All off'}</button>`;
 }
 
-function Scenes() {
-  // The tracker keeps its last value when the cinema is turned off elsewhere (the toggle, the Hue
-  // switch), so no scene is shown as active while the movie scene is off.
+// The active scene, for highlighting its button. The tracker keeps its last value when the cinema
+// is turned off elsewhere (the toggle, the Hue switch), so none is active while the movie scene is off.
+function useActiveScene() {
   const roomOn = useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
   const tracked = useEntity('input_select.theater_scene')?.state;
-  const scene = roomOn ? tracked : undefined;
   const map = { 'Pre-show': 'pre_show', 'Movie time': 'movie_time', Intermission: 'intermission', 'Lights up': 'lights_up' };
-  const active = map[scene];
-  return html`<section class="scenes tx-maple" aria-label="Scenes">
+  return roomOn ? map[tracked] : undefined;
+}
+
+// Top right of Home: the four apps on the wooden board, the biggest buttons on the page.
+function AppsBoard() {
+  return html`<section class="scenes apps-board tx-maple" aria-label="Apps">
     <div class="grid">
-      ${SCENES.map((s) => html`<button type="button" class="scene" aria-pressed=${s.name === active ? 'true' : 'false'} onClick=${() => act({ action: 'scene', name: s.name })}>
-        <${Icon} name=${s.icon} size=${30} color=${s.name === active ? 'var(--gold)' : 'var(--acc)'} />
-        <span><span class="n">${s.label}</span><br /><span class="d">${s.desc}</span></span>
+      ${APPS.map((a) => html`<button type="button" class="scene" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}>
+        <${Icon} name=${a.icon} size=${34} color="var(--acc)" />
+        <span class="n">${a.name}</span>
       </button>`)}
     </div>
   </section>`;
@@ -440,13 +443,10 @@ const APPS = [
   { id: 'prime', name: 'Prime Video', icon: 'screenplay' },
   { id: 'stremio', name: 'Stremio', icon: 'diamondplay' },
 ];
-function AppTile({ app }) {
-  const open = async () => {
-    const r = await act({ action: 'app', id: app.id });
-    if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
-    else if (r) toast(`Opening ${app.name} on the TV`);
-  };
-  return html`<button type="button" class="tile" onClick=${open} aria-label=${`Open ${app.name}`}><${Icon} name=${app.icon} size=${28} /><span>${app.name}</span></button>`;
+async function openApp(app) {
+  const r = await act({ action: 'app', id: app.id });
+  if (r?.warming) go('warmup', { sub: `${app.name} opens once the cinema is up` });
+  else if (r) toast(`Opening ${app.name} on the TV`);
 }
 
 function Blind() {
@@ -565,6 +565,7 @@ function Cinema() {
     { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
+  const active = useActiveScene();
   return html`<section class="card cinema-card">
     <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
     <div class="row">
@@ -577,8 +578,9 @@ function Cinema() {
     <div class="devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
     ${isUp(avr) && html`<div class="label">Source</div>
       <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
-    <div class="label apps-label">Apps</div>
-    <div class="tiles apps">${APPS.map((a) => html`<${AppTile} app=${a} key=${a.id} />`)}</div>
+    <div class="label apps-label">Scenes</div>
+    <div class="scn-grid">${SCENES.map((sc) => html`<button type="button" class="scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'} onClick=${() => act({ action: 'scene', name: sc.name })}>
+      <${Icon} name=${sc.icon} size=${24} /><span class="dn"><b>${sc.label}</b><span>${sc.desc}</span></span></button>`)}</div>
   </section>`;
 }
 
@@ -613,7 +615,7 @@ function JustAdded() {
     <${H2} title="Just added"><button type="button" class="link" onClick=${() => go('watch', { lib: 'library' })}>Browse library</button><//>
     <div class="ja-grid" onPointerDown=${down} onPointerUp=${up} onPointerCancel=${() => { swipe.current = null; }} onClickCapture=${guard}>
       ${list.slice(pg * PER, pg * PER + PER).map((m) => html`<button type="button" class="ja-item" key=${m.id} onClick=${() => go('watch', { item: m.id })} aria-label=${m.showTitle || m.title}>
-        <div class="framed"><${Poster} src=${m.poster} title=${m.showTitle || m.title} /></div>
+        <div class="framed"><${Poster} src=${m.poster} title=${m.showTitle || m.title}>${m.rating ? html`<span class="rating" title="IMDb rating">★ ${Number(m.rating).toFixed(1)}</span>` : null}<//></div>
         <div class="ja-name">${m.showTitle || m.title}</div>
         <div class="ja-meta">${[m.year, kind(m)].filter(Boolean).join(' · ')}</div>
       </button>`)}
