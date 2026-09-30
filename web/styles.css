@@ -966,6 +966,14 @@ html.cinema .cinema-card .dev.armed { background: rgba(184, 70, 30, .22); }
 .showtime .dbtn.armed .s { color: #F2B28C; }
 
 /* Watch: catalog tabs on their own row (scrolling, with a "more" button), filters below. */
+.watch-nav { display: flex; gap: 14px; align-items: center; min-width: 0; }
+.watch-nav .tabs-row { flex: 1; min-width: 0; }
+.kind-toggle { display: inline-flex; gap: 4px; padding: 4px; border-radius: 30px; background: var(--card); border: 1px solid var(--line); flex-shrink: 0; }
+.kind-toggle button { height: 48px; padding: 0 22px; border: 0; border-radius: 24px; background: transparent; color: var(--ink); font-size: 18px; font-weight: 700; display: inline-flex; align-items: center; gap: 10px; }
+.kind-toggle button svg { color: var(--acc); }
+.kind-toggle button[aria-pressed="true"] { background: var(--choc); color: #F4F0E8; }
+.kind-toggle button[aria-pressed="true"] svg { color: var(--gold); }
+html.cinema .kind-toggle button[aria-pressed="true"] { background: var(--acc-soft); color: var(--ink); }
 .tabs-row { position: relative; }
 .tabs-row .seg { padding-right: 70px; }
 .tabs-row::after { content: ''; position: absolute; right: 0; top: 0; bottom: 0; width: 120px; border-radius: 0 28px 28px 0; background: linear-gradient(90deg, rgba(228,220,210,0), var(--track) 65%); pointer-events: none; }
