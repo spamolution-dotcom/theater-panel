@@ -19,7 +19,7 @@ export const ACCENTS = [
   { id: 'winter', name: 'Winter', gold: '#CFE0EC', glow: 'Rolling Fog', weather: 'snow' },
   { id: 'spring', name: 'Spring', gold: '#E39AB0', glow: 'Aurora (Pastel Dream)', weather: 'petals' },
   { id: 'summer', name: 'Summer', gold: '#F2C94C', glow: 'Firefly Jar', weather: 'fireflies' },
-  { id: 'fall', name: 'Fall', gold: '#C75E12', glow: 'Ember Ring', weather: 'leaves' },
+  { id: 'fall', name: 'Autumn', gold: '#C75E12', glow: 'Ember Ring', weather: 'leaves' },
 ];
 export const IDS = ACCENTS.map((a) => a.id);
 
@@ -38,25 +38,23 @@ export function thanksgiving(year) {
   return 1 + ((4 - first + 7) % 7) + 21;                  // day of month
 }
 
-// Which accent the calendar says. The house rules: Halloween is all of October; Thanksgiving
-// runs from the Saturday before through the day; Christmas starts the Friday after Thanksgiving
-// and runs to the day before New Year's Eve; New Year is the Eve (the Day is a birthday here).
+// Which accent the calendar says, for Australia. Halloween is all of October; Christmas runs from
+// 1 December to the day before New Year's Eve; New Year is the Eve; Valentine's is Feb 10-14.
+// Thanksgiving is not on the calendar (it can still be picked by hand). Between the holidays, the
+// southern-hemisphere season, starting on the 1st as Australia counts them: summer Dec-Feb,
+// autumn Mar-May, winter Jun-Aug, spring Sep-Nov. (The id stays 'fall'; its name is Autumn.)
 export function byCalendar(now = new Date(), birthdays = []) {
-  const m = now.getMonth() + 1, d = now.getDate(), y = now.getFullYear();
+  const m = now.getMonth() + 1, d = now.getDate();
   const bday = birthdays.find((b) => b.month === m && b.day === d);
   if (bday) return { id: 'birthday', who: bday.name };
   if (m === 10) return { id: 'halloween' };
-  const tg = thanksgiving(y);
-  if (m === 11 && d >= tg - 5 && d <= tg) return { id: 'thanksgiving' };
-  if ((m === 11 && d > tg) || (m === 12 && d <= 30)) return { id: 'christmas' };
+  if (m === 12 && d <= 30) return { id: 'christmas' };
   if (m === 12 && d === 31) return { id: 'newyear' };
   if (m === 2 && d >= 10 && d <= 14) return { id: 'valentines' };
-  // otherwise the season (northern hemisphere, by the equinoxes and solstices)
-  const doy = m * 100 + d;
-  if (doy >= 1221 || doy < 320) return { id: 'winter' };
-  if (doy < 621) return { id: 'spring' };
-  if (doy < 922) return { id: 'summer' };
-  return { id: 'fall' };
+  if (m <= 2) return { id: 'summer' };
+  if (m <= 5) return { id: 'fall' };
+  if (m <= 8) return { id: 'winter' };
+  return { id: 'spring' };
 }
 
 // The accent in effect for a setting: a fixed id, 'auto' by the calendar, or nothing.

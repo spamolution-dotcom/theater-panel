@@ -107,7 +107,7 @@ const ACCENT_DEFS = {
   winter: { id: 'winter', name: 'Winter', glow: 'Rolling Fog', weather: 'snow' },
   spring: { id: 'spring', name: 'Spring', glow: 'Aurora (Pastel Dream)', weather: 'petals' },
   summer: { id: 'summer', name: 'Summer', glow: 'Firefly Jar', weather: 'fireflies' },
-  fall: { id: 'fall', name: 'Fall', glow: 'Ember Ring', weather: 'leaves' },
+  fall: { id: 'fall', name: 'Autumn', glow: 'Ember Ring', weather: 'leaves' },
 };
 // The accent in effect for the rail and the weather layer: a route override or the server's pick.
 export function currentAccent() {
