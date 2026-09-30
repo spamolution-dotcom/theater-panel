@@ -239,6 +239,7 @@ function Tile({ m, selected, onSelect }) {
   return html`<button type="button" class="poster-btn" aria-pressed=${selected ? 'true' : 'false'} onClick=${onSelect} aria-label=${`${name} (${m.year || ''})`}>
     <${Poster} src=${m.poster} title=${name}>
       ${!m.watched && !pct && html`<span class="corner" title="Unwatched"></span>`}
+      ${m.rating ? html`<span class="rating" title="IMDb rating">★ ${Number(m.rating).toFixed(1)}</span>` : null}
       <${PosterLabels} brand=${m.brand} quality=${m.quality} lifted=${pct > 0} />
       ${pct > 0 && html`<span class="prog"><i style=${`width:${pct}%`}></i></span>`}
       ${m.season?.complete && html`<span class="season-out" title=${`Season ${m.season.index}: all ${m.season.total} episodes are here`}>S${m.season.index} complete</span>`}

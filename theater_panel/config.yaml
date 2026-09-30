@@ -1,5 +1,5 @@
 name: Theater Panel
-version: "0.10.5"
+version: "0.10.6"
 slug: theater_panel
 description: Home theater wall panel (a Stremio fork of davidcoulson/theater-panel)
 url: https://github.com/spamolution-dotcom/theater-panel

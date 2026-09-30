@@ -431,13 +431,23 @@ export async function listLibrary(libId, { filters = [], genre, sort = 'added', 
       items.push(...await applyFilters(metas.map((m) => fromMeta({ type, ...m }, lib)), rest, null));
     }
     if (sort === 'random') items = shuffle(items);
+    await withRatings(items);
     return { total: start + items.length + (more ? size : 0), items, next: skip, more };
   }
   const want = stremioType(def.type);
   let rows = (await rawLibrary()).filter((it) => inLibrary(it) && it.type === want).map(fromLibrary);
   rows = await applyFilters(rows, filters, sort);
   rows = sort === 'random' ? shuffle(rows) : rows.sort(SORTS[sort] || SORTS.added);
-  return { total: rows.length, items: rows.slice(start, start + size) };
+  const pageRows = rows.slice(start, start + size);
+  await withRatings(pageRows);
+  return { total: rows.length, items: pageRows };
+}
+
+// IMDb ratings for the poster badges: catalog rows usually carry one; for those that don't (add-on
+// catalogs, library rows) read the title's page once (cached for hours). Never fails a list.
+async function withRatings(items) {
+  await enrich(items.filter((it) => it.rating == null && /^tt\d+$/.test(String(it.id))), { rating: true }).catch(() => {});
+  return items;
 }
 
 // Cinemeta's genres for the catalog tabs (the library tabs have none to filter on).
@@ -515,7 +525,7 @@ export async function onDeck(size = 12) {
 }
 
 export async function recentlyAdded(size = 16) {
-  return (await rawLibrary()).filter(inLibrary).sort((a, b) => (ms(b._ctime) || 0) - (ms(a._ctime) || 0)).slice(0, size).map(fromLibrary);
+  return withRatings((await rawLibrary()).filter(inLibrary).sort((a, b) => (ms(b._ctime) || 0) - (ms(a._ctime) || 0)).slice(0, size).map(fromLibrary));
 }
 
 // The idle screen's list: what is in progress, then what was added lately.

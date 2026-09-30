@@ -269,6 +269,15 @@ input.range.thin { height: 40px; }
 .scene { display: flex; flex-direction: column; align-items: flex-start; justify-content: space-between; min-height: 0; padding: 16px 20px; border-radius: 18px; background: rgba(244,240,232,.93); color: var(--ink); border: 1px solid rgba(58,36,25,.25); box-shadow: 0 4px 10px rgba(40,20,5,.25); text-align: left; }
 .scene .n { font-family: var(--disp); font-weight: 700; font-size: 26px; text-transform: uppercase; line-height: 1; }
 .scene .d { font-size: 15px; color: var(--muted); }
+.apps-board .scene .n { font-size: 30px; }
+.cinema-card .scn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.cinema-card .scn { display: flex; align-items: center; gap: 10px; height: 60px; padding: 0 12px; border-radius: 14px; border: 1.5px solid transparent; background: var(--track); color: var(--acc); text-align: left; min-width: 0; }
+.cinema-card .scn .dn { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.cinema-card .scn b { color: var(--ink); font-size: 15px; font-weight: 700; }
+.cinema-card .scn .dn span { font-size: 12.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cinema-card .scn[aria-pressed="true"] { background: var(--choc); color: var(--gold); }
+.cinema-card .scn[aria-pressed="true"] b, .cinema-card .scn[aria-pressed="true"] .dn span { color: #F4F0E8; }
+.cinema-card .scn:active { transform: scale(.97); }
 .scene[aria-pressed="true"] { background: var(--choc); color: #F4F0E8; border-color: #1E120B; box-shadow: 0 6px 16px rgba(0,0,0,.35); }
 .scene[aria-pressed="true"] .d { color: var(--on-choc2); }
 
@@ -391,6 +400,8 @@ input.range.thin { height: 40px; }
 .net-tile img { max-width: 70%; max-height: 78px; object-fit: contain; }
 .net-tile .net-name { font-family: var(--disp); font-weight: 800; font-size: 40px; text-transform: uppercase; color: var(--choc); }
 .net-tile .net-label { font-size: 16px; font-weight: 600; color: var(--muted); }
+.poster .rating { position: absolute; top: 8px; left: 8px; z-index: 2; padding: 3px 8px; border-radius: 7px; background: rgba(20,10,6,.82); color: #F4ECE0; font: 700 14px var(--mono); letter-spacing: .2px; pointer-events: none; }
+.poster .rating ~ .brand-chip { top: 38px; }
 .brand-chip { position: absolute; top: 8px; left: 8px; padding: 3px 8px; border-radius: 6px; background: rgba(15,8,4,.84); color: #F4ECE0; font-size: 12px; font-weight: 700; letter-spacing: .4px; border-left: 3px solid var(--brand, var(--gold)); }
 .brand-chip.inline { position: static; font-size: 14px; padding: 4px 10px; }
 .b-netflix { --brand: #E50914; } .b-prime { --brand: #1FA2F1; } .b-max { --brand: #7A5CFA; } .b-apple { --brand: #C9C9C9; }
