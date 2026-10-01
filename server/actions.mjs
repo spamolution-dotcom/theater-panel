@@ -182,7 +182,10 @@ export async function runAction(ha, body) {
         }
         return ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: url } }, { target: { entity_id: e.appleTv } });
       };
-      const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state);
+      // The projector now comes on last in the theatre sequence (it locks onto a settled HDMI
+      // signal that way), so the app waits for it too, else a film could start on a blank screen.
+      const projUp = () => !e.projectorPower || ha.states[e.projectorPower]?.state === 'on';
+      const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state) && projUp();
       // Pre-show or warm-up music fades out (HA's script.theater_music_fade, ~2.5 s) before the app
       // opens, rather than being cut off by it. A missing script only costs the fade.
       const fadeMusic = () => ha.callService('script', 'theater_music_fade', {}).catch((err) => console.warn('[app] no music fade:', err.message));
@@ -200,7 +203,7 @@ export async function runAction(ha, body) {
         script(ha, 'warmup_music').catch((err) => console.warn('[app] no warm-up music:', err.message));
       }
       (async () => {
-        const until = Date.now() + 210e3;
+        const until = Date.now() + 270e3;
         while (!ready() && Date.now() < until) await new Promise((r) => setTimeout(r, 2000));
         if (!ready()) { await fadeMusic(); return console.warn(`[app] ${body.id}: the cinema did not come up in time`); }
         await new Promise((r) => setTimeout(r, 5000));   // a Streamer that has just woken ignores links for a moment
