@@ -8,11 +8,11 @@ import { html, Icon, Poster } from '../lib/ui.mjs';
 import { useStore, getState } from '../lib/api.mjs';
 import { go, route } from '../app.mjs';
 
-// Your theatre sequence runs about 2:45 end to end (the announcement, the 1:45 wait, then the
-// Denon, projector and Streamer, each taking a while to answer), and the title opens a few seconds
-// later: measured at 2:51 from start to Stremio on screen.
-export const WARMUP_SECONDS = 170;
-const GIVE_UP_SECONDS = 240;   // the HA script's own timeout
+// The theatre sequence (Oct 2026): wait for the Denon to be reachable after its plug comes on,
+// Chromecast first, ~20 s later the Denon (Atmos needs that order), then 30 s later the projector
+// last (it locks onto a settled picture). Measured at 3:13 from start to everything up.
+export const WARMUP_SECONDS = 195;
+const GIVE_UP_SECONDS = 270;   // matches theater_play_stremio's own 4.5-minute wait
 const STREMIO_APP = 'com.stremio.one';
 
 const up = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
@@ -34,11 +34,11 @@ export function Warmup() {
   const inStremio = tv?.attributes?.app_id === STREMIO_APP;
   const steps = [
     { name: 'Cinema power', ok: up(states[e.plug]) || up(states[e.avr]) },
+    { name: 'Chromecast', ok: up(tv) },
     { name: 'Denon', ok: up(states[e.avr]) },
     { name: 'Projector', ok: up(states[e.projectorPower]) },
-    { name: 'Chromecast', ok: up(tv) },
     { name: 'Stremio', ok: inStremio },
-  ].filter((s, i) => i !== 2 || e.projectorPower);
+  ].filter((s, i) => i !== 3 || e.projectorPower);
 
   const autoplay = states[e.autoplay]?.state === 'on';
   const nowPlaying = useStore((s) => s.sessions?.[0]?.state === 'playing');
