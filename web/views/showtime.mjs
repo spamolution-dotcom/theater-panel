@@ -89,7 +89,7 @@ export function Showtime() {
   // film's artwork, brighter than the in-room remote.
   const bigPoster = session?.posterLarge || session?.poster;
   return html`<div class=${`showtime${hallway ? ' hall' : ''}`} style=${hallway ? '' : bg} onPointerDown=${poke}>
-    ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : html`<div class="st-poster-t">${title}</div>`}</div>`}
+    ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : session?.app ? html`<div class="st-poster-app"><img src=${`/assets/apps/${session.app}.png`} alt=${title} /></div>` : html`<div class="st-poster-t">${title}</div>`}</div>`}
     ${hallway && html`<div class="st-art" style=${bg}></div>`}
     <div class="wrap" style=${`--glow:${native || awake ? 1 : 0.55}`}>
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
