@@ -186,7 +186,7 @@ export async function runAction(ha, body) {
       // signal that way), so the app waits for it too, else a film could start on a blank screen.
       const projUp = () => !e.projectorPower || ha.states[e.projectorPower]?.state === 'on';
       const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state) && projUp();
-      // Pre-show or warm-up music fades out (HA's script.theater_music_fade, ~2.5 s) before the app
+      // Pre-show music fades out (HA's script.theater_music_fade, ~2.5 s) before the app
       // opens, rather than being cut off by it. A missing script only costs the fade.
       const fadeMusic = () => ha.callService('script', 'theater_music_fade', {}).catch((err) => console.warn('[app] no music fade:', err.message));
       // Always bring the movie scene on (lights, blind), even when the kit is already up.
@@ -199,8 +199,7 @@ export async function runAction(ha, body) {
       }
       if (sceneOff) {
         await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
-        // Music on the cinema's Google Mini and warm lights while the kit comes up.
-        script(ha, 'warmup_music').catch((err) => console.warn('[app] no warm-up music:', err.message));
+        // No warm-up music: the cinema is up in under a minute now. (Pre-show still has its music.)
       }
       (async () => {
         const until = Date.now() + 270e3;

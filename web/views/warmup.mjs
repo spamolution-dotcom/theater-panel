@@ -1,5 +1,5 @@
-// Getting the cinema ready: while the theatre start-up sequence runs (about two minutes)
-// (plug, Denon, projector, Streamer, then the title opens in Stremio). This screen shows what the
+// Getting the cinema ready: while the theatre start-up sequence runs (about a minute)
+// (projector, Streamer, Denon, then the title opens in Stremio). This screen shows what the
 // film is, a live checklist of the devices as Home Assistant reports them coming up, and a
 // countdown, then tells people to pick a stream on the TV and moves on to Showtime.
 
@@ -8,10 +8,11 @@ import { html, Icon, Poster } from '../lib/ui.mjs';
 import { useStore, getState } from '../lib/api.mjs';
 import { go, route } from '../app.mjs';
 
-// The theatre sequence (Oct 2026): wait for the Denon to be reachable after its plug comes on,
-// Chromecast first, ~20 s later the Denon (Atmos needs that order), then 30 s later the projector
-// last (it locks onto a settled picture). Measured at 3:13 from start to everything up.
-export const WARMUP_SECONDS = 195;
+// The theatre sequence (Oct 2026): the Denon's plug now stays on (it idles in standby), so it
+// starts with the projector, ~10 s later the Chromecast, ~15 s later the Denon LAST (Atmos only
+// comes through when the Denon powers on after the other two are up). Measured at ~45 s to
+// everything up, plus a few seconds for the title to open.
+export const WARMUP_SECONDS = 65;
 const GIVE_UP_SECONDS = 270;   // matches theater_play_stremio's own 4.5-minute wait
 const STREMIO_APP = 'com.stremio.one';
 
@@ -33,12 +34,11 @@ export function Warmup() {
   const tv = states[e.appleTv];
   const inStremio = tv?.attributes?.app_id === STREMIO_APP;
   const steps = [
-    { name: 'Cinema power', ok: up(states[e.plug]) || up(states[e.avr]) },
+    { name: 'Projector', ok: up(states[e.projectorPower]) },
     { name: 'Chromecast', ok: up(tv) },
     { name: 'Denon', ok: up(states[e.avr]) },
-    { name: 'Projector', ok: up(states[e.projectorPower]) },
     { name: 'Stremio', ok: inStremio },
-  ].filter((s, i) => i !== 3 || e.projectorPower);
+  ].filter((s, i) => i !== 0 || e.projectorPower);
 
   const autoplay = states[e.autoplay]?.state === 'on';
   const nowPlaying = useStore((s) => s.sessions?.[0]?.state === 'playing');
