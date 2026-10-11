@@ -10,6 +10,7 @@ import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
+import { streamerNow } from './lib/streamer.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -88,26 +89,29 @@ function NowPlaying({ onTab }) {
   const e = useStore((s) => s.entities) || {};
   const roomOn = useRoomOn();
   const tv = useEntity(e.appleTv);
+  const castSt = useEntity(e.streamerCast);
   const avr = useEntity(e.avr);
   const session = useStore((s) => (s.ui?.theaterSessions ? s.sessions?.[0] : undefined));
   const sessionsAt = useStore((s) => s.sessionsAt) || Date.now();
-  const state = useStore((s) => playbackState(s));
+  const now = streamerNow(tv, castSt);
+  // A Stremio session first; otherwise what Cast reports (YouTube, Spotify...), else the TV itself.
+  const state = useStore((s) => (session ? playbackState(s) : now.state || playbackState(s)));
   const playing = state === 'playing';
   const [, tick] = useState(0);
   useEffect(() => { if (!playing) return undefined; const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, [playing]);
   if (!roomOn || !(session || isUp(tv))) return null;
 
   const a = tv?.attributes || {};
-  const app = session?.app || (a.app_id === 'com.netflix.ninja' ? 'netflix' : a.app_id === 'com.stremio.one' ? 'stremio' : null);
-  const title = session?.showTitle || session?.title || a.media_series_title || a.media_title || (app ? APPS.find((x) => x.id === app)?.name : 'Home screen');
-  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : (a.media_series_title ? a.media_title : '');
-  const dur = session?.duration ? session.duration / 1000 : a.media_duration || null;
+  const app = session?.app || now.key;
+  const title = session?.showTitle || session?.title || now.title || a.media_title || now.name;
+  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : now.title ? [now.artist, now.name].filter(Boolean).join(' · ') : '';
+  const dur = session?.duration ? session.duration / 1000 : now.cast?.attributes?.media_duration || a.media_duration || null;
   let pos = null;
   if (session?.viewOffset != null) pos = session.viewOffset / 1000 + (playing ? (Date.now() - sessionsAt) / 1000 : 0);
-  else pos = livePosition(tv);
-  const left = dur && pos != null ? dur - pos : null;
+  else pos = livePosition(now.cast || tv);
+  const left = dur && pos != null && dur - pos > 1 ? dur - pos : null;
   const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
-  const label = playing ? 'Now playing' : state === 'paused' ? 'Paused' : state === 'choosing' ? 'Pick a stream on the TV' : 'On the TV';
+  const label = playing ? 'Now playing' : state === 'paused' ? 'Paused' : state === 'choosing' ? 'Pick a stream on the TV' : now.home ? 'Nothing playing' : 'On the TV';
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
   const t = (cmd, extra) => act({ action: 'transport', cmd, ...extra });
@@ -190,11 +194,11 @@ function Devices() {
   const proj = useEntity(e.projectorPower);
   const tv = useEntity(e.appleTv);
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
-  const app = tv?.attributes?.app_id;
+  const cast = useEntity(e.streamerCast);
   const devices = [
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
     { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}` : 'Off' },
-    { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: !isUp(tv) ? 'Off' : app === 'com.stremio.one' ? 'Stremio' : app === 'com.netflix.ninja' ? 'Netflix' : 'On' },
+    { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: streamerNow(tv, cast).name },
   ];
   return html`<section>
     <div class="r-h2"><h2>Devices</h2></div>
@@ -387,8 +391,7 @@ function TvRemote() {
   const tv = useEntity(e.appleTv);
   const avr = useEntity(e.avr);
   const roomOn = useRoomOn();
-  const app = tv?.attributes?.app_id;
-  const appName = app === 'com.stremio.one' ? 'Stremio' : app === 'com.netflix.ninja' ? 'Netflix' : isUp(tv) ? (tv?.attributes?.app_name && !/launcher/i.test(tv.attributes.app_name) ? tv.attributes.app_name : 'Home screen') : 'Off';
+  const appName = streamerNow(tv, useEntity(e.streamerCast)).name;
   const key = (k) => act({ action: 'tv_key', key: k });
   const t = (cmd) => act({ action: 'transport', cmd });
   const vol = avr?.attributes?.volume_level;

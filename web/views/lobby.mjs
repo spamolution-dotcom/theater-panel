@@ -10,6 +10,7 @@ import { MysterySheet } from './mystery.mjs';
 import { SleepChip } from './sleep.mjs';
 import { needsWarmup } from './warmup.mjs';
 import { usePicked } from '../lib/picked.mjs';
+import { streamerNow } from '../lib/streamer.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -553,8 +554,8 @@ function Cinema() {
   const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
   const on = room?.state === 'on';
   const isUp = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
-  const app = tv?.attributes?.app_id;
-  const appName = app === 'com.stremio.one' ? 'Stremio' : app === 'com.netflix.ninja' ? 'Netflix' : isUp(tv) ? 'Home screen' : '';
+  const cast = useEntity(e.streamerCast);
+  const appName = isUp(tv) ? streamerNow(tv, cast).name : '';
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
   const src = avr?.attributes?.source;
   const devices = [
