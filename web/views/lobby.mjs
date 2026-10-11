@@ -546,7 +546,6 @@ function DevButton({ d }) {
 function Cinema() {
   const e = useStore((s) => s.entities) || {};
   const room = useEntity(e.roomOn);
-  const plug = useEntity(e.plug);
   const avr = useEntity(e.avr);
   const proj = useEntity(e.projectorPower);
   const tv = useEntity(e.appleTv);
@@ -558,7 +557,6 @@ function Cinema() {
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
   const src = avr?.attributes?.source;
   const devices = [
-    { id: 'power', name: 'Power', icon: 'plug', ok: isUp(plug), note: isUp(plug) ? 'On' : 'Off' },
     { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}%` : 'Off' },
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
     { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },

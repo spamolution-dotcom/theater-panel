@@ -886,6 +886,7 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .cinema-card .power:disabled { opacity: 1; }
 .cinema-card .label { margin: 14px 0 8px; }
 .cinema-card .devs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cinema-card .devs > :last-child:nth-child(odd) { grid-column: 1 / -1; }
 .cinema-card .dev { color: var(--muted); cursor: pointer; }
 /* on: light with a copper outline; dark is kept for "selected" (the scene, the source) */
 .cinema-card .dev.ok { background: #F3E3D0; border-color: var(--acc); color: var(--acc); }
@@ -1016,3 +1017,8 @@ html.cinema .kind-toggle button[aria-pressed="true"] { background: var(--acc-sof
 .blind-card .blind-btns { display: flex; gap: 10px; margin-top: 12px; }
 .blind-card .blind-btns .filter { flex: 1; justify-content: center; height: 46px; padding: 0 10px; min-width: 0; }
 .blind-card .range { margin-top: 12px; }
+
+/* Showtime: what the Denon is decoding (Dolby Atmos, Dolby, DTS, or PCM when Atmos missed). */
+.st-fmt { display: inline-block; margin-left: 18px; padding: 4px 12px; border-radius: 999px; font: 600 15px var(--mono); letter-spacing: 2px; text-transform: uppercase; vertical-align: 2px; border: 1.5px solid #9A6436; color: #C9884D; background: rgba(154, 100, 54, .12); }
+.st-fmt.dolby { border-color: #644122; color: #9A6436; background: none; }
+.st-fmt.pcm { border-color: #8A3324; color: #C0563F; background: rgba(138, 51, 36, .18); }
