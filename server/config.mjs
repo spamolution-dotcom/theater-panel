@@ -137,6 +137,13 @@ function build(env) {
     // Streamer's input mid-film.
     // The cinema's blind (Lights card on Home).
     blind: env.ENTITY_BLIND || 'cover.media_room_blind',
+    // The Xbox (HA's Xbox integration) for the Games screen, the helper that starts gaming, the
+    // account entities' prefix, the game artwork image and the console's free-space sensor.
+    xbox: env.ENTITY_XBOX || 'media_player.cinema_xboxone',
+    xboxScene: env.ENTITY_XBOX_SCENE || 'input_boolean.xbox_scene',
+    xboxAccount: env.XBOX_ACCOUNT || 'xbox',
+    xboxArt: env.ENTITY_XBOX_ART || 'image.cinema_xbox_superhero_art',
+    xboxStorage: env.ENTITY_XBOX_STORAGE || 'sensor.xboxone_free_space_internal_storage',
     soundSpeaker: env.ENTITY_SOUND_SPEAKER || 'media_player.cinema_google_mini',
     // Music Assistant players offered under "Play on"; the first is the theater's own.
     musicPlayers: list(env.ENTITY_MUSIC_PLAYERS, []),
