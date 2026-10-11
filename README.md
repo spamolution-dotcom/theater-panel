@@ -240,6 +240,7 @@ separate page laid out for phones; the wall panel is unchanged.
 - **Continue** and **Just added** as swipeable rows.
 - **Scenes** and **All off** (two taps).
 - **Devices:** Projector, Denon, Chromecast (two taps to turn one off).
+- **Source:** the Denon's input, Chromecast or Xbox (while the Denon is on).
 - **Blind:** Open / Movie / Close.
 
 **Watch**
@@ -248,6 +249,12 @@ separate page laid out for phones; the wall panel is unchanged.
 - Tapping a poster opens a sheet with the details and **Play in the cinema** (or **Resume**),
   **Start over**, and seasons and episodes for shows. If the cinema is off, the sheet says so
   and the cinema starts first.
+
+**Games** (with an Xbox in HA)
+- Off: **Play Xbox**, **Jump back in**, and your installed games (a tapped game starts the room
+  and opens when the console is up).
+- On: what's playing with achievement progress, the Denon's volume, **Xbox home**, **All off**,
+  a **Switch game** row and the **Source** switch.
 
 **Remote**
 - A round pad (**up, down, left, right, OK**), **Back**, **Home** and **Play / Pause** for the
