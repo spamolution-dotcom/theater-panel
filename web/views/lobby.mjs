@@ -9,6 +9,7 @@ import { StreamsChip, StreamsSheet } from './streams.mjs';
 import { MysterySheet } from './mystery.mjs';
 import { SleepChip } from './sleep.mjs';
 import { needsWarmup } from './warmup.mjs';
+import { usePicked } from '../lib/picked.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -579,10 +580,10 @@ function Cinema() {
 
 // The room's scenes, in their own row under Just added: four big buttons, the active one dark.
 function ScenesRow() {
-  const active = useActiveScene();
+  const [active, pick] = usePicked(useActiveScene());
   return html`<section class="card scenes-row" aria-label="Scenes">
     <div class="label">Scenes</div>
-    <div class="scn-grid">${SCENES.map((sc) => html`<button type="button" class="scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'} onClick=${() => act({ action: 'scene', name: sc.name })}>
+    <div class="scn-grid">${SCENES.map((sc) => html`<button type="button" class="scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'} onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}>
       <${Icon} name=${sc.icon} size=${32} /><span class="dn"><b>${sc.label}</b><span>${sc.desc}</span></span></button>`)}</div>
   </section>`;
 }

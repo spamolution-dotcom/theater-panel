@@ -9,6 +9,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
+import { usePicked } from './lib/picked.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -156,7 +157,7 @@ function Shelf({ title, link, items, onOpen, empty }) {
 function Scenes() {
   const roomOn = useRoomOn();
   const tracked = useEntity('input_select.theater_scene')?.state;
-  const active = roomOn ? SCENE_OF[tracked] : undefined;
+  const [active, pick] = usePicked(roomOn ? SCENE_OF[tracked] : undefined);
   const [armed, setArmed] = useArmed();
   const allOff = () => {
     if (!armed) { setArmed(true); return; }
@@ -165,7 +166,7 @@ function Scenes() {
   return html`<section>
     <div class="r-h2"><h2>Scenes</h2></div>
     <div class="r-scn-grid">${SCENES.map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
-      onClick=${() => act({ action: 'scene', name: sc.name })}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
+      onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
     ${roomOn && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
   </section>`;
 }
