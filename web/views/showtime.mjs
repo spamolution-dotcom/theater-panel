@@ -10,6 +10,7 @@ import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getS
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
 import { go, route } from '../app.mjs';
 import { SleepPicker, sleepLabel } from './sleep.mjs';
+import { soundFormat } from '../lib/sound.mjs';
 
 export function Showtime() {
   const ents = useStore((s) => s.entities);
@@ -33,6 +34,8 @@ export function Showtime() {
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
   const volText = vol == null ? '–' : String(Math.round(vol * 200) / 2);
+  // What the Denon is decoding: Atmos coming through, or PCM (the Chromecast missed the handshake).
+  const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
   const media = useEntity(ents.lights?.[0]);
   const mediaPct = media?.state === 'on' ? Math.round(((media.attributes?.brightness || 0) / 255) * 100) : 0;
   const glowOn = media?.state === 'on' && mediaPct <= 35;
@@ -95,7 +98,7 @@ export function Showtime() {
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
           ${!hallway && session?.poster && html`<img src=${session.poster} alt="" style="width:84px;height:126px;object-fit:cover;border-radius:6px;opacity:.45" />`}
-          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}${hallway && facts ? ` · ${facts}` : ''}</div>
+          <div style="min-width:0"><div class="lbl">${playing ? 'Now showing' : state === 'paused' ? 'Paused' : state === 'choosing' ? (autoplayOn ? 'Starting the first stream… or pick one with the remote' : 'Pick a stream on the TV with the remote') : 'Standing by'}${hallway && facts ? ` · ${facts}` : ''}${!hallway && playing && fmt ? html`<span class=${`st-fmt ${fmt.kind}`}>${fmt.label}</span>` : null}</div>
             <h1 class="ellipsis">${title}</h1>
             ${sub && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${sub}</div>`}
             ${hallway && info?.summary && html`<p class="st-syn">${info.summary}</p>`}</div>

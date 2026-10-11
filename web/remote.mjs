@@ -8,6 +8,7 @@ import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
+import { soundFormat } from './lib/sound.mjs';
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -82,7 +83,7 @@ function StatusChip() {
   return html`<span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : 'Cinema off'}</span>`;
 }
 
-function NowPlaying() {
+function NowPlaying({ onTab }) {
   const e = useStore((s) => s.entities) || {};
   const roomOn = useRoomOn();
   const tv = useEntity(e.appleTv);
@@ -104,6 +105,7 @@ function NowPlaying() {
   if (session?.viewOffset != null) pos = session.viewOffset / 1000 + (playing ? (Date.now() - sessionsAt) / 1000 : 0);
   else pos = livePosition(tv);
   const left = dur && pos != null ? dur - pos : null;
+  const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
   const label = playing ? 'Now playing' : state === 'paused' ? 'Paused' : state === 'choosing' ? 'Pick a stream on the TV' : 'On the TV';
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
@@ -112,7 +114,7 @@ function NowPlaying() {
   return html`<section class="r-np">
     <div class="r-np-art">${session?.poster ? html`<img src=${session.poster} alt="" />` : app ? html`<img class="app" src=${`/assets/apps/${app}.png`} alt="" />` : html`<${Icon} name="tv" size=${30} color="#C7B39E" />`}</div>
     <div class="r-np-body">
-      <div class="r-kick light">${label}</div>
+      <div class="r-kick light">${label}${playing && fmt ? html`<span class=${`r-fmt ${fmt.kind}`}>${fmt.label}</span>` : null}</div>
       <div class="r-np-title">${title}</div>
       <div class="r-np-sub">${[sub, left != null ? `${runtime(left * 1000) || mmss(left)} left` : ''].filter(Boolean).join(' · ')}</div>
       ${dur && pos != null && html`<div class="r-bar"><i style=${`width:${Math.min(100, (pos / dur) * 100)}%`}></i></div>`}
@@ -120,6 +122,7 @@ function NowPlaying() {
         <button type="button" aria-label="Back 10 seconds" onClick=${() => t('seek_rel', { seconds: -10 })}>−10</button>
         <button type="button" class="pp" aria-label=${playing ? 'Pause' : 'Play'} onClick=${() => t('play_pause')}>${playing ? html`<${Pause} size=${22} />` : html`<${Play} size=${22} />`}</button>
         <button type="button" aria-label="Forward 30 seconds" onClick=${() => t('seek_rel', { seconds: 30 })}>+30</button>
+        <button type="button" class="pad" aria-label="TV remote" onClick=${() => onTab('remote')}><${Icon} name="remote" size=${20} /></button>
       </div>
       ${isUp(avr) && html`<div class="r-vol">
         <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
@@ -226,7 +229,7 @@ function Home({ onOpen, onTab }) {
   const part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
   return html`<div class="r-page">
     <${Top} title="Home Theater" kicker=${`${d.toLocaleDateString('en-AU', { weekday: 'long' })} ${part}`}><${StatusChip} /><//>
-    <${NowPlaying} />
+    <${NowPlaying} onTab=${onTab} />
     <${Shelf} title="Continue" items=${deck} onOpen=${onOpen} empty="Nothing in progress." />
     <${Shelf} title="Just added" items=${added} onOpen=${onOpen} empty="Nothing new."
       link=${html`<button type="button" class="r-link" onClick=${() => onTab('watch')}>Browse</button>`} />
@@ -376,6 +379,43 @@ function TitleSheet({ start, onClose }) {
   </div>`;
 }
 
+// ---------- the TV remote ----------
+
+function TvRemote() {
+  const e = useStore((s) => s.entities) || {};
+  const tv = useEntity(e.appleTv);
+  const avr = useEntity(e.avr);
+  const roomOn = useRoomOn();
+  const app = tv?.attributes?.app_id;
+  const appName = app === 'com.stremio.one' ? 'Stremio' : app === 'com.netflix.ninja' ? 'Netflix' : isUp(tv) ? (tv?.attributes?.app_name && !/launcher/i.test(tv.attributes.app_name) ? tv.attributes.app_name : 'Home screen') : 'Off';
+  const key = (k) => act({ action: 'tv_key', key: k });
+  const t = (cmd) => act({ action: 'transport', cmd });
+  const vol = avr?.attributes?.volume_level;
+  const muted = Boolean(avr?.attributes?.is_volume_muted);
+  return html`<div class="r-page">
+    <${Top} title="TV Remote" kicker=${`Google TV Streamer · ${appName}`}><${StatusChip} /><//>
+    ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
+    <div class="r-pad">
+      <button type="button" class="up" aria-label="Up" onClick=${() => key('up')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
+      <button type="button" class="left" aria-label="Left" onClick=${() => key('left')}><${Icon} name="left" size=${30} w=${2.6} /></button>
+      <button type="button" class="ok" aria-label="OK" onClick=${() => key('ok')}>OK</button>
+      <button type="button" class="right" aria-label="Right" onClick=${() => key('right')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
+      <button type="button" class="down" aria-label="Down" onClick=${() => key('down')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
+    </div>
+    <div class="r-keys">
+      <button type="button" onClick=${() => key('back')}><${Icon} name="left" size=${18} />Back</button>
+      <button type="button" onClick=${() => key('home')}><${Icon} name="home" size=${18} />Home</button>
+      <button type="button" onClick=${() => t('play_pause')}><${Play} size=${15} />Play / Pause</button>
+    </div>
+    ${isUp(avr) && html`<div class="r-vol r-vol-card">
+      <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
+      <div class="r-bar thin"><i style=${`width:${vol != null ? Math.min(100, vol * 100) : 0}%`}></i></div>
+      <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}>−</button>
+      <button type="button" aria-label="Volume up" onClick=${() => t('vol_up')}>+</button>
+    </div>`}
+  </div>`;
+}
+
 // ---------- the app ----------
 
 function Toast() {
@@ -384,10 +424,10 @@ function Toast() {
 }
 
 function Remote() {
-  const [tab, setTab] = useState(() => (location.hash === '#watch' ? 'watch' : 'home'));
+  const [tab, setTab] = useState(() => (['#watch', '#remote'].includes(location.hash) ? location.hash.slice(1) : 'home'));
   const [sheet, setSheet] = useState(null);
   const connected = useStore((s) => s.connected);
-  useEffect(() => { history.replaceState(null, '', tab === 'watch' ? '#watch' : '#home'); window.scrollTo(0, 0); }, [tab]);
+  useEffect(() => { history.replaceState(null, '', `#${tab}`); window.scrollTo(0, 0); }, [tab]);
   // Back on the phone closes the sheet rather than leaving the page.
   useEffect(() => {
     if (!sheet) return undefined;
@@ -401,11 +441,12 @@ function Remote() {
     if (played) setTab('home');
   };
   return html`<div class="r-app">
-    ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi?</div>`}
-    ${tab === 'home' ? html`<${Home} onOpen=${setSheet} onTab=${setTab} />` : html`<${Watch} onOpen=${setSheet} />`}
+    ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi or Tailscale?</div>`}
+    ${tab === 'remote' ? html`<${TvRemote} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
     <nav class="r-tabs">
       <button type="button" aria-pressed=${tab === 'home' ? 'true' : 'false'} onClick=${() => setTab('home')}><${Icon} name="home" size=${24} />Home</button>
       <button type="button" aria-pressed=${tab === 'watch' ? 'true' : 'false'} onClick=${() => setTab('watch')}><${Icon} name="film" size=${24} />Watch</button>
+      <button type="button" aria-pressed=${tab === 'remote' ? 'true' : 'false'} onClick=${() => setTab('remote')}><${Icon} name="remote" size=${24} />Remote</button>
     </nav>
     ${sheet && html`<${TitleSheet} start=${sheet} key=${sheet.id} onClose=${close} />`}
     <${Toast} />

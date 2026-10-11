@@ -142,3 +142,26 @@ button:disabled { opacity: .5; cursor: default; }
 .r-toast { position: fixed; left: 16px; right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); z-index: 50; max-width: 528px; margin: 0 auto; background: var(--choc); color: #F4ECE0; font: 600 14px/1.4 var(--sans); padding: 12px 14px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, .25); }
 .r-toast.err { background: var(--warn); }
 .r-sheet .r-pills { margin: 0 -18px 8px; padding: 0 18px; }
+
+/* sound format badge on Now playing */
+.r-fmt { display: inline-block; margin-left: 8px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--gold); color: var(--gold); font: 600 10.5px var(--mono); letter-spacing: .06em; vertical-align: 1px; }
+.r-fmt.dolby { border-color: #7A5A44; color: var(--on-choc2); }
+.r-fmt.pcm { border-color: #C0563F; color: #F0A08E; background: rgba(192, 86, 63, .15); }
+.r-ctl button.pad { margin-left: auto; min-width: 46px; }
+
+/* the TV remote */
+.r-pad { position: relative; width: min(290px, 78vw); aspect-ratio: 1; margin: 22px auto 22px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); box-shadow: inset 0 2px 0 #fff; }
+.r-pad button { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.r-pad button:active { color: var(--acc); }
+.r-pad .up, .r-pad .down { left: 30%; right: 30%; height: 28%; }
+.r-pad .up { top: 0; } .r-pad .down { bottom: 0; }
+.r-pad .left, .r-pad .right { top: 30%; bottom: 30%; width: 28%; }
+.r-pad .left { left: 0; } .r-pad .right { right: 0; }
+.r-pad .up svg { transform: rotate(-90deg); } .r-pad .down svg { transform: rotate(90deg); }
+.r-pad .ok { inset: 28%; border-radius: 50%; background: var(--choc); color: #fff; font: 700 18px var(--sans); }
+.r-pad .ok:active { background: var(--acc); color: #fff; }
+.r-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.r-keys button { height: 56px; display: flex; align-items: center; justify-content: center; gap: 6px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); font: 600 14px var(--sans); }
+.r-keys button:active { background: var(--acc-soft); }
+.r-vol-card { margin-top: 16px; background: var(--choc); border-radius: 16px; padding: 10px 12px; }
+.r-tabs button { width: 100px; }

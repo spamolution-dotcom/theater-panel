@@ -156,6 +156,14 @@ export async function runAction(ha, body) {
       throw new Error('Unknown transport command');
     }
 
+    // The phone remote's TV pad: Google TV Streamer keys through HA's Android TV Remote.
+    case 'tv_key': {
+      const keys = { up: 'DPAD_UP', down: 'DPAD_DOWN', left: 'DPAD_LEFT', right: 'DPAD_RIGHT', ok: 'DPAD_CENTER', back: 'BACK', home: 'HOME' };
+      const command = keys[body.key];
+      if (!command) throw httpError(400, 'Unknown key');
+      return ha.callService('remote', 'send_command', { command }, { target: { entity_id: e.appleTvRemote } });
+    }
+
     case 'light': {
       if (!e.lights.includes(body.entity_id)) throw new Error('Unknown light');
       const target = { entity_id: body.entity_id };
