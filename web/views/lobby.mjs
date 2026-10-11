@@ -1,5 +1,6 @@
 // Lobby: continue watching, scenes, projector, lights, just added and the pre-show music bar.
 
+import { gamingOn, XBOX_INPUT } from '../lib/gaming.mjs';
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { html, Icon, Play, Pause, Prev, Next, Poster, Seg, Range, Header, H2 } from '../lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, runtime, endsAt, toast, celebrate, clearMystery, christmasCountdown, openTonight, openGuest, openSound } from '../lib/api.mjs';
@@ -224,13 +225,15 @@ export async function play(item, resume = true, extra = {}) {
   go('showtime');
 }
 
-// The cinema is on: a way to turn it all off (your End Movie Scene, through the movie scene switch).
+// The cinema (or Xbox mode) is on: a way to turn it all off (your End Movie Scene, through the movie
+// scene switch; HA's All off script also ends Xbox Scene).
 // A second tap within 4 s confirms, so a stray touch does nothing.
 function AllOffChip() {
   const roomOn = useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
+  const gaming = useStore((s) => gamingOn(s.states, s.entities));
   const [armed, setArmed] = useState(false);
   useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(false), 4000); return () => clearTimeout(t); }, [armed]);
-  if (!roomOn) return null;
+  if (!roomOn && !gaming) return null;
   return html`<button type="button" class=${`chip ${armed ? 'warn' : ''}`} onClick=${() => { if (!armed) { setArmed(true); return; } setArmed(false); act({ action: 'scene', name: 'all_off' }); toast('Turning the cinema off'); }}>
     <${Icon} name="power" size=${20} />${armed ? 'Tap again to turn off' : 'All off'}</button>`;
 }
@@ -553,6 +556,7 @@ function Cinema() {
   const tv = useEntity(e.appleTv);
   const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
   const on = room?.state === 'on';
+  const gaming = useStore((s) => gamingOn(s.states, s.entities));
   const isUp = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
   const cast = useEntity(e.streamerCast);
   const appName = isUp(tv) ? streamerNow(tv, cast).name : '';
@@ -563,19 +567,20 @@ function Cinema() {
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
     { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },
   ];
-  const status = warming ? 'Warming up…' : on ? 'On' : 'Off';
+  const status = warming ? 'Warming up…' : on ? 'On' : gaming ? 'Xbox' : 'Off';
+  const live = on || gaming;
   return html`<section class="card cinema-card">
-    <${H2} title="Cinema"><span class="aside"><span class=${`dot ${on ? 'on' : ''}`}></span>${status}</span><//>
+    <${H2} title="Cinema"><span class="aside"><span class=${`dot ${live ? 'on' : ''}`}></span>${status}</span><//>
     <div class="row">
-      <button type="button" class=${`power ${on ? 'on' : ''}`} aria-label=${on ? 'Cinema is on' : 'Start the cinema'} disabled=${on || warming}
-        onClick=${() => act({ action: 'cinema', cmd: 'on' })}><${Icon} name="power" size=${40} color=${on ? '#F4F0E8' : 'var(--acc)'} /></button>
-      <div style="min-width:0"><div style="font-size:21px;font-weight:600">${on ? 'Cinema is on' : warming ? 'Starting up' : 'Start the cinema'}</div>
-        <div class="muted" style="font-size:16px">${on ? 'All off is in the top bar' : 'Tap an app, or power on'}</div></div>
+      <button type="button" class=${`power ${live ? 'on' : ''}`} aria-label=${on ? 'Cinema is on' : gaming ? 'Xbox is on' : 'Start the cinema'} disabled=${live || warming}
+        onClick=${() => act({ action: 'cinema', cmd: 'on' })}><${Icon} name=${gaming ? 'pad' : 'power'} size=${40} color=${live ? '#F4F0E8' : 'var(--acc)'} /></button>
+      <div style="min-width:0"><div style="font-size:21px;font-weight:600">${on ? 'Cinema is on' : gaming ? 'Xbox is on' : warming ? 'Starting up' : 'Start the cinema'}</div>
+        <div class="muted" style="font-size:16px">${live ? 'All off is in the top bar' : 'Tap an app, or power on'}</div></div>
     </div>
     <div class="label">Devices</div>
     <div class="devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
     ${isUp(avr) && html`<div class="label">Source</div>
-      <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], ['Xbox One', 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
+      <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], [XBOX_INPUT, 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
   </section>`;
 }
 

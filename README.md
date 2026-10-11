@@ -265,13 +265,20 @@ scripts can differ; the panel only needs the entities in [Settings](#settings).
 1. Lights to the cinema scene; the blind to 20 % in daylight.
 2. **Projector on**, then wait for it.
 3. **Streamer on** about 10 s later, then wait for it.
-4. **Receiver on last**, about 15 s later, retrying once if it doesn't answer.
+4. **Receiver on last**, about 15 s later, retrying once if it doesn't answer, then its input
+   set to the Streamer (it keeps its last input, so after a game it would still be on the console).
 5. The panel's warm-up screen follows along, then the title or app opens.
 
 Why this order: with a Google TV Streamer, a Denon and a projector, Dolby Atmos only came through
 reliably when the receiver powered on *after* the projector and the Streamer were already up.
 Starting the receiver first, or having the projector wake up afterwards, left the Streamer
 sending PCM. The projector also needs a settled signal to avoid a blank picture.
+
+**A console on the same receiver:** the Cinema card's **Source** tiles switch the receiver
+between the Streamer and the console. When you open a film or an app from the panel while the
+receiver is on another input, the panel switches it back to the Streamer first. While the
+receiver is on and on the console's input with the movie scene off (a gaming session started from
+HA), the panel shows **Xbox is on** with **All off**, instead of offering to start the cinema.
 
 **Stop (All off):** lights and blind back to how they were, the Streamer, receiver and projector
 off, and the movie scene off. The receiver goes to **standby** rather than having its power cut,
@@ -305,7 +312,8 @@ While something plays, Showtime and the phone show what the Denon is decoding, r
 |---|---|
 | **Dolby Atmos** (amber) | Atmos is coming through. |
 | **Dolby** / **DTS** | A surround format without Atmos objects. |
-| **PCM · no Atmos** (red) | The Streamer is sending PCM. Usually the HDMI handshake went wrong at start-up; switching the receiver off and on with the Streamer already running fixes it. |
+| **Multichannel** | Multichannel PCM. Normal for menus and non-Atmos sound: the Streamer and an Xbox both send it between Atmos titles. |
+| **Stereo · no Atmos** (red) | A stereo signal being upmixed. Usually the HDMI handshake went wrong at start-up; switching the receiver off and on with the Streamer already running fixes it. |
 
 ---
 
@@ -445,7 +453,7 @@ scene on hold.
 
 | Symptom | What to check |
 |---|---|
-| **PCM · no Atmos** badge | Restart the receiver with the Streamer already on. If it keeps happening, check the start order (receiver last) and turn off the receiver's **HDMI Control** (CEC), which can renegotiate audio when the projector wakes. |
+| **Stereo · no Atmos** badge | Restart the receiver with the Streamer already on. If it keeps happening, check the start order (receiver last) and turn off the receiver's **HDMI Control** (CEC), which can renegotiate audio when the projector wakes. |
 | Blank picture at start | The projector should come on after the receiver and Streamer have settled. |
 | Warm-up says "taking longer than usual" | It names the device that didn't come up. Check that device, or turn the movie scene off and on. |
 | Phone shows "Open this page once with ?key=…" | The phone's address isn't trusted. Add its network to `trust_networks` (see [Access](#access-and-security)). |
