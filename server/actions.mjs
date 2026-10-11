@@ -31,6 +31,18 @@ const panelPath = (url) => {
   try { const u = new URL(url); return u.pathname.startsWith('/assets/') ? u.pathname : /^https?:$/.test(u.protocol) ? u.href : null; } catch { return null; }
 };
 
+// The Denon keeps its last input, so after an Xbox session a film would start on the Xbox
+// input. Before anything opens on the Streamer, put the Denon back on it when it is on something
+// else. Only when the Denon is already on: from cold, HA's start sequence sets the input itself.
+const STREAMER_INPUT = 'GoogleTVStreamer';
+async function toStreamer(ha) {
+  const avr = config.entities.avr;
+  const s = ha.states[avr];
+  if (!avr || s?.state !== 'on' || !s.attributes?.source || s.attributes.source === STREAMER_INPUT) return;
+  await ha.callService('media_player', 'select_source', { source: STREAMER_INPUT }, { target: { entity_id: avr } })
+    .catch((err) => console.warn('[input] could not switch the Denon to the Streamer:', err.message));
+}
+
 export const script = (ha, name, variables = {}) => ha.callService('script', 'turn_on', { variables }, { target: { entity_id: `script.theater_${name}` } });
 
 export async function runAction(ha, body) {
@@ -183,6 +195,7 @@ export async function runAction(ha, body) {
       const url = APP_URLS[body.id];
       if (!url) throw httpError(400, 'Unknown app');
       const open = async () => {
+        await toStreamer(ha);
         // A link sent while the Google Photos screensaver is up may be swallowed: wake it first.
         if (SCREENSAVER.test(ha.states[e.appleTv]?.attributes?.app_id || '')) {
           await ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
@@ -235,7 +248,7 @@ export async function runAction(ha, body) {
         return ha.callService('media_player', 'volume_set', { volume_level: Math.round(level * 100) / 100 }, { target: { entity_id: e.avr } });
       }
       if (body.cmd === 'source') {
-        const allowed = ['GoogleTVStreamer', 'Xbox One'];
+        const allowed = [STREAMER_INPUT, 'Xbox One'];
         if (!allowed.includes(body.source)) throw httpError(400, 'Unknown source');
         return ha.callService('media_player', 'select_source', { source: body.source }, { target: { entity_id: e.avr } });
       }
@@ -479,6 +492,7 @@ async function playStremio(ha, body) {
   launched = { id: String(body.ratingKey), type: body.type, title: body.title || null, at: Date.now() };
   plex.item(String(body.ratingKey)).then((it) => { if (launched?.id === String(body.ratingKey)) launched = { ...launched, ...it, at: launched.at }; }).catch(() => {});
   plex.staleMovies();
+  await toStreamer(ha);
   return script(ha, 'play_stremio', { link, kind });
 }
 
