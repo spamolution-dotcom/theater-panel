@@ -133,6 +133,26 @@ left switches between **Home**, **Watch**, **Music** and **Games**, with **Myste
 Music Assistant on the panel: what's playing, albums, playlists, artists and radio, search, the
 queue, and which speaker to play on. The first music player in the settings is the cinema's.
 
+### Games (Xbox)
+
+![Games](docs/img/fork-games.jpg)
+
+With Home Assistant's [Xbox integration](https://www.home-assistant.io/integrations/xbox) set up
+(and **Remote features** on in the console's settings), the Games tab is the Xbox:
+
+| State | What you see |
+|---|---|
+| **Off** | A big **Play Xbox** button that turns on your Xbox mode helper, which runs the gaming start in HA (lights, blind, Denon on the Xbox input, projector, then the console). **Jump back in** offers the last game, and **Your games** lists everything installed. Tapping a game starts the room first and opens the game once the console is up. |
+| **On** | What's playing, with the game's artwork, genre and achievement progress, **Xbox home** and **All off**. Below: your games and apps to switch to, your gamer card (gamerpic, gamerscore, online), the console's free storage, and the receiver's input and sound format. |
+
+The integration has no "recently played" list, so the panel keeps its own: a game moves to the
+front when it is opened from the panel or seen playing on the console. Without an Xbox in HA the
+tab falls back to the HDMI-switcher / Steam screen below.
+
+The gaming start needs the receiver **on and on the Xbox input before the console starts**, or the
+Xbox finds no screen and shows no picture: the opposite order to the Streamer, which needs the
+receiver last for Atmos.
+
 ### Warm-up
 
 ![Warm-up](docs/img/fork-warmup.jpg)
@@ -220,6 +240,7 @@ separate page laid out for phones; the wall panel is unchanged.
 - **Continue** and **Just added** as swipeable rows.
 - **Scenes** and **All off** (two taps).
 - **Devices:** Projector, Denon, Chromecast (two taps to turn one off).
+- **Source:** the Denon's input, Chromecast or Xbox (while the Denon is on).
 - **Blind:** Open / Movie / Close.
 
 **Watch**
@@ -228,6 +249,12 @@ separate page laid out for phones; the wall panel is unchanged.
 - Tapping a poster opens a sheet with the details and **Play in the cinema** (or **Resume**),
   **Start over**, and seasons and episodes for shows. If the cinema is off, the sheet says so
   and the cinema starts first.
+
+**Games** (with an Xbox in HA)
+- Off: **Play Xbox**, **Jump back in**, and your installed games (a tapped game starts the room
+  and opens when the console is up).
+- On: what's playing with achievement progress, the Denon's volume, **Xbox home**, **All off**,
+  a **Switch game** row and the **Source** switch.
 
 **Remote**
 - A round pad (**up, down, left, right, OK**), **Back**, **Home** and **Play / Pause** for the
@@ -472,7 +499,7 @@ hardware this fork doesn't use, so they are hidden or inactive:
 |---|---|---|
 | **Request** (Seerr search, requests, download queue) | Seerr | Hidden from the rail; `#/request` still opens it. |
 | Plex libraries, sessions, "N streams", Tautulli | Plex | Replaced by Stremio. |
-| **Games** (consoles via an HDMI switcher, Steam library, PC stats) | `config/games.json`, Steam key | The tab is there but empty without a games config. |
+| **Games** without an Xbox (consoles via an HDMI switcher, Steam library, PC stats) | `config/games.json`, Steam key | Shown only when no Xbox is set up in HA. |
 | **Soundbar** sheet | A JBL soundbar in HA | Only appears when a soundbar is configured. |
 | Kiosk Satellite theater mode | The Kiosk Satellite app | Works if you use it; with Fully Kiosk the page dims itself. |
 | Basement panel, Unraid template | — | Not used. |

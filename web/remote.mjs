@@ -4,7 +4,7 @@
 // Same server, same actions as the wall panel; only the layout is new. Home network only (it
 // relies on the panel's trusted networks, like the wall tablet does).
 
-import { gamingOn } from './lib/gaming.mjs';
+import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
@@ -207,7 +207,20 @@ function Devices() {
   return html`<section>
     <div class="r-h2"><h2>Devices</h2></div>
     <div class="r-devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
+    ${isUp(avr) && html`<${Source} avr=${avr} />`}
   </section>`;
+}
+
+// The Denon's input (only while it is on): the Streamer or the Xbox, one tap.
+const SOURCES = [['GoogleTVStreamer', 'Chromecast', 'cast'], [XBOX_INPUT, 'Xbox', 'pad']];
+function Source({ avr }) {
+  const [want, setWant] = useState(null);
+  const src = avr?.attributes?.source;
+  useEffect(() => { setWant(null); }, [src]);
+  const cur = want || src;
+  return html`<div class="r-h2"><h2>Source</h2><span class="r-aside">Denon input</span></div>
+    <div class="r-seg">${SOURCES.map(([id, name, icon]) => html`<button type="button" key=${id} aria-pressed=${cur === id ? 'true' : 'false'}
+      onClick=${() => { if (cur === id) return; setWant(id); act({ action: 'cinema', cmd: 'source', source: id }); }}><${Icon} name=${icon} size=${18} />${name}</button>`)}</div>`;
 }
 
 function Blind() {
@@ -432,7 +445,8 @@ function Toast() {
 }
 
 function Remote() {
-  const [tab, setTab] = useState(() => (['#watch', '#remote'].includes(location.hash) ? location.hash.slice(1) : 'home'));
+  const [tab, setTab] = useState(() => (['#watch', '#remote', '#games'].includes(location.hash) ? location.hash.slice(1) : 'home'));
+  const hasXbox = useStore((s) => Boolean(s.entities?.xbox && s.states[s.entities.xbox]));
   const [sheet, setSheet] = useState(null);
   const connected = useStore((s) => s.connected);
   useEffect(() => { history.replaceState(null, '', `#${tab}`); window.scrollTo(0, 0); }, [tab]);
@@ -450,14 +464,105 @@ function Remote() {
   };
   return html`<div class="r-app">
     ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi or Tailscale?</div>`}
-    ${tab === 'remote' ? html`<${TvRemote} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
+    ${tab === 'games' && hasXbox ? html`<${Games} />` : tab === 'remote' ? html`<${TvRemote} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
     <nav class="r-tabs">
       <button type="button" aria-pressed=${tab === 'home' ? 'true' : 'false'} onClick=${() => setTab('home')}><${Icon} name="home" size=${24} />Home</button>
       <button type="button" aria-pressed=${tab === 'watch' ? 'true' : 'false'} onClick=${() => setTab('watch')}><${Icon} name="film" size=${24} />Watch</button>
+      ${hasXbox && html`<button type="button" aria-pressed=${tab === 'games' ? 'true' : 'false'} onClick=${() => setTab('games')}><${Icon} name="pad" size=${24} />Games</button>`}
       <button type="button" aria-pressed=${tab === 'remote' ? 'true' : 'false'} onClick=${() => setTab('remote')}><${Icon} name="remote" size=${24} />Remote</button>
     </nav>
     ${sheet && html`<${TitleSheet} start=${sheet} key=${sheet.id} onClose=${close} />`}
     <${Toast} />
+  </div>`;
+}
+
+// ---------- Games (Xbox) ----------
+// Off: Play Xbox (the gaming start in HA), the last game, every installed game. On: what is
+// playing, Denon volume, Xbox home, All off, games to switch to and the Denon's input.
+const G_ART = ['#2f6b3b,#122a17', '#3b4f7a,#151d33', '#7a3b2f,#2a120e', '#6b5b2f,#2a2210', '#4f2f6b,#1d1029', '#2f6b6b,#0f2929', '#7a2f4f,#2a0f1b', '#5b5b5b,#1e1e1e'];
+const gTint = (id) => G_ART[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % G_ART.length];
+const gLive = (st) => Boolean(st) && !['unknown', 'unavailable', ''].includes(st.state);
+function gAgo(ms) {
+  if (!ms) return '';
+  const days = Math.round((new Date(new Date().toDateString()) - new Date(new Date(ms).toDateString())) / 864e5);
+  if (days <= 0) return 'Played today';
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return `${days} days ago`;
+  return new Date(ms).toLocaleDateString('en-AU', { day: 'numeric', month: 'short' });
+}
+function GTile({ g, on, onPick }) {
+  return html`<button type="button" class="rg-tile" aria-pressed=${on ? 'true' : 'false'} onClick=${() => onPick(g)}>
+    <div class="sq" style=${`background:linear-gradient(160deg,${gTint(g.id)})`}>${g.thumb ? html`<img src=${g.thumb} alt="" loading="lazy" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }} />` : html`<span>${g.title}</span>`}</div>
+    <b>${g.title}</b><span>${g.kind === 'app' ? 'App' : gAgo(g.playedAt) || 'Game'}</span></button>`;
+}
+
+function Games() {
+  const e = useStore((s) => s.entities) || {};
+  const box = useEntity(e.xbox);
+  const scene = useEntity(e.xboxScene);
+  const avr = useEntity(e.avr);
+  const now = useEntity(e.xboxAccount && `sensor.${e.xboxAccount}_now_playing`);
+  const [lib, err] = useLoad(() => get('/api/xbox/library'), []);
+  const [busy, setBusy] = useState(false);
+  const [armed, setArmed] = useArmed();
+  const on = box?.state === 'on';
+  const starting = !on && (scene?.state === 'on' || busy);
+  const games = lib?.games || [];
+  const apps = lib?.apps || [];
+  const last = games.find((g) => g.playedAt);
+  const playing = gLive(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
+  const norm = (t) => String(t || '').replace(/[™®]/g, '').trim().toLowerCase();
+  const current = playing && [...games, ...apps].find((g) => norm(g.title) === norm(playing) || norm(playing).startsWith(norm(g.title)));
+  const progress = Number(now?.attributes?.progress);
+  const genres = now?.attributes?.genres;
+  const vol = avr?.attributes?.volume_level;
+  const muted = Boolean(avr?.attributes?.is_volume_muted);
+  const t = (cmd, extra = {}) => act({ action: 'transport', cmd, ...extra });
+
+  async function start() { setBusy(true); if (await act({ action: 'xbox', cmd: 'start' })) toast('Starting the room for gaming'); setTimeout(() => setBusy(false), 60000); }
+  async function pick(g) {
+    const r = await act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind });
+    if (r) toast(r.starting ? `Starting the room · ${g.title} opens when the Xbox is up` : `Opening ${g.title}`);
+    if (r?.starting) setBusy(true);
+  }
+  const allOff = () => { if (!armed) { setArmed(true); return; } setArmed(false); act({ action: 'scene', name: 'all_off' }); toast('Turning everything off'); };
+
+  return html`<div class="r-page">
+    <${Top} title="Games" kicker="Xbox"><span class=${`r-chip ${on ? 'on' : starting ? 'warm' : ''}`}><span class="dot"></span>${on ? 'Xbox on' : starting ? 'Starting…' : 'Xbox off'}</span><//>
+    ${on ? html`
+      <section class="rg-hero playing">
+        <div class="rg-eye">${playing ? 'Now playing' : 'Xbox is on'}</div>
+        <div class="rg-big">${playing || 'Xbox home'}</div>
+        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : 'Pick a game below, or use the controller'}</div>
+        ${Number.isFinite(progress) && html`<div class="rg-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${Math.round(progress)} %</span></div>`}
+        ${isUp(avr) && html`<div class="rg-vol">
+          <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}><${Icon} name="volm" size=${20} /></button>
+          <span class="k">${muted ? 'Muted' : `Denon · ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
+          <button type="button" aria-label="Volume up" onClick=${() => t('vol_up')}><${Icon} name="volp" size=${20} /></button>
+          <button type="button" aria-label=${muted ? 'Unmute' : 'Mute'} onClick=${() => t('mute', { muted: !muted })}><${Icon} name="mute" size=${20} /></button>
+        </div>`}
+        <div class="rg-row2">
+          <button type="button" onClick=${async () => { if (await act({ action: 'xbox', cmd: 'home' })) toast('Xbox home'); }}><${Icon} name="pad" size=${20} />Xbox home</button>
+          <button type="button" class=${armed ? 'armed' : ''} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again' : 'All off'}</button>
+        </div>
+      </section>
+      <div class="r-h2"><h2>Switch game</h2><span class="r-aside">${games.length ? 'Recent first' : ''}</span></div>
+      ${err ? html`<div class="r-empty">${err.message}</div>` : html`<div class="rg-strip">${[...games, ...apps].map((g) => html`<${GTile} key=${g.id} g=${g} on=${current?.id === g.id} onPick=${pick} />`)}</div>`}
+      ${isUp(avr) && html`<${Source} avr=${avr} />`}`
+    : html`
+      <section class="rg-hero">
+        <div class="rg-eye">${starting ? 'Starting the room' : 'Xbox is off'}</div>
+        <div class="rg-big">${starting ? 'Starting…' : 'Play Xbox'}</div>
+        <div class="rg-sub">${starting ? 'Denon, projector, then the Xbox · about 40 seconds' : 'Starts the room for gaming · about 40 seconds'}</div>
+        <button type="button" class="rg-play" disabled=${starting} onClick=${start}><${Icon} name="pad" size=${24} />Play Xbox</button>
+        ${last && html`<div class="rg-last"><div class="sq" style=${`background:linear-gradient(160deg,${gTint(last.id)})`}>${last.thumb && html`<img src=${last.thumb} alt="" />`}</div>
+          <div style="min-width:0;flex:1"><span class="rg-eye" style="font-size:10px">Jump back in</span><b>${last.title}</b><span>${gAgo(last.playedAt)}</span></div>
+          <button type="button" onClick=${() => pick(last)}>Play</button></div>`}
+      </section>
+      <div class="r-h2"><h2>Your games</h2><span class="r-aside">${games.length ? `${games.length} installed` : ''}</span></div>
+      ${err ? html`<div class="r-empty">${err.message}</div>` : !lib ? html`<div class="r-empty">Loading…</div>` : lib.error ? html`<div class="r-empty">${lib.error}</div>`
+        : html`<div class="rg-grid">${games.map((g) => html`<${GTile} key=${g.id} g=${g} onPick=${pick} />`)}</div>
+          <div class="r-empty">Tap a game: the room starts and the game opens.</div>`}`}
   </div>`;
 }
 

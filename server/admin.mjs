@@ -83,6 +83,11 @@ export const FIELDS = [
 
   { group: 'Projector apps', key: 'PROJECTOR_APPS', label: 'Apps', type: 'apps', help: 'Open on the projector over ADB. The package is the Android app id.' },
 
+  { group: 'Games', key: 'ENTITY_XBOX', label: 'Xbox (media player)', type: 'entity', domain: 'media_player', help: "From Home Assistant's Xbox integration (Remote features on the console). The Games screen then shows the Xbox: its games, Play Xbox and Xbox home (the HDMI switcher / Steam screen is used when the Xbox is not found in HA)." },
+  { group: 'Games', key: 'ENTITY_XBOX_SCENE', label: 'Xbox mode switch', type: 'entity', domain: 'input_boolean', help: 'Turned on by Play Xbox (and before opening a game when it is off); your automation runs the gaming start.' },
+  { group: 'Games', key: 'XBOX_ACCOUNT', label: 'Xbox account entity prefix', type: 'text', placeholder: 'xbox', help: 'The start of the account entities: xbox gives sensor.xbox_gamerscore, sensor.xbox_now_playing, image.xbox_gamerpic and so on.' },
+  { group: 'Games', key: 'ENTITY_XBOX_ART', label: 'Game artwork (image)', type: 'entity', domain: 'image', help: 'The wide artwork of the game being played, e.g. the Superhero art image.' },
+  { group: 'Games', key: 'ENTITY_XBOX_STORAGE', label: 'Free space sensor', type: 'entity', domain: 'sensor', help: "The console's Free space sensor; the matching Total space one is found from it." },
   { group: 'Games', key: 'STEAM_API_KEY', label: 'Steam Web API key', type: 'secret', help: 'steamcommunity.com/dev/apikey' },
   { group: 'Games', key: 'STEAM_ID', label: 'SteamID64', type: 'text' },
 

@@ -3,10 +3,17 @@
 
 import { useState, useRef } from 'preact/hooks';
 import { html, Icon, Poster, Header, H2 } from '../lib/ui.mjs';
-import { get, act, useLoad, useEntity, toast } from '../lib/api.mjs';
+import { get, act, useLoad, useEntity, useStore, toast } from '../lib/api.mjs';
 import { go } from '../app.mjs';
+import { Xbox } from './xbox.mjs';
 
+// With an Xbox in Home Assistant the Games screen is the Xbox; otherwise the HDMI switcher / Steam one.
 export function Games() {
+  const xbox = useStore((s) => Boolean(s.entities?.xbox && s.states[s.entities.xbox]));
+  return xbox ? html`<${Xbox} />` : html`<${Switcher} />`;
+}
+
+function Switcher() {
   const swipe = useRef(null);
   const [g, err, reload] = useLoad(() => get('/api/games'), []);
   const [steam] = useLoad(() => get('/api/steam/library').catch(() => ({ configured: false, games: [] })), []);

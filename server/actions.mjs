@@ -8,6 +8,7 @@ import * as plex from './media.mjs';
 import { extImage } from './images.mjs';
 import * as games from './games.mjs';
 import { httpError } from './admin.mjs';
+import { xboxAction } from './xbox.mjs';
 
 // Launch links as documented for the Android TV Remote integration
 // (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
@@ -307,6 +308,7 @@ export async function runAction(ha, body) {
     }
 
     case 'game_source': return games.selectSource(ha, String(body.id));
+    case 'xbox': return xboxAction(ha, body);
     case 'game_pc_power': return games.pcPower(ha, body.on !== false);
     case 'game_launch': return games.launchSteamGame(ha, body.appid);
 

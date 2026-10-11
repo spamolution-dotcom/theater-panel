@@ -30,6 +30,7 @@ import { netList, clientIp } from './net.mjs';
 import { versions } from './version.mjs';
 import * as hass from './hass.mjs';
 import QRCode from 'qrcode';
+import * as xbox from './xbox.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(root, 'web');
@@ -55,7 +56,7 @@ const TYPES = {
 // Entities streamed to the panel: the theater's own, plus the gaming PC's power and sensors.
 // A broken games.json must not keep the server from starting; the Games screen just goes quiet.
 const gameEntitiesSafe = () => gameEntities().catch((e) => { console.warn('[games] config unreadable:', e.message); return []; });
-let entities = [...new Set([...watchedEntities(), ...(await gameEntitiesSafe())])];
+let entities = [...new Set([...watchedEntities(), ...xbox.xboxEntities(), ...(await gameEntitiesSafe())])];
 const ha = new HomeAssistant({ url: config.ha.url, token: config.ha.token, entities });
 
 // After the admin page saves: reconnect HA if its URL, token or the entity list changed, and tell
@@ -63,7 +64,7 @@ const ha = new HomeAssistant({ url: config.ha.url, token: config.ha.token, entit
 async function applySettings() {
   isProxy = netList(config.trustedProxies);
   isTrusted = netList(config.trustedNetworks);
-  entities = [...new Set([...watchedEntities(), ...(await gameEntitiesSafe())])];
+  entities = [...new Set([...watchedEntities(), ...xbox.xboxEntities(), ...(await gameEntitiesSafe())])];
   ha.reconfigure({ url: config.ha.url, token: config.ha.token, entities });
   broadcast('settings', {});
   await hass.apply();
@@ -76,7 +77,7 @@ function broadcast(event, data) {
   }
   hass.observe(event, data);
 }
-ha.on('states', (changed) => broadcast('states', changed));
+ha.on('states', (changed) => { broadcast('states', changed); xbox.observe(changed); });
 onPanelSound((sound) => broadcast('sound', sound));
 ha.on('status', (connected) => broadcast('ha', { connected }));
 
@@ -605,6 +606,7 @@ get(/^\/api\/music\/queue$/, (m, q) => musicQueue(ha, q.get('entity_id')));
 
 get(/^\/api\/games$/, () => gamesState());
 get(/^\/api\/steam\/library$/, () => steamLibrary());
+get(/^\/api\/xbox\/library$/, () => xbox.xboxLibrary(ha));
 
 // Move every open panel to a route (#/showtime, #/watch?brand=netflix, #/games...). Kiosk
 // Satellite's navigate service now moves the HA page around the panel, so HA automations reach
