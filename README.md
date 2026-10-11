@@ -276,7 +276,9 @@ sending PCM. The projector also needs a settled signal to avoid a blank picture.
 
 **A console on the same receiver:** the Cinema card's **Source** tiles switch the receiver
 between the Streamer and the console. When you open a film or an app from the panel while the
-receiver is on another input, the panel switches it back to the Streamer first.
+receiver is on another input, the panel switches it back to the Streamer first. While the
+receiver is on and on the console's input with the movie scene off (a gaming session started from
+HA), the panel shows **Xbox is on** with **All off**, instead of offering to start the cinema.
 
 **Stop (All off):** lights and blind back to how they were, the Streamer, receiver and projector
 off, and the movie scene off. The receiver goes to **standby** rather than having its power cut,

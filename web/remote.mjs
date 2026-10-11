@@ -4,6 +4,7 @@
 // Same server, same actions as the wall panel; only the layout is new. Home network only (it
 // relies on the panel's trusted networks, like the wall tablet does).
 
+import { gamingOn } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
@@ -41,6 +42,7 @@ const MAX_ITEMS = 360;
 
 const isUp = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
 const useRoomOn = () => useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
+const useGaming = () => useStore((s) => gamingOn(s.states, s.entities));
 const nameOf = (m) => m.showTitle || m.title;
 
 // Short tab names under Movies | TV Shows, as on the wall panel.
@@ -80,9 +82,10 @@ function Top({ title, kicker, children }) {
 
 function StatusChip() {
   const roomOn = useRoomOn();
+  const gaming = useGaming();
   const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
-  const cls = warming ? 'warm' : roomOn ? 'on' : '';
-  return html`<span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : 'Cinema off'}</span>`;
+  const cls = warming ? 'warm' : roomOn || gaming ? 'on' : '';
+  return html`<span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : gaming ? 'Xbox on' : 'Cinema off'}</span>`;
 }
 
 function NowPlaying({ onTab }) {
@@ -160,6 +163,7 @@ function Shelf({ title, link, items, onOpen, empty }) {
 
 function Scenes() {
   const roomOn = useRoomOn();
+  const gaming = useGaming();
   const tracked = useEntity('input_select.theater_scene')?.state;
   const [active, pick] = usePicked(roomOn ? SCENE_OF[tracked] : undefined);
   const [armed, setArmed] = useArmed();
@@ -171,7 +175,7 @@ function Scenes() {
     <div class="r-h2"><h2>Scenes</h2></div>
     <div class="r-scn-grid">${SCENES.map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
       onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
-    ${roomOn && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
+    ${(roomOn || gaming) && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
   </section>`;
 }
 
