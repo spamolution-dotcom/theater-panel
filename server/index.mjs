@@ -636,7 +636,7 @@ let lastAccent = accentNow().id;
 setInterval(() => { const id = accentNow().id; if (id !== lastAccent) { lastAccent = id; broadcast('settings', {}); } }, 60 * 60e3).unref();
 
 const inlineHashes = await (async () => {
-  const files = ['index.html', 'admin.html', 'vote.html', 'guest.html', 'marquee.html', 'fxgrid.html', 'basement.html', 'basement/dev.html'];
+  const files = ['index.html', 'remote.html', 'admin.html', 'vote.html', 'guest.html', 'marquee.html', 'fxgrid.html', 'basement.html', 'basement/dev.html'];
   const out = new Set();
   for (const f of files) {
     const html = await readFile(join(WEB, f), 'utf8').catch(() => '');
@@ -772,6 +772,8 @@ const server = createServer(async (req, res) => {
     if (path === '/admin' || path === '/admin/') return serveFile(res, join(WEB, 'admin.html'));
     if (path === '/vote' || path === '/vote/') return serveFile(res, join(WEB, 'vote.html'));
     if (path === '/guest' || path === '/guest/') return serveFile(res, join(WEB, 'guest.html'));
+    // The phone remote: the panel's controls and Watch at phone width (home network only).
+    if (path === '/remote' || path === '/remote/') return serveFile(res, join(WEB, 'remote.html'));
     if (path === '/marquee' || path === '/marquee/') return serveFile(res, join(WEB, 'marquee.html'));
 
     if (path.startsWith('/api/')) {
