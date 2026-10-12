@@ -87,10 +87,6 @@ export async function xboxAction(ha, body) {
     ? ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.xboxScene } })
     : ha.callService('media_player', 'turn_on', {}, { target: { entity_id: e.xbox } });
   if (body.cmd === 'start') { await startRoom(); return { ok: true }; }
-  if (body.cmd === 'guide') {
-    if (!e.xboxRemote) throw httpError(400, 'No Xbox remote configured');
-    return ha.callService('remote', 'send_command', { command: 'ShowGuide' }, { target: { entity_id: e.xboxRemote } });
-  }
   if (body.cmd === 'home') {
     return ha.callService('media_player', 'play_media', { media_content_type: 'app', media_content_id: 'Home' }, { target: { entity_id: e.xbox } });
   }

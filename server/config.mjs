@@ -141,7 +141,6 @@ function build(env) {
     // account entities' prefix, the game artwork image and the console's free-space sensor.
     xbox: env.ENTITY_XBOX || 'media_player.cinema_xboxone',
     xboxScene: env.ENTITY_XBOX_SCENE || 'input_boolean.xbox_scene',
-    xboxRemote: env.ENTITY_XBOX_REMOTE || 'remote.xboxone',
     xboxAccount: env.XBOX_ACCOUNT || 'xbox',
     xboxArt: env.ENTITY_XBOX_ART || 'image.cinema_xbox_superhero_art',
     xboxStorage: env.ENTITY_XBOX_STORAGE || 'sensor.xboxone_free_space_internal_storage',

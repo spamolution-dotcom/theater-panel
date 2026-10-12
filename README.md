@@ -151,8 +151,7 @@ tab falls back to the HDMI-switcher / Steam screen below.
 
 **Game time.** While a game is playing, the panel switches to a dark screen like Showtime (after
 90 s without a touch, as for a film): the game, how long it's been played, achievements and
-gamerscore, Denon volume, **Xbox home**, **Switch game**, **Guide**, **All off** and **Full
-controls**. On the hallway tablet the game's poster art fills the left. When the game ends it
+gamerscore, Denon volume, **Xbox home**, **Switch game**, **All off** and **Full controls**. On the hallway tablet the game's poster art fills the left. When the game ends it
 goes back to the Games screen.
 
 The gaming start needs the receiver **on and on the Xbox input before the console starts**, or the
