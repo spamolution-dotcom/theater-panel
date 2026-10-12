@@ -10,6 +10,7 @@ import { html, Icon } from '../lib/ui.mjs';
 import { act, useStore, useEntity } from '../lib/api.mjs';
 import { go } from '../app.mjs';
 import { soundFormat } from '../lib/sound.mjs';
+import { XBOX_INPUT } from '../lib/gaming.mjs';
 
 const live = (st) => Boolean(st) && !['unknown', 'unavailable', ''].includes(st.state);
 const haImg = (id, st) => (st?.attributes?.entity_picture ? `/api/ha-image?e=${encodeURIComponent(id)}&v=${encodeURIComponent(st.attributes.entity_picture)}&s=${encodeURIComponent(st.state || '')}` : null);
@@ -19,9 +20,13 @@ export const artIds = (art) => {
   return base && base !== art ? { poster: `${base}_poster`, box: `${base}_box_art` } : { poster: null, box: null };
 };
 
-// Is a game being played? The console on and the account's Now playing sensor naming something.
+// Is a game being played, and on screen? The console on, the account's Now playing sensor naming
+// something, and the Denon on the Xbox input. A game left running on the Xbox while the Denon is
+// on the Streamer (a film after a game) is not on screen, so it is not Game time.
 export function gameOn(states, e) {
   if (!e?.xbox || states[e.xbox]?.state !== 'on') return false;
+  const avr = e.avr && states[e.avr];
+  if (avr && avr.state === 'on' && avr.attributes?.source && avr.attributes.source !== XBOX_INPUT) return false;
   return live(states[`sensor.${e.xboxAccount}_now_playing`]);
 }
 

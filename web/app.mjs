@@ -17,6 +17,7 @@ import { Request } from './views/request.mjs';
 import { Music } from './views/music.mjs';
 import { Showtime } from './views/showtime.mjs';
 import { Gametime, gameOn } from './views/gametime.mjs';
+import { XBOX_INPUT } from './lib/gaming.mjs';
 import { Warmup } from './views/warmup.mjs';
 import { Games } from './views/games.mjs';
 import { Stats } from './views/stats.mjs';
@@ -428,7 +429,8 @@ function App() {
       // or the warm-up, and not within 90 s of a touch). The game over: back to the Games screen.
       const gaming = gameOn(states, entities);
       if (gaming && st !== 'playing' && !['showtime', 'gametime', 'warmup', 'intermission'].includes(route.name) && Date.now() - lastManual > 90000) go('gametime', { auto: true });
-      if (!gaming && route.name === 'gametime') go('games', { auto: true });
+      // Off the Xbox input (a film on the Streamer) Home is the place; the game over, the Games screen.
+      if (!gaming && route.name === 'gametime') go(states[entities.xbox]?.state === 'on' && states[entities.avr]?.attributes?.source !== XBOX_INPUT ? 'lobby' : 'games', { auto: true });
     }, 5000);
     // Theater mode switched on from HA, a ks:// link or a reload mid-film: show Showtime.
     const offTheater = hallway ? () => {} : onTheater((d) => { if (d.active && route.name !== 'showtime') go('showtime', { auto: true }); });
