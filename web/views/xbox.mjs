@@ -11,7 +11,7 @@ import { XBOX_INPUT } from '../lib/gaming.mjs';
 const ART = ['#2f6b3b,#122a17', '#3b4f7a,#151d33', '#7a3b2f,#2a120e', '#6b5b2f,#2a2210', '#4f2f6b,#1d1029', '#2f6b6b,#0f2929', '#7a2f4f,#2a0f1b', '#5b5b5b,#1e1e1e'];
 const tint = (id) => ART[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % ART.length];
 const live = (st) => Boolean(st) && !['unknown', 'unavailable', '', null, undefined].includes(st.state);
-const haImg = (id, st) => (st?.attributes?.entity_picture ? `/api/ha-image?e=${encodeURIComponent(id)}&v=${encodeURIComponent(st.attributes.entity_picture)}` : null);
+const haImg = (id, st) => (st?.attributes?.entity_picture ? `/api/ha-image?e=${encodeURIComponent(id)}&v=${encodeURIComponent(st.attributes.entity_picture)}&s=${encodeURIComponent(st.state || '')}` : null);
 
 function ago(ms) {
   if (!ms) return '';
