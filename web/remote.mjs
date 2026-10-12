@@ -513,7 +513,7 @@ function Games() {
   const playing = gLive(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
   const norm = (t) => String(t || '').replace(/[™®]/g, '').trim().toLowerCase();
   const current = playing && [...games, ...apps].find((g) => norm(g.title) === norm(playing) || norm(playing).startsWith(norm(g.title)));
-  const progress = Number(now?.attributes?.progress);
+  const progress = parseFloat(String(now?.attributes?.progress ?? ""));
   const genres = now?.attributes?.genres;
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
