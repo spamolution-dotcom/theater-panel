@@ -510,7 +510,9 @@ function Games() {
   const games = lib?.games || [];
   const apps = lib?.apps || [];
   const last = games.find((g) => g.playedAt);
-  const playing = gLive(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
+  // A game left running behind a film (the Denon on another input) is not on screen.
+  const offInput = avr?.state === 'on' && avr.attributes?.source && avr.attributes.source !== XBOX_INPUT;
+  const playing = offInput ? null : gLive(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
   const norm = (t) => String(t || '').replace(/[™®]/g, '').trim().toLowerCase();
   const current = playing && [...games, ...apps].find((g) => norm(g.title) === norm(playing) || norm(playing).startsWith(norm(g.title)));
   const progress = parseFloat(String(now?.attributes?.progress ?? ""));
@@ -531,10 +533,10 @@ function Games() {
     <${Top} title="Games" kicker="Xbox"><span class=${`r-chip ${on ? 'on' : starting ? 'warm' : ''}`}><span class="dot"></span>${on ? 'Xbox on' : starting ? 'Starting…' : 'Xbox off'}</span><//>
     ${on ? html`
       <section class="rg-hero playing">
-        <div class="rg-eye">${playing ? 'Now playing' : 'Xbox is on'}</div>
-        <div class="rg-big">${playing || 'Xbox home'}</div>
-        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : 'Pick a game below, or use the controller'}</div>
-        ${Number.isFinite(progress) && html`<div class="rg-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${Math.round(progress)} %</span></div>`}
+        <div class="rg-kick"><span class="rg-pill"><${Icon} name="pad" size=${18} w=${2} />Xbox</span><span class="rg-eye">${playing ? 'Now playing' : 'On'}</span></div>
+        <div class="rg-big">${playing || (offInput ? 'Not on screen' : 'Xbox home')}</div>
+        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : offInput ? 'The Denon is on the Chromecast · switch Source to Xbox below' : 'Pick a game below, or use the controller'}</div>
+        ${playing && Number.isFinite(progress) && html`<div class="rg-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${Math.round(progress)} %</span></div>`}
         ${isUp(avr) && html`<div class="rg-vol">
           <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}><${Icon} name="volm" size=${20} /></button>
           <span class="k">${muted ? 'Muted' : `Denon · ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>

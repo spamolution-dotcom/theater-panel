@@ -80,7 +80,10 @@ export function Xbox() {
   const apps = lib?.apps || [];
   const last = games.find((g) => g.playedAt);
 
-  const playing = live(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
+  // A game left running on the Xbox while the Denon is on another input (a film after a game) is
+  // not on screen: the hero says so instead of "Now playing".
+  const offInput = avr?.state === 'on' && avr.attributes?.source && avr.attributes.source !== XBOX_INPUT;
+  const playing = offInput ? null : live(now) ? now.state : (on && box?.attributes?.media_title && box.attributes.media_title !== 'Home' ? box.attributes.media_title : null);
   const norm = (t) => String(t || '').replace(/[™®]/g, '').trim().toLowerCase();
   const current = playing && [...games, ...apps].find((g) => norm(g.title) === norm(playing) || norm(playing).startsWith(norm(g.title)));
 
@@ -110,9 +113,9 @@ export function Xbox() {
         <div class="art">${artSrc && html`<img src=${artSrc} alt="" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }} />`}</div>
         <div class="grow" style="display:flex;flex-direction:column;gap:14px;min-width:0">
           <div class="eyebrow">${playing ? 'Now playing on Xbox' : 'Xbox is on'}</div>
-          <div class="xb-title ellipsis">${playing || 'Xbox home'}</div>
-          <div class="xb-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, dev].filter(Boolean).join(' · ') : 'Pick a game below, or use the controller'}</div>
-          ${Number.isFinite(progress) && html`<div class="xb-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${ach != null ? `${ach} · ` : ''}${Math.round(progress)} %</span></div>`}
+          <div class="xb-title ellipsis">${playing || (offInput ? 'Not on screen' : 'Xbox home')}</div>
+          <div class="xb-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, dev].filter(Boolean).join(' · ') : offInput ? `The Denon is on ${avr.attributes.source === 'GoogleTVStreamer' ? 'the Chromecast' : avr.attributes.source} · switch it to the Xbox below` : 'Pick a game below, or use the controller'}</div>
+          ${playing && Number.isFinite(progress) && html`<div class="xb-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${ach != null ? `${ach} · ` : ''}${Math.round(progress)} %</span></div>`}
         </div>
         <div class="xb-actions">
           <button type="button" class="btn big gold" onClick=${home}><${Icon} name="pad" size=${26} />Xbox home</button>
