@@ -160,7 +160,21 @@ export const useEntity = (id) => useStore((s) => (id ? s.states[id] : undefined)
 export function playbackState(s = state) {
   const session = s.sessions?.[0];
   if (session?.state) return session.state;
-  return s.states[s.entities?.appleTv]?.state;
+  const tv = s.states[s.entities?.appleTv]?.state;
+  // The Streamer itself only reports on/off; what Google Cast sees on it (YouTube, Netflix and
+  // other video apps) says playing or paused.
+  const cast = s.states[s.entities?.streamerCast];
+  if (tv === 'on' && castVideo(cast)) return cast.state;
+  return tv;
+}
+
+// Google Cast on the Streamer playing or paused a video app: not music (Music Assistant, Spotify),
+// which plays there for the pre-show and should not bring up Showtime.
+export function castVideo(cast) {
+  if (!cast || !['playing', 'paused'].includes(cast.state)) return false;
+  const a = cast.attributes || {};
+  if (a.media_content_type === 'music') return false;
+  return !/music assistant|spotify/i.test(a.app_name || '');
 }
 
 // Load data once per key; returns [data, error, reload].

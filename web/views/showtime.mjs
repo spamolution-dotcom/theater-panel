@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { hallway } from '../lib/role.mjs';
 import { html, Icon, Pause, Play } from '../lib/ui.mjs';
-import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState } from '../lib/api.mjs';
+import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState, castVideo } from '../lib/api.mjs';
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
 import { go, route } from '../app.mjs';
 import { SleepPicker, sleepLabel } from './sleep.mjs';
@@ -58,19 +58,24 @@ export function Showtime() {
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   useEffect(() => { if (hallway || native || !awake) return; const t = setTimeout(() => setAwake(false), 8000); return () => clearTimeout(t); }, [awake]);
 
-  const a = tv?.attributes || {};
+  // Without a session (YouTube, Netflix…), what Google Cast reports on the Streamer: title, length,
+  // position and the app's own thumbnail.
+  const cast = useEntity(ents.streamerCast);
+  const viaCast = !session && castVideo(cast);
+  const src = viaCast ? cast : tv;
+  const a = src?.attributes || {};
   const state = useStore((s) => playbackState(s));
   const sessionsAt = useStore((s) => s.sessionsAt) || Date.now();
   const playing = state === 'playing';
   const autoplayOn = useStore((s) => s.states[s.entities?.autoplay]?.state === 'on');
-  const title = session?.showTitle || session?.title || a.media_series_title || a.media_title || 'Now showing';
+  const title = session?.showTitle || session?.title || a.media_series_title || a.media_title || (viaCast && a.app_name) || 'Now showing';
   const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : (a.media_series_title ? a.media_title : '');
   // Position: the Plex session when there is one (it is the film, wherever it plays), carried
   // forward between polls while playing; the Apple TV's own report otherwise.
   const dur = session?.duration ? session.duration / 1000 : a.media_duration || null;
   let pos = null;
   if (session?.viewOffset != null) pos = session.viewOffset / 1000 + (playing ? (Date.now() - sessionsAt) / 1000 : 0);
-  else pos = livePosition(tv);
+  else pos = livePosition(src);
   const left = dur && pos != null ? dur - pos : null;
   const ends = left != null ? clock(new Date(Date.now() + left * 1000)).hm : '--:--';
   // The hallway board's caption: year and genre in the label, the synopsis under the title (the
@@ -90,9 +95,11 @@ export function Showtime() {
 
   // The hallway board: the poster full height down the left, the controls beside it over the
   // film's artwork, brighter than the in-room remote.
-  const bigPoster = session?.posterLarge || session?.poster;
+  const castPic = viaCast && a.entity_picture ? `/api/ha-image?e=${encodeURIComponent(ents.streamerCast)}&v=${encodeURIComponent(a.entity_picture)}` : null;
+  const castApp = viaCast && /youtube|netflix|prime|stremio/i.test(a.app_name || '') ? String(a.app_name).toLowerCase().match(/youtube|netflix|prime|stremio/)[0] : null;
+  const bigPoster = session?.posterLarge || session?.poster || castPic;
   return html`<div class=${`showtime${hallway ? ' hall' : ''}`} style=${hallway ? '' : bg} onPointerDown=${poke}>
-    ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : session?.app ? html`<div class="st-poster-app"><img src=${`/assets/apps/${session.app}.png`} alt=${title} /></div>` : html`<div class="st-poster-t">${title}</div>`}</div>`}
+    ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : (session?.app || castApp) ? html`<div class="st-poster-app"><img src=${`/assets/apps/${session?.app || castApp}.png`} alt=${title} /></div>` : html`<div class="st-poster-t">${title}</div>`}</div>`}
     ${hallway && html`<div class="st-art" style=${bg}></div>`}
     <div class="wrap" style=${`--glow:${native || awake ? 1 : 0.55}`}>
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
