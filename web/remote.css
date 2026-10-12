@@ -196,3 +196,6 @@ button:disabled { opacity: .5; cursor: default; }
 .rg-tile[aria-pressed="true"] .sq { outline: 3px solid var(--acc); outline-offset: 2px; }
 .rg-tile b { font: 600 13px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rg-tile > span { font: 500 12px var(--sans); color: var(--muted); margin-top: -3px; }
+/* The Xbox marked in green, as on the wall's Game time. */
+.rg-kick { display: flex; align-items: center; gap: 10px; }
+.rg-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; background: #5DA34B; color: #0b1209; font: 800 15px/1 var(--disp); letter-spacing: 1.5px; text-transform: uppercase; }
