@@ -96,7 +96,7 @@ export function Xbox() {
   const statusLine = !on && !starting && e.xboxAccount ? html`<${StatusText} id=${`sensor.${e.xboxAccount}_status`} />` : null;
   const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
   const genres = now?.attributes?.genres; const dev = now?.attributes?.developer;
-  const progress = Number(now?.attributes?.progress);
+  const progress = parseFloat(String(now?.attributes?.progress ?? ""));
   const ach = now?.attributes?.achievements;
   const artSrc = playing ? haImg(e.xboxArt, art) : null;
 
@@ -107,7 +107,7 @@ export function Xbox() {
     <//>
     ${on ? html`<div class="xb-body xb-on">
       <section class="dark xb-hero row">
-        <div class="art">${artSrc && html`<img src=${artSrc} alt="" />`}</div>
+        <div class="art">${artSrc && html`<img src=${artSrc} alt="" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }} />`}</div>
         <div class="grow" style="display:flex;flex-direction:column;gap:14px;min-width:0">
           <div class="eyebrow">${playing ? 'Now playing on Xbox' : 'Xbox is on'}</div>
           <div class="xb-title ellipsis">${playing || 'Xbox home'}</div>

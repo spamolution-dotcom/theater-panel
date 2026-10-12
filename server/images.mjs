@@ -65,6 +65,11 @@ function resolve(url) {
   if (u.pathname === '/img/ext') {
     const target = u.searchParams.get('u');
     if (!target || u.searchParams.get('s') !== sign(target)) return null;
+    // Home Assistant's own image paths (entity pictures, image entities). Inside the add-on HA is
+    // reached through the Supervisor's proxy, which wants the token even when the URL carries one.
+    if (config.ha.url && config.ha.token && target.startsWith(`${config.ha.url}/`)) {
+      return { upstream: target, headers: { authorization: `Bearer ${config.ha.token}` } };
+    }
     return { upstream: target };
   }
   return null;
@@ -80,7 +85,7 @@ export async function serveImage(req, res) {
     return send(res, body);
   } catch {}
   try {
-    const up = await fetch(r.upstream, { signal: AbortSignal.timeout(15000) });
+    const up = await fetch(r.upstream, { headers: r.headers, signal: AbortSignal.timeout(15000) });
     if (!up.ok) { res.writeHead(up.status === 404 ? 404 : 502).end(); return; }
     const body = Buffer.from(await up.arrayBuffer());
     // The type comes from the bytes both now and on later hits from disk, so the same image
