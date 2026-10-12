@@ -724,9 +724,15 @@ const server = createServer(async (req, res) => {
     // Artwork for a watched HA entity (media player covers), cached like any other image.
     if (path === '/api/ha-image') {
       const id = url.searchParams.get('e');
-      const pic = entities.includes(id) && ha.states[id]?.attributes?.entity_picture;
+      const st = entities.includes(id) && ha.states[id];
+      const pic = st?.attributes?.entity_picture;
       if (!pic) { res.writeHead(404).end(); return; }
-      res.writeHead(302, { location: extImage(pic.startsWith('http') ? pic : config.ha.url + pic), 'cache-control': 'no-store' }).end();
+      // An image entity keeps its URL (and token, for up to 5 minutes) when its picture changes;
+      // its state is the time the picture last changed, so it goes into the URL, which is what the
+      // image cache and the browser key on. Otherwise a new game showed the last game's artwork.
+      const full = pic.startsWith('http') ? pic : config.ha.url + pic;
+      const target = id.startsWith('image.') && st.state ? `${full}${full.includes('?') ? '&' : '?'}_v=${encodeURIComponent(st.state)}` : full;
+      res.writeHead(302, { location: extImage(target), 'cache-control': 'no-store' }).end();
       return;
     }
 
