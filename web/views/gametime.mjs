@@ -1,6 +1,6 @@
 // Game time: the Xbox counterpart of Showtime, in the same dark, dim-amber style. Only what an
 // Xbox session needs: what is playing and for how long, achievements, Denon volume, Xbox home,
-// Switch game, Guide, All off and a way back to the full controls. On the hallway tablet the
+// Switch game, All off and a way back to the full controls. On the hallway tablet the
 // game's poster art fills the left, as the film poster does on Showtime.
 
 import { useEffect, useState } from 'preact/hooks';
@@ -101,7 +101,6 @@ export function Gametime() {
             <button type="button" class=${`pp${fx.home ? ` fx-${fx.home}` : ''}`} aria-label="Xbox home" onClick=${() => press('home', { action: 'xbox', cmd: 'home' })}><${Icon} name="pad" size=${110} w=${1.4} /></button>
             <span class="mono" style="font-size:20px;color:var(--d-dim)">Xbox home</span>
           </div>
-          <button type="button" class=${`skip${fx.guide ? ` fx-${fx.guide}` : ''}`} onClick=${() => press('guide', { action: 'xbox', cmd: 'guide' })}><${Icon} name="screen" size=${64} w=${1.6} /><span class="mono" style="font-size:20px;color:var(--d-dim)">Guide</span></button>
         </div>
         <div class="st-side" style="width:220px;display:flex;flex-direction:column;gap:20px">
           <button type="button" class=${`${fxc('alloff')}${offArmed ? ' armed' : ''}`} style="flex-grow:1" onClick=${allOff}><${Icon} name="power" size=${48} w=${1.8} /><span class="s">${offArmed ? 'Tap again to turn off' : 'All off'}</span></button>

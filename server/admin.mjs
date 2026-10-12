@@ -85,7 +85,6 @@ export const FIELDS = [
 
   { group: 'Games', key: 'ENTITY_XBOX', label: 'Xbox (media player)', type: 'entity', domain: 'media_player', help: "From Home Assistant's Xbox integration (Remote features on the console). The Games screen then shows the Xbox: its games, Play Xbox and Xbox home (the HDMI switcher / Steam screen is used when the Xbox is not found in HA)." },
   { group: 'Games', key: 'ENTITY_XBOX_SCENE', label: 'Xbox mode switch', type: 'entity', domain: 'input_boolean', help: 'Turned on by Play Xbox (and before opening a game when it is off); your automation runs the gaming start.' },
-  { group: 'Games', key: 'ENTITY_XBOX_REMOTE', label: 'Xbox remote', type: 'entity', domain: 'remote', help: 'The same console as a remote entity; Game time\'s Guide button sends to it.' },
   { group: 'Games', key: 'XBOX_ACCOUNT', label: 'Xbox account entity prefix', type: 'text', placeholder: 'xbox', help: 'The start of the account entities: xbox gives sensor.xbox_gamerscore, sensor.xbox_now_playing, image.xbox_gamerpic and so on.' },
   { group: 'Games', key: 'ENTITY_XBOX_ART', label: 'Game artwork (image)', type: 'entity', domain: 'image', help: 'The wide artwork of the game being played, e.g. the Superhero art image.' },
   { group: 'Games', key: 'ENTITY_XBOX_STORAGE', label: 'Free space sensor', type: 'entity', domain: 'sensor', help: "The console's Free space sensor; the matching Total space one is found from it." },
