@@ -24,7 +24,10 @@ export function xboxEntities() {
   if (!configured()) return [];
   const acc = x ? [`sensor.${x}_gamerscore`, `sensor.${x}_now_playing`, `sensor.${x}_status`, `binary_sensor.${x}`, `binary_sensor.${x}_in_game`, `image.${x}_gamerpic`, `image.${x}_now_playing`] : [];
   const free = config.entities.xboxStorage;
-  return [config.entities.xbox, config.entities.xboxScene, config.entities.xboxArt, free, free && free.replace('free_space', 'total_space'), ...acc].filter(Boolean);
+  // Game time's poster and box art sit next to the wide artwork image, with the same prefix.
+  const art = config.entities.xboxArt; const base = art && art.replace(/_superhero_art$/, '');
+  const more = base && base !== art ? [`${base}_poster`, `${base}_box_art`] : [];
+  return [config.entities.xbox, config.entities.xboxScene, art, ...more, free, free && free.replace('free_space', 'total_space'), ...acc].filter(Boolean);
 }
 
 async function loadPlayed() {
@@ -84,6 +87,10 @@ export async function xboxAction(ha, body) {
     ? ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.xboxScene } })
     : ha.callService('media_player', 'turn_on', {}, { target: { entity_id: e.xbox } });
   if (body.cmd === 'start') { await startRoom(); return { ok: true }; }
+  if (body.cmd === 'guide') {
+    if (!e.xboxRemote) throw httpError(400, 'No Xbox remote configured');
+    return ha.callService('remote', 'send_command', { command: 'ShowGuide' }, { target: { entity_id: e.xboxRemote } });
+  }
   if (body.cmd === 'home') {
     return ha.callService('media_player', 'play_media', { media_content_type: 'app', media_content_id: 'Home' }, { target: { entity_id: e.xbox } });
   }

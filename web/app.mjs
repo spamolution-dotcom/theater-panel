@@ -16,6 +16,7 @@ import { Watch } from './views/watch.mjs';
 import { Request } from './views/request.mjs';
 import { Music } from './views/music.mjs';
 import { Showtime } from './views/showtime.mjs';
+import { Gametime, gameOn } from './views/gametime.mjs';
 import { Warmup } from './views/warmup.mjs';
 import { Games } from './views/games.mjs';
 import { Stats } from './views/stats.mjs';
@@ -27,7 +28,7 @@ import { TweaksSheet } from './views/tweaks.mjs';
 import { TonightSheet, GuestSheet } from './views/tonight.mjs';
 import { SoundSheet } from './views/soundbar.mjs';
 
-const VIEWS = { lobby: Lobby, watch: Watch, request: Request, music: Music, games: Games, showtime: Showtime, warmup: Warmup, stats: Stats, showing: Showing, pick: Pick, year: Year, intermission: Intermission };
+const VIEWS = { lobby: Lobby, watch: Watch, request: Request, music: Music, games: Games, showtime: Showtime, gametime: Gametime, warmup: Warmup, stats: Stats, showing: Showing, pick: Pick, year: Year, intermission: Intermission };
 // Request (Seerr) is left off the rail: this fork has no request service. #/request still opens it.
 const NAV = [['lobby', 'Home', 'home'], ['watch', 'Watch', 'film'], ['music', 'Music', 'music'], ['games', 'Games', 'pad']];
 
@@ -398,11 +399,11 @@ function App() {
   useEffect(() => {
     const t = setInterval(() => {
       const idleMin = getState().idleMinutes ?? 8;
-      if (idleMin > 0 && !['showtime', 'showing', 'intermission', 'warmup'].includes(route.name) && Date.now() - lastManual > idleMin * 60000) go('showing', { auto: true });
+      if (idleMin > 0 && !['showtime', 'gametime', 'showing', 'intermission', 'warmup'].includes(route.name) && Date.now() - lastManual > idleMin * 60000) go('showing', { auto: true });
       // The hallway tablet, left on the panel with the cinema off: back to the HA dashboard.
       if (hallway) {
         const { states, entities, hallway: h = {} } = getState();
-        const cinemaOn = states[entities?.roomOn]?.state === 'on' || states[entities?.warmupScript]?.state === 'on';
+        const cinemaOn = states[entities?.roomOn]?.state === 'on' || states[entities?.warmupScript]?.state === 'on' || states[entities?.xboxScene]?.state === 'on' || states[entities?.xbox]?.state === 'on';
         if (h.dashboardUrl && h.returnMinutes > 0 && !cinemaOn && Date.now() - lastManual > h.returnMinutes * 60000) location.href = h.dashboardUrl;
       }
     }, 15000);
@@ -423,6 +424,11 @@ function App() {
       const gone = Boolean(entities.appleTv) && !getState().sessions?.[0] && (tv == null || tv === 'unavailable' || tv === 'unknown');
       tvGoneSince = gone ? (tvGoneSince || Date.now()) : null;
       if (gone && route.name === 'showtime' && Date.now() - tvGoneSince > 60000) go('lobby', { auto: true });
+      // A game playing on the Xbox: Game time, like Showtime for a film (not over a film, a break
+      // or the warm-up, and not within 90 s of a touch). The game over: back to the Games screen.
+      const gaming = gameOn(states, entities);
+      if (gaming && st !== 'playing' && !['showtime', 'gametime', 'warmup', 'intermission'].includes(route.name) && Date.now() - lastManual > 90000) go('gametime', { auto: true });
+      if (!gaming && route.name === 'gametime') go('games', { auto: true });
     }, 5000);
     // Theater mode switched on from HA, a ks:// link or a reload mid-film: show Showtime.
     const offTheater = hallway ? () => {} : onTheater((d) => { if (d.active && route.name !== 'showtime') go('showtime', { auto: true }); });
@@ -436,7 +442,7 @@ function App() {
   useEffect(() => {
     const t = setInterval(() => {
       if (!getState().stale) return;
-      if (['showtime', 'intermission', 'warmup'].includes(route.name)) return;
+      if (['showtime', 'gametime', 'intermission', 'warmup'].includes(route.name)) return;
       if (Date.now() - lastManual < 60000) return;
       location.reload();
     }, 15000);
@@ -462,7 +468,7 @@ function App() {
   const View = VIEWS[r.name] || Lobby;
   // Showtime, the idle screen and the intermission snack bar fill the panel on their own.
   // The idle board is mostly empty floor, so it gets the weather and, at Christmas, a lit tree.
-  if (r.name === 'showtime' || r.name === 'showing' || r.name === 'intermission' || r.name === 'warmup') return html`<${View} key=${r.name} />
+  if (r.name === 'showtime' || r.name === 'gametime' || r.name === 'showing' || r.name === 'intermission' || r.name === 'warmup') return html`<${View} key=${r.name} />
     ${r.name === 'showing' && html`<${Weather} decor="tree" />`}
     <${DogAtDoor} />
     <${RateCard} />
