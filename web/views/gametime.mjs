@@ -1,7 +1,8 @@
 // Game time: the Xbox counterpart of Showtime, in the same dark, dim-amber style. Only what an
 // Xbox session needs: what is playing and for how long, achievements, Denon volume, Xbox home,
 // Switch game, All off and a way back to the full controls. On the hallway tablet the
-// game's poster art fills the left, as the film poster does on Showtime.
+// game's poster art fills the left, as the film poster does on Showtime. Green marks it as the
+// Xbox from across the room (the film screen is all amber).
 
 import { useEffect, useState } from 'preact/hooks';
 import { hallway } from '../lib/role.mjs';
@@ -69,14 +70,13 @@ export function Gametime() {
   };
 
   return html`<div class=${`showtime gametime${hallway ? ' hall' : ''}`}>
-    ${hallway && html`<div class="st-poster">${posterSrc && !posterBad ? html`<img src=${posterSrc} alt="" onError=${() => setPosterBad(true)} />` : html`<div class="st-poster-t">${title}</div>`}</div>`}
+    ${hallway && html`<div class="st-poster"><div class="gt-band"><${Icon} name="pad" size=${44} w=${2} />Xbox · game</div>${posterSrc && !posterBad ? html`<img src=${posterSrc} alt="" onError=${() => setPosterBad(true)} />` : html`<div class="st-poster-t">${title}</div>`}</div>`}
     <div class="wrap" style="--glow:1">
       <header style="display:flex;justify-content:space-between;align-items:flex-end;gap:24px">
         <div style="display:flex;align-items:flex-end;gap:28px;min-width:0">
           ${!hallway && boxSrc && html`<img src=${boxSrc} alt="" style="width:110px;height:110px;object-fit:cover;border-radius:10px;opacity:.5" onError=${(ev) => { ev.currentTarget.style.display = 'none'; }} />`}
-          <div style="min-width:0"><div class="lbl">Now playing on Xbox${hallway && genres ? ` · ${genres}` : ''}${!hallway && fmt ? html`<span class=${`st-fmt ${fmt.kind}`}>${fmt.label}</span>` : null}</div>
+          <div style="min-width:0"><div class="gt-kick"><span class="gt-pill"><${Icon} name="pad" size=${30} w=${2} />Xbox</span><span class="lbl">Game${genres ? ` · ${genres}` : ''}</span>${!hallway && fmt ? html`<span class=${`st-fmt ${fmt.kind}`}>${fmt.label}</span>` : null}</div>
             <h1 class="ellipsis">${title}</h1>
-            ${!hallway && genres && html`<div class="lbl ellipsis" style="letter-spacing:1px;margin-top:4px">${genres}</div>`}
             ${hallway && a.short_description && html`<p class="st-syn">${a.short_description}</p>`}</div>
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0">

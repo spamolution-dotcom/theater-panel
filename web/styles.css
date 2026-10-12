@@ -1081,3 +1081,10 @@ html.cinema .kind-toggle button[aria-pressed="true"] { background: var(--acc-sof
 /* ---------- Game time (Xbox) ---------- */
 .gametime .gt-home { display: flex; flex-direction: column; align-items: center; gap: 14px; }
 .gametime .transport .pp { color: var(--d-text); }
+/* Game time is marked as the Xbox in green, readable from across the room. */
+.gametime { --xb: #5DA34B; --xb-text: #8FCB7D; }
+.gametime .gt-kick { display: flex; align-items: center; gap: 16px; margin-bottom: 6px; }
+.gametime .gt-pill { display: inline-flex; align-items: center; gap: 10px; padding: 6px 16px 6px 12px; border-radius: 999px; background: var(--xb); color: #0b1209; font: 800 26px/1 var(--disp); letter-spacing: 2px; text-transform: uppercase; }
+.gametime .gt-band { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: var(--xb); color: #0b1209; font: 800 40px/1 var(--disp); letter-spacing: 4px; text-transform: uppercase; }
+.gametime .ends { color: var(--xb-text); }
+.gametime .transport .pp { border-color: var(--xb); color: var(--xb-text); }
