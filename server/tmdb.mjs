@@ -77,3 +77,24 @@ export async function neighbours(id) {
 
 // A series: its seasons, what aired last and what airs next. Cached for six hours.
 export const tv = (id) => remember(`tv:${id}`, 6 * 3600e3, () => api(`/tv/${Number(id)}`));
+
+// ---------- who's in it ----------
+
+// The cast of a film or series by its IMDb id, with character names and photos, for the phone's
+// Now playing. Films: TMDB's credits in billing order. Series: the whole run's cast (so the
+// regulars, not one episode's guests), most episodes first. Up to 12, cached for a day.
+export async function credits(imdb, kind) {
+  if (!/^tt\d{5,10}$/.test(String(imdb || ''))) return [];
+  return remember(`credits:${imdb}:${kind}`, 24 * 3600e3, async () => {
+    const f = await api(`/find/${imdb}`, { external_source: 'imdb_id' });
+    const series = kind === 'show' || (!f.movie_results?.length && f.tv_results?.length);
+    const hit = series ? f.tv_results?.[0] : f.movie_results?.[0];
+    if (!hit) return [];
+    const c = await api(series ? `/tv/${hit.id}/aggregate_credits` : `/movie/${hit.id}/credits`);
+    return (c.cast || []).slice(0, 12).map((p) => ({
+      name: p.name,
+      character: series ? (p.roles || [])[0]?.character || '' : p.character || '',
+      photo: p.profile_path ? `/img/tmdb/w185${p.profile_path}` : null,
+    }));
+  });
+}

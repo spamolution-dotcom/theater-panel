@@ -356,6 +356,10 @@ get(/^\/api\/plex\/brand\/([a-z]+)$/, (m, q) => plex.brandBrowse(m[1], { filters
 get(/^\/api\/networks$/, () => (config.seerr.url ? seerr.networks() : [])); 
 get(/^\/api\/plex\/item\/([\w.%:-]+)$/, (m) => plex.item(decodeURIComponent(m[1])));
 get(/^\/api\/plex\/episodes\/([\w.%:-]+)$/, (m) => plex.episodes(decodeURIComponent(m[1])));
+// Who's in it, with characters and photos (TMDB; an empty list without a key or a match).
+get(/^\/api\/credits\/(tt\d{5,10})$/, async (m, q) => ({
+  cast: config.tmdb.apiKey ? await tmdb.credits(m[1], q.get('kind') === 'show' ? 'show' : 'movie').catch(() => []) : [],
+}));
 // The panel's own settings sheet: the harmless knobs, behind the panel's auth like every action.
 get(/^\/api\/tweaks$/, () => admin.tweaks());
 post(/^\/api\/tweaks$/, async (m, q, body) => { const r = admin.saveTweaks(body?.values); await applySettings(); return r; });
