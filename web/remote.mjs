@@ -13,6 +13,31 @@ import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
 import { streamerNow } from './lib/streamer.mjs';
 
+// The seat phone: a phone kept at the recliners, always on this page. Opened once with ?seat=1 it
+// remembers that (?seat=0 undoes it), so only that phone changes: a dark theme for a dark room, full
+// screen on a tap, and the page follows the room (Games when the Xbox comes on, Home for a film,
+// back there after a few minutes untouched). Every other phone keeps the remote as it is.
+const SEAT_KEY = 'theaterSeat';
+const seat = (() => {
+  const q = new URLSearchParams(location.search).get('seat');
+  try {
+    if (q === '1') localStorage.setItem(SEAT_KEY, '1');
+    else if (q === '0') localStorage.removeItem(SEAT_KEY);
+    return q === '1' || (q !== '0' && localStorage.getItem(SEAT_KEY) === '1');
+  } catch { return q === '1'; }
+})();
+if (seat) {
+  document.documentElement.classList.add('seat');
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0E0907');
+  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', 'only dark');
+  // No address bar: Chrome allows full screen only from a tap, so every tap asks for it if it's off.
+  document.addEventListener('click', () => {
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+  }, true);
+}
+const SEAT_IDLE_MS = 3 * 60e3; // untouched this long: back to Home (Games while the Xbox is on)
+const SEAT_SWITCH_MS = 60e3;   // the Xbox or a film starting moves the page if untouched this long
+
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
   { name: 'movie_time', label: 'Movie time', desc: 'Lights down', icon: 'film' },
@@ -444,6 +469,40 @@ function Toast() {
   return t ? html`<div class=${`r-toast ${t.err ? 'err' : ''}`} role="status">${t.text}</div>` : null;
 }
 
+// The seat phone follows the room: when the Xbox or a film starts it opens Games or Home, and
+// after a few minutes untouched it goes back there (sheet closed, scrolled to the top). It never
+// moves while someone is using it. Does nothing on any other phone.
+function useSeatFollow({ tab, setTab, sheet, close, hasXbox }) {
+  const gaming = useGaming();
+  const roomOn = useRoomOn();
+  const mode = gaming ? 'xbox' : roomOn ? 'film' : 'off';
+  const now = useRef({});
+  now.current = { tab, sheet, close, target: gaming && hasXbox ? 'games' : 'home' };
+  const touched = useRef(Date.now());
+  const prev = useRef(mode);
+  const goHome = () => {
+    const c = now.current;
+    if (c.sheet) c.close();
+    if (c.tab !== c.target) setTab(c.target); else window.scrollTo(0, 0);
+  };
+  useEffect(() => {
+    if (!seat) return undefined;
+    const t = () => { touched.current = Date.now(); };
+    window.addEventListener('pointerdown', t, true);
+    window.addEventListener('keydown', t, true);
+    const i = setInterval(() => {
+      const c = now.current;
+      if (Date.now() - touched.current >= SEAT_IDLE_MS && (c.sheet || c.tab !== c.target || window.scrollY > 0)) goHome();
+    }, 10e3);
+    return () => { window.removeEventListener('pointerdown', t, true); window.removeEventListener('keydown', t, true); clearInterval(i); };
+  }, []);
+  useEffect(() => {
+    if (!seat) return;
+    if (mode !== prev.current && mode !== 'off' && Date.now() - touched.current >= SEAT_SWITCH_MS) goHome();
+    prev.current = mode;
+  }, [mode]);
+}
+
 function Remote() {
   const [tab, setTab] = useState(() => (['#watch', '#remote', '#games'].includes(location.hash) ? location.hash.slice(1) : 'home'));
   const hasXbox = useStore((s) => Boolean(s.entities?.xbox && s.states[s.entities.xbox]));
@@ -462,6 +521,7 @@ function Remote() {
     if (history.state?.sheet) history.back(); else setSheet(null);
     if (played) setTab('home');
   };
+  useSeatFollow({ tab, setTab, sheet, close, hasXbox });
   return html`<div class="r-app">
     ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi or Tailscale?</div>`}
     ${tab === 'games' && hasXbox ? html`<${Games} />` : tab === 'remote' ? html`<${TvRemote} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
