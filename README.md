@@ -266,6 +266,13 @@ separate page laid out for phones; the wall panel is unchanged.
   Google TV Streamer, plus the Denon's volume. This is how you pick a stream in Stremio without
   finding the physical remote.
 
+**A seat phone.** For a spare phone kept at the seats, open `/remote?seat=1` once; that phone
+remembers it (`?seat=0` undoes it) and no other phone changes. On it the remote is dark for a dark
+room, goes full screen on a tap (no address bar), and follows the room: **Games** when the Xbox
+comes on and **Home** when a film starts (only if nobody has touched it for a minute), and back
+there after three minutes untouched. No kiosk app needed: add it to the home screen from Chrome
+and pin it with Android's screen pinning (Settings > Security > Pin windows).
+
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.
 It needs the panel to trust the phone's address (see [Access](#access-and-security)); from outside
 the house that works over a VPN such as Tailscale.

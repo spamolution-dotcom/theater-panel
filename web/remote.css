@@ -199,3 +199,25 @@ button:disabled { opacity: .5; cursor: default; }
 /* The Xbox marked in green, as on the wall's Game time. */
 .rg-kick { display: flex; align-items: center; gap: 10px; }
 .rg-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; background: #5DA34B; color: #0b1209; font: 800 15px/1 var(--disp); letter-spacing: 1.5px; text-transform: uppercase; }
+
+/* ---------- The seat phone (?seat=1): dark, for a phone beside you in the cinema ---------- */
+html.seat {
+  color-scheme: only dark;
+  --bg: #0E0907; --card: #1A120D; --line: #2E221A; --ink: #EADFD1; --muted: #9A887A;
+  --acc: #E3A865; --acc-soft: #33220F; --choc: #22160F; --on-choc: #E9DCCB; --on-choc2: #B9A592;
+  --ok: #8FCB7D; --ok-soft: #142015; --warn: #E07A62; --warn-soft: #2B1510; --amb: #E3A865; --amb-soft: #2A1C0E;
+}
+html.seat .r-np, html.seat .rg-hero, html.seat .r-vol-card { border: 1px solid var(--line); }
+html.seat .r-chip .dot { background: #5E5046; }
+html.seat .r-chip.on, html.seat .r-dev.ok { border-color: #2F4A2C; }
+html.seat .r-chip.warm { border-color: #5A4220; }
+html.seat .r-alloff, html.seat .r-dev.armed { border-color: #5A2A20; }
+html.seat .r-alloff.armed, html.seat .r-play, html.seat .r-pill.tab[aria-pressed="true"], html.seat .r-pad .ok:active { color: #1A0F08; }
+html.seat .r-seg button[aria-pressed="true"], html.seat .r-pill[aria-pressed="true"]:not(.tab) { background: #3A2A1F; border-color: #3A2A1F; color: #fff; }
+html.seat .poster { background: #24180F; }
+html.seat .r-pad { box-shadow: none; }
+html.seat .r-pad .ok { background: #2E2017; color: var(--ink); }
+html.seat .r-play2 { color: var(--ink); }
+html.seat .r-tabs { background: #120C09; }
+html.seat .r-sheet-back { background: rgba(0, 0, 0, .6); }
+html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
