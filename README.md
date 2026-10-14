@@ -291,7 +291,7 @@ the house that works over a VPN such as Tailscale.
 
 | Screen | Address | What it is |
 |---|---|---|
-| **Hallway** | `/?role=hallway` | For a screen outside the cinema. It picks what to play and shows what's on, but never goes dark, never acts as the in-room remote and never asks "how was it?". Showtime becomes a lit **Now Playing** board with the poster (or the app's icon for Netflix and other apps). A **Dashboard** button returns to your HA dashboard, and with the cinema off it goes back there by itself after a few minutes. |
+| **Hallway** | `/?role=hallway` | For a screen outside the cinema. It picks what to play and shows what's on, but never goes dark, never acts as the in-room remote and never asks "how was it?". Showtime becomes a lit **Now Playing** board with the poster (or the app's icon for Netflix and other apps): pause, skip and volume in the centre, the scenes down the left, and for Stremio titles a **Starring** row with the cast's photos and characters (TMDB). A **Dashboard** button returns to your HA dashboard, and with the cinema off it goes back there by itself after a few minutes. |
 | **Guest remote** | QR on Home → `/guest?t=…` | A phone page for guests for the evening: play-pause, −10 / +30, volume, aisle glow, Intermission, Movie time, Lights up. No key needed; the link expires after 6 hours (configurable) or when you end it. |
 | **Movie night** | Home → Movie night, phones open `/vote` | The panel shortlists films; everyone votes from their phone by scanning a QR; the tallies show live on the wall. Tap a poster to play the winner. |
 | **Marquee** | `/marquee` | A poster board for a screen outside the room showing tonight's plan and times. |
