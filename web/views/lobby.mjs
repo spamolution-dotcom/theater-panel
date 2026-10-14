@@ -147,9 +147,6 @@ function Continue() {
   const down = (e) => {
     if (n <= 1) return;
     swipe.current = { x: e.clientX, y: e.clientY, moved: false };
-    // Keep the gesture ours even when the finger leaves the card (Fully Kiosk's WebView otherwise
-    // hands it to the page as a scroll and the swipe never lands).
-    try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
   };
   const step = (d) => setI((at + d + n) % n);
   const noSwipe = (e) => e.stopPropagation();
@@ -157,7 +154,13 @@ function Continue() {
     const s = swipe.current;
     if (!s) return;
     const dx = e.clientX - s.x;
-    if (!s.moved && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(e.clientY - s.y)) s.moved = true;
+    if (!s.moved && Math.abs(dx) > 12 && Math.abs(dx) > Math.abs(e.clientY - s.y)) {
+      s.moved = true;
+      // Keep the gesture ours even when the finger leaves the card (Fully Kiosk's WebView otherwise
+      // hands it to the page as a scroll and the swipe never lands). Only once it is a swipe:
+      // captured from the first touch, the click that follows lands on the card, not on Resume.
+      try { e.currentTarget.setPointerCapture(e.pointerId); } catch {}
+    }
     if (s.moved) setDrag(dx);
   };
   const up = (e) => {
