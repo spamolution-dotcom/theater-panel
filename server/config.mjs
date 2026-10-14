@@ -225,7 +225,7 @@ function build(env) {
   },
   // The slow curtain: when a film ends the house lights come up over this many seconds, the way
   // a cinema's do (0 turns it off). The HA script only acts if the room is still set for a movie.
-  curtainSeconds: Math.max(0, Math.min(600, Number(env.CURTAIN_SECONDS ?? 90) || 0)),
+  curtainSeconds: Math.max(0, Math.min(600, Number(env.CURTAIN_SECONDS ?? 0) || 0)),
   // The THX Deep Note, for the button on the Sound sheet: a URL the room's speaker can fetch.
   thxUrl: env.THX_URL || '',
   // The soundbar's knobs that are the panel's business rather than the bar's.
