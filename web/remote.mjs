@@ -114,25 +114,35 @@ function Top({ title, kicker, children }) {
 const useKids = () => useStore((s) => Boolean(seat && s.seat?.enabled && s.seat?.locked));
 
 // Which titles kids mode shows, asked of the server (TMDB's Australian rating: G and PG) and
-// remembered for the session. Returns the list unchanged outside kids mode, null while asking.
+// remembered for the session. A dozen at a time, each batch shown as it arrives, so a long list
+// fills in rather than waiting for its slowest title. Returns [list, checking]: the list is
+// unchanged outside kids mode, null while nothing is known yet.
 const kidsOk = {};
+const kidsAsked = new Set();
+const kidsHeard = new Set();   // every list waiting on ratings hears when a batch comes back
 function useKidsFilter(items) {
   const kids = useKids();
   const [, bump] = useState(0);
+  useEffect(() => { const f = () => bump((x) => x + 1); kidsHeard.add(f); return () => kidsHeard.delete(f); }, []);
   const need = kids && items ? items.filter((m) => m?.id && !(m.id in kidsOk)) : [];
   const key = need.map((m) => m.id).join(',');
   useEffect(() => {
     if (!key) return undefined;
-    let live = true;
-    post('/api/ratings', { items: need.map((m) => ({ id: m.id, type: m.type })) })
-      .then((r) => Object.assign(kidsOk, r.ok || {}))
-      .catch(() => need.forEach((m) => { kidsOk[m.id] = false; }))
-      .finally(() => { if (live) bump((x) => x + 1); });
-    return () => { live = false; };
+    const ask = need.filter((m) => !kidsAsked.has(m.id));
+    ask.forEach((m) => kidsAsked.add(m.id));
+    for (let i = 0; i < ask.length; i += 12) {
+      const batch = ask.slice(i, i + 12);
+      post('/api/ratings', { items: batch.map((m) => ({ id: m.id, type: m.type })) })
+        .then((r) => Object.assign(kidsOk, r.ok || {}))
+        .catch(() => batch.forEach((m) => { kidsOk[m.id] = false; }))
+        .finally(() => { batch.forEach((m) => kidsAsked.delete(m.id)); kidsHeard.forEach((f) => f()); });
+    }
+    return undefined;
   }, [key]);
-  if (!kids || !items) return items;
-  if (need.length) return null;
-  return items.filter((m) => kidsOk[m.id]);
+  if (!kids || !items) return [items, false];
+  const shown = items.filter((m) => kidsOk[m.id]);
+  if (need.length && !shown.length) return [null, true];
+  return [shown, need.length > 0];
 }
 
 // The lock in the corner. Kids: hold it for the PIN pad (a tap only says so). Grown-up: the
@@ -362,8 +372,8 @@ function Home({ onOpen, onTab }) {
   const [deck] = useLoad(() => get('/api/plex/ondeck?size=12'), []);
   const [recent] = useLoad(() => get('/api/plex/recent?size=24'), []);
   const seen = new Set();
-  const added = useKidsFilter(recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14));
-  const deckShown = useKidsFilter(deck);
+  const [added] = useKidsFilter(recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14));
+  const [deckShown] = useKidsFilter(deck);
   const kids = useKids();
   const d = new Date();
   const part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
@@ -437,7 +447,7 @@ function Watch({ onOpen }) {
   });
 
   const kids = useKids();
-  const visible = useKidsFilter(items);
+  const [visible, checking] = useKidsFilter(items);
   const toggle = (k) => setFilters(filters.includes(k) ? filters.filter((f) => f !== k) : [...filters, k]);
   const kicker = q ? `Stremio search · ${total} results` : `${kind === 'show' ? 'TV Shows' : 'Movies'}${open ? ` · ${shortTab(open)}` : ''}`;
 
@@ -469,6 +479,7 @@ function Watch({ onOpen }) {
           </button>`;
         })}
     </div>
+    ${checking && visible?.length > 0 && html`<div class="r-empty">Checking ratings…</div>`}
     ${hasMore && html`<div class="r-empty" ref=${sentinel}>${busy ? 'Loading more…' : ''}</div>`}
     ${!q && html`<div class="r-h2"><h2>Apps</h2></div>
       <div class="r-apps">${APPS.map((a) => html`<button type="button" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}><img src=${`/assets/apps/${a.id}.png`} alt="" /></button>`)}</div>`}

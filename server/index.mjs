@@ -347,11 +347,14 @@ get(/^\/api\/state$/, () => ({
 }));
 
 get(/^\/api\/plex\/libraries$/, () => plex.libraries());
+// Lists that the seat phone may show in kids mode also start their ratings lookups (seat.prewarm),
+// so by the time it asks, the answers are ready.
+const warm = (r) => { seat.prewarm(Array.isArray(r) ? r : r?.items); return r; };
 get(/^\/api\/plex\/library\/([a-z0-9-]+)$/, (m, q) => plex.listLibrary(m[1], {
   filters: (q.get('filters') || '').split(',').filter(Boolean), genre: q.get('genre') || undefined,
   brand: q.get('brand') || undefined,
   sort: q.get('sort') || 'added', start: Number(q.get('start') || 0), size: Math.min(Number(q.get('size') || 60), 120),
-}));
+}).then(warm));
 get(/^\/api\/plex\/genres\/([a-z0-9-]+)$/, (m) => plex.genres(m[1]));
 get(/^\/api\/plex\/brand\/([a-z]+)$/, (m, q) => plex.brandBrowse(m[1], { filters: (q.get('filters') || '').split(',').filter(Boolean), size: Math.min(Number(q.get('size') || 60), 120) }));
 get(/^\/api\/networks$/, () => (config.seerr.url ? seerr.networks() : [])); 
@@ -377,10 +380,10 @@ get(/^\/api\/plex\/ondeck$/, async (m, q) => {
     const row = hist.find((r) => r.key === String(it.showKey || it.id));
     if (row) { it.who = names.get(row.account) || null; it.lastViewedAt ??= row.viewedAt; }
   }
-  return deck;
+  return warm(deck);
 });
 get(/^\/api\/shelves$/, () => (config.media.on && plex.shelves ? plex.shelves() : []));
-get(/^\/api\/plex\/recent$/, (m, q) => plex.recentlyAdded(Math.min(Number(q.get('size') || 16), 60)));
+get(/^\/api\/plex\/recent$/, (m, q) => plex.recentlyAdded(Math.min(Number(q.get('size') || 16), 60)).then(warm));
 const qrSvg = (text) => QRCode.toString(String(text).slice(0, 300), { type: 'svg', margin: 1, color: { dark: '#25170F', light: '#0000' } });
 
 // Movie night. The panel asks for a shortlist, then everyone votes from their phones at
@@ -594,7 +597,7 @@ get(/^\/api\/pick$/, async (m, q) => {
 get(/^\/api\/seasonal$/, async (m, q) => ({ shelves: config.media.on ? await seasonal.shelves(seasonParam(q)).catch(() => []) : [] }));
 get(/^\/api\/coming$/, async () => ({ items: config.seerr.url ? await seasonal.coming(8) : [] }));
 
-get(/^\/api\/plex\/search$/, (m, q) => plex.search(q.get('q') || ''));
+get(/^\/api\/plex\/search$/, (m, q) => plex.search(q.get('q') || '').then(warm));
 
 get(/^\/api\/seerr\/search$/, (m, q) => seerr.search(q.get('q') || '', q.get('page') || 1));
 get(/^\/api\/seerr\/discover\/(trending|movies|tv)$/, (m, q) => seerr.discover(m[1], q.get('page') || 1));
