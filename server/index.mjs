@@ -206,8 +206,16 @@ function streamerSessions() {
   const cw = ha.states[e.stremioWatching];
   const a = cw?.attributes || {};
   const updated = Date.parse(cw?.last_updated || 0);
+  // Without Google Cast the sensor is all there is, and it only updates when Stremio syncs (start,
+  // stop). A title started on the TV used to count for 15 minutes; now it counts until it would
+  // have finished (its length from where it started, plus half an hour for pauses), so the phone
+  // keeps Now playing for the whole episode while Stremio is in front. Past the first 15 minutes
+  // the position is stale, so the card shows no clock.
+  const fresh = Date.now() - updated < FRESH;
+  const left = Math.max(0, (Number(a.duration) || 0) - (Number(a.time_offset) || 0));
+  const until = updated + (left ? left + 30 * 60e3 : 3 * 3600e3);
   const current = cw && !['unknown', 'unavailable', ''].includes(cw.state) && a.imdb_id
-    && (l ? updated > l.at : Date.now() - updated < FRESH);
+    && (l ? updated > l.at : fresh || Date.now() < until);
   if (current) {
     const imdb = a.imdb_id;
     const isEp = a.type === 'series' && a.season != null;
@@ -217,7 +225,7 @@ function streamerSessions() {
       id: isEp ? `${imdb}:${a.season}:${a.episode}` : imdb, type: isEp ? 'episode' : 'movie', app: 'stremio', state: 'playing',
       title: isEp ? a.episode_title || `Episode ${a.episode}` : show, showTitle: isEp ? show : undefined,
       season: isEp ? Number(a.season) : undefined, episode: isEp ? Number(a.episode) : undefined,
-      viewOffset: Number(a.time_offset) || 0, duration: Number(a.duration) || 0,
+      viewOffset: fresh ? Number(a.time_offset) || 0 : 0, duration: fresh ? Number(a.duration) || 0 : 0,
       ...metahubPics(imdb),
     }];
   }
