@@ -114,12 +114,12 @@ function Top({ title, kicker, children }) {
 const useKids = () => useStore((s) => Boolean(seat && s.seat?.enabled && s.seat?.locked));
 
 // Which titles kids mode shows, asked of the server (TMDB's Australian rating: G and PG) and
-// remembered for the session. A dozen at a time, each batch shown as it arrives, so a long list
-// fills in rather than waiting for its slowest title. Returns [list, checking]: the list is
-// unchanged outside kids mode, null while nothing is known yet.
+// remembered for the session. A list shows all at once when its ratings are in (Watch keeps the
+// previous posters up meanwhile, so there is no blank). Returns [list, checking]: the list is
+// unchanged outside kids mode, null until its ratings are known.
 const kidsOk = {};
 const kidsAsked = new Set();
-const kidsHeard = new Set();   // every list waiting on ratings hears when a batch comes back
+const kidsHeard = new Set();   // every list waiting on ratings hears when an answer comes back
 function useKidsFilter(items) {
   const kids = useKids();
   const [, bump] = useState(0);
@@ -129,20 +129,17 @@ function useKidsFilter(items) {
   useEffect(() => {
     if (!key) return undefined;
     const ask = need.filter((m) => !kidsAsked.has(m.id));
+    if (!ask.length) return undefined;
     ask.forEach((m) => kidsAsked.add(m.id));
-    for (let i = 0; i < ask.length; i += 12) {
-      const batch = ask.slice(i, i + 12);
-      post('/api/ratings', { items: batch.map((m) => ({ id: m.id, type: m.type })) })
-        .then((r) => Object.assign(kidsOk, r.ok || {}))
-        .catch(() => batch.forEach((m) => { kidsOk[m.id] = false; }))
-        .finally(() => { batch.forEach((m) => kidsAsked.delete(m.id)); kidsHeard.forEach((f) => f()); });
-    }
+    post('/api/ratings', { items: ask.map((m) => ({ id: m.id, type: m.type })) })
+      .then((r) => Object.assign(kidsOk, r.ok || {}))
+      .catch(() => ask.forEach((m) => { kidsOk[m.id] = false; }))
+      .finally(() => { ask.forEach((m) => kidsAsked.delete(m.id)); kidsHeard.forEach((f) => f()); });
     return undefined;
   }, [key]);
   if (!kids || !items) return [items, false];
-  const shown = items.filter((m) => kidsOk[m.id]);
-  if (need.length && !shown.length) return [null, true];
-  return [shown, need.length > 0];
+  if (need.length) return [null, true];
+  return [items.filter((m) => kidsOk[m.id]), false];
 }
 
 // The lock in the corner. Kids: hold it for the PIN pad (a tap only says so). Grown-up: the
@@ -406,6 +403,7 @@ function Watch({ onOpen }) {
   const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState(false);
   const sentinel = useRef();
+  const listGen = useRef(0);   // goes up each time the list starts over (filter, tab, search)
 
   const kindLibs = (libs || []).filter((l) => kindOf(l) === kind && !['foryou', 'networks'].includes(l.id));
   const open = kindLibs.find((l) => l.id === lib) || kindLibs[0];
@@ -420,7 +418,7 @@ function Watch({ onOpen }) {
   useEffect(() => {
     if (!libId && !q) return undefined;
     let live = true;
-    setItems(null); setCursor(null);
+    setItems(null); setCursor(null); listGen.current += 1;
     const req = q ? get(`/api/plex/search?q=${encodeURIComponent(q)}`).then((r) => ({ items: r, total: r.length }))
       : get(`/api/plex/library/${libId}?filters=${activeFilters}&sort=${sortNow}&size=${PAGE}`);
     req.then((r) => { if (!live) return; setItems(r.items); setTotal(r.total); setCursor(r.next != null ? { next: r.next, more: r.more } : null); window.scrollTo(0, 0); })
@@ -447,13 +445,14 @@ function Watch({ onOpen }) {
   });
 
   const kids = useKids();
-  const [visible, checking] = useKidsFilter(items);
+  const [visible] = useKidsFilter(items);
   // While a new filter, tab or search loads, the previous posters stay up (dimmed) instead of the
   // grid emptying to "Loading…" and refilling, which flickered on slower phones.
-  const lastShown = useRef(null);
-  if (visible) lastShown.current = visible;
-  const grid = visible ?? lastShown.current;
-  const stale = visible === null && grid !== null;
+  // (A next page being added to the same list keeps them up undimmed.)
+  const lastShown = useRef({ list: null, gen: 0 });
+  if (visible) lastShown.current = { list: visible, gen: listGen.current };
+  const grid = visible ?? lastShown.current.list;
+  const stale = visible === null && grid !== null && lastShown.current.gen !== listGen.current;
   const toggle = (k) => setFilters(filters.includes(k) ? filters.filter((f) => f !== k) : [...filters, k]);
   const kicker = q ? `Stremio search · ${total} results` : `${kind === 'show' ? 'TV Shows' : 'Movies'}${open ? ` · ${shortTab(open)}` : ''}`;
 
@@ -485,7 +484,6 @@ function Watch({ onOpen }) {
           </button>`;
         })}
     </div>
-    ${checking && visible?.length > 0 && html`<div class="r-empty">Checking ratings…</div>`}
     ${hasMore && html`<div class="r-empty" ref=${sentinel}>${busy ? 'Loading more…' : ''}</div>`}
     ${!q && html`<div class="r-h2"><h2>Apps</h2></div>
       <div class="r-apps">${APPS.map((a) => html`<button type="button" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}><img src=${`/assets/apps/${a.id}.png`} alt="" /></button>`)}</div>`}
