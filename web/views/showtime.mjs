@@ -89,7 +89,10 @@ export function Showtime() {
   const credId = board && infoId ? infoId.split(':')[0] : null;
   const [credits] = useLoad(() => (credId ? get(`/api/credits/${credId}?kind=${infoId.includes(':') ? 'show' : 'movie'}`).then((r) => r?.cast || []).catch(() => []) : Promise.resolve([])), [credId]);
   const starring = (credits || []).slice(0, 5);
-  const bg = session?.art ? `background-image:url('${session.art}')` : '';
+  // The film's backdrop. On the hallway board it sits darkened and blurred behind the controls,
+  // and is left out when it is only the poster again (the poster already fills the left).
+  const artIsPoster = Boolean(session?.art) && [session.poster, session.posterLarge].includes(session.art);
+  const bg = session?.art && !(hallway && artIsPoster) ? `background-image:url('${session.art}')` : '';
 
   // With native theater mode the app swallows the first touch and peeks by itself.
   const poke = () => { if (native) return; setAwake(true); wake(); };

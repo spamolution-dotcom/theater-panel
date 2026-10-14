@@ -913,7 +913,7 @@ html.cinema .cinema-card .dev.armed { background: rgba(184, 70, 30, .22); }
 
 /* Hallway Now Showing (?role=hallway): poster full height on the left (2:3 at 1080 = 720 wide),
    the controls in the remaining 1200 px over the film's artwork, and a brighter palette. */
-.showtime.hall { display: flex; --d-text: #E9C999; --d-dim: #B08A5C; --d-line: #3A2A1C; --d-fill: rgba(22,15,10,.85); background: #0d1116; }
+.showtime.hall { display: flex; overflow: hidden; --d-text: #E9C999; --d-dim: #B08A5C; --d-line: #3A2A1C; --d-fill: rgba(22,15,10,.85); background: #0d1116; }
 .showtime.hall::before { display: none; }
 .showtime.hall .st-poster { position: relative; width: 720px; height: 1080px; flex-shrink: 0; background: #120d0a; box-shadow: 20px 0 60px rgba(0,0,0,.6); z-index: 1; overflow: hidden; }
 .showtime.hall .st-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -922,7 +922,10 @@ html.cinema .cinema-card .dev.armed { background: rgba(184, 70, 30, .22); }
 .showtime.hall .st-poster-app img { width: 300px; height: 300px; object-fit: contain; border-radius: 64px; box-shadow: 0 24px 60px rgba(0,0,0,.6); }
 .showtime.hall .st-poster-t { position: absolute; inset: auto 40px 120px; text-align: center; font-family: var(--disp); font-weight: 800; font-size: 96px; line-height: 1; text-transform: uppercase; color: var(--d-text); }
 .showtime.hall .st-art { position: absolute; left: 720px; right: 0; top: 0; bottom: 0; background: #0d1116 center / cover; }
-.showtime.hall .st-art::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.72); }
+.showtime.hall .st-art::after { content: ''; position: absolute; inset: 0; background: rgba(0,0,0,.86); }
+/* The backdrop is a colour wash, not a picture: blurred so no faces or lettering compete with the
+   title and the controls (scaled a touch so the blur has no soft edges). */
+.showtime.hall .st-art { filter: blur(14px) saturate(1.2); transform: scale(1.08); }
 .showtime.hall .wrap { flex: 1; min-width: 0; padding: 44px 52px 44px 48px; gap: 28px; }
 .showtime.hall h1 { font-size: 88px; }
 .showtime.hall .st-side { width: 180px !important; gap: 18px !important; }
