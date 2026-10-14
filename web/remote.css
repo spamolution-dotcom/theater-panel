@@ -190,12 +190,15 @@ button:disabled { opacity: .5; cursor: default; }
 .rg-vol .k { font: 600 12px var(--mono); color: var(--on-choc2); flex: 1; text-align: center; }
 .rg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .rg-strip { display: grid; grid-auto-flow: column; grid-auto-columns: 30%; gap: 10px; overflow-x: auto; padding: 4px; margin: -4px; scrollbar-width: none; }
-.rg-tile { display: flex; flex-direction: column; gap: 4px; text-align: left; min-width: 0; }
-.rg-tile .sq { position: relative; aspect-ratio: 1; border-radius: 12px; overflow: hidden; display: flex; align-items: flex-end; padding: 8px; font: 800 15px/.95 var(--disp); text-transform: uppercase; color: #F7EFE3; }
-.rg-tile .sq img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+/* A game tile: a square (the padding-top trick rather than aspect-ratio, and no flex on the button,
+   so older Android browsers draw it the same), the title under it. */
+.rg-tile { display: block; width: 100%; text-align: left; min-width: 0; }
+.rg-tile .sq { position: relative; display: block; width: 100%; height: 0; padding-top: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 4px; font: 800 15px/.95 var(--disp); text-transform: uppercase; color: #F7EFE3; }
+.rg-tile .sq img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.rg-tile .sq > span { position: absolute; left: 8px; right: 8px; bottom: 8px; }
 .rg-tile[aria-pressed="true"] .sq { outline: 3px solid var(--acc); outline-offset: 2px; }
-.rg-tile b { font: 600 13px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rg-tile > span { font: 500 12px var(--sans); color: var(--muted); margin-top: -3px; }
+.rg-tile b { display: block; font: 600 13px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rg-tile > span { display: block; font: 500 12px var(--sans); color: var(--muted); margin-top: 1px; }
 /* The Xbox marked in green, as on the wall's Game time. */
 .rg-kick { display: flex; align-items: center; gap: 10px; }
 .rg-pill { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px 4px 8px; border-radius: 999px; background: #5DA34B; color: #0b1209; font: 800 15px/1 var(--disp); letter-spacing: 1.5px; text-transform: uppercase; }
