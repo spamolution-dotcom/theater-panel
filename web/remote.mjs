@@ -448,6 +448,12 @@ function Watch({ onOpen }) {
 
   const kids = useKids();
   const [visible, checking] = useKidsFilter(items);
+  // While a new filter, tab or search loads, the previous posters stay up (dimmed) instead of the
+  // grid emptying to "Loading…" and refilling, which flickered on slower phones.
+  const lastShown = useRef(null);
+  if (visible) lastShown.current = visible;
+  const grid = visible ?? lastShown.current;
+  const stale = visible === null && grid !== null;
   const toggle = (k) => setFilters(filters.includes(k) ? filters.filter((f) => f !== k) : [...filters, k]);
   const kicker = q ? `Stremio search · ${total} results` : `${kind === 'show' ? 'TV Shows' : 'Movies'}${open ? ` · ${shortTab(open)}` : ''}`;
 
@@ -468,10 +474,10 @@ function Watch({ onOpen }) {
       <div class="r-pills">${kindLibs.map((l) => html`<button type="button" class="r-pill tab" key=${l.id} aria-pressed=${l.id === libId ? 'true' : 'false'} onClick=${() => setLib(l.id)}>${shortTab(l)}</button>`)}</div>
       <div class="r-pills">${shown.map((f) => html`<button type="button" class="r-pill" key=${f.key} aria-pressed=${filters.includes(f.key) ? 'true' : 'false'} onClick=${() => toggle(f.key)}>
         ${filters.includes(f.key) && html`<${Icon} name="check" size=${15} w=${2.6} />`}${f.label}</button>`)}</div>`}
-    <div class="r-grid">
-      ${visible === null ? html`<div class="r-empty wide">Loading…</div>`
-        : !visible.length ? html`<div class="r-empty wide">${kids && items?.length ? (hasMore ? 'Looking for G and PG titles…' : 'Nothing rated G or PG here. Try another tab or a search.') : q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
-        : visible.map((m) => {
+    <div class=${`r-grid${stale ? ' stale' : ''}`} aria-busy=${stale ? 'true' : 'false'}>
+      ${grid === null ? html`<div class="r-empty wide">Loading…</div>`
+        : !grid.length ? html`<div class="r-empty wide">${kids && items?.length ? (hasMore ? 'Looking for G and PG titles…' : 'Nothing rated G or PG here. Try another tab or a search.') : q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
+        : grid.map((m) => {
           const name = m.type === 'episode' ? m.showTitle : m.title;
           return html`<button type="button" class="r-poster" key=${m.id} onClick=${() => onOpen(m)} aria-label=${name}>
             <${Poster} src=${m.poster} title=${name}>${m.rating ? html`<span class="rating">★ ${Number(m.rating).toFixed(1)}</span>` : null}<//>

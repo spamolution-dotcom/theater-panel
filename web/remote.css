@@ -264,3 +264,4 @@ html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
 .r-pinkeys button { height: 58px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); font: 600 22px var(--sans); color: var(--ink); }
 .r-pinkeys button.x { background: none; border: 0; font-size: 15px; color: var(--muted); }
 .r-ask { margin-top: 16px; width: 100%; max-width: 300px; height: 48px; border-radius: 14px; border: 1px solid var(--acc); color: var(--acc); font: 700 15px var(--sans); }
+.r-grid.stale { opacity: .45; pointer-events: none; transition: opacity .15s; }
