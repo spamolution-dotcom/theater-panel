@@ -250,7 +250,7 @@ function Field({ f, value, base, entities, cleared, onClear, onChange }) {
   }
   const list = f.type === 'entity' ? `dl-${f.domain}` : undefined;
   return html`<div class="field"><label for=${id}>${label}</label>
-    <input id=${id} type="text" spellcheck="false" list=${list} placeholder=${base.container || (f.placeholder ? `Not set (e.g. ${f.placeholder})` : 'Not set')} value=${value} onInput=${(e) => onChange(e.target.value)} />
+    <input id=${id} type="text" spellcheck="false" list=${list} placeholder=${base.container || (f.fallback ? `Default: ${f.fallback}` : f.placeholder ? `Not set (e.g. ${f.placeholder})` : 'Not set')} value=${value} onInput=${(e) => onChange(e.target.value)} />
     ${list && html`<${EntityOptions} id=${list} domain=${f.domain} entities=${entities} />`}
     ${f.type === 'entity' && value && entities.length > 0 && !entities.some((x) => x.id === value) && html`<small class="err">Home Assistant has no ${value}</small>`}
     ${note}</div>`;
