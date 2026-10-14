@@ -8,7 +8,7 @@ import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Prev, Next, Poster } from './lib/ui.mjs';
-import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
+import { get, post, act, setActExtra, getState, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
 import { streamerNow } from './lib/streamer.mjs';
@@ -28,6 +28,7 @@ const seat = (() => {
   } catch { return q === '1'; }
 })();
 if (seat) {
+  setActExtra({ seat: true }); // the server applies kids mode to this phone's actions
   document.documentElement.classList.add('seat');
   document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0E0907');
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', 'only dark');
@@ -103,7 +104,86 @@ async function openApp(app) {
 // ---------- Home ----------
 
 function Top({ title, kicker, children }) {
-  return html`<header class="r-top"><div><div class="r-kick">${kicker}</div><h1>${title}</h1></div>${children}</header>`;
+  return html`<header class="r-top"><div><div class="r-kick">${kicker}</div><h1>${title}</h1></div>
+    <div class="r-topr">${seat && html`<${SeatBadge} />`}${children}</div></header>`;
+}
+
+// ---------- kids mode (the seat phone only; server/seat.mjs) ----------
+
+// Kids mode: this is the seat phone, a grown-up PIN is set, and nobody has unlocked it.
+const useKids = () => useStore((s) => Boolean(seat && s.seat?.enabled && s.seat?.locked));
+
+// Which titles kids mode shows, asked of the server (TMDB's Australian rating: G and PG) and
+// remembered for the session. Returns the list unchanged outside kids mode, null while asking.
+const kidsOk = {};
+function useKidsFilter(items) {
+  const kids = useKids();
+  const [, bump] = useState(0);
+  const need = kids && items ? items.filter((m) => m?.id && !(m.id in kidsOk)) : [];
+  const key = need.map((m) => m.id).join(',');
+  useEffect(() => {
+    if (!key) return undefined;
+    let live = true;
+    post('/api/ratings', { items: need.map((m) => ({ id: m.id, type: m.type })) })
+      .then((r) => Object.assign(kidsOk, r.ok || {}))
+      .catch(() => need.forEach((m) => { kidsOk[m.id] = false; }))
+      .finally(() => { if (live) bump((x) => x + 1); });
+    return () => { live = false; };
+  }, [key]);
+  if (!kids || !items) return items;
+  if (need.length) return null;
+  return items.filter((m) => kidsOk[m.id]);
+}
+
+// The lock in the corner. Kids: hold it for the PIN pad (a tap only says so). Grown-up: the
+// minutes left; a tap goes back to kids mode.
+function SeatBadge() {
+  const st = useStore((s) => s.seat);
+  const [pad, setPad] = useState(false);
+  const [, tick] = useState(0);
+  const hold = useRef(null);
+  useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30e3); return () => clearInterval(t); }, []);
+  if (!st?.enabled) return null;
+  if (!st.locked) {
+    const mins = Math.max(1, Math.ceil(((st.until || 0) - Date.now()) / 60e3));
+    return html`<button type="button" class="r-lock open" aria-label="Grown-up mode, tap to go back to kids mode"
+      onClick=${() => post('/api/seat/lock', {}).then(() => toast('Back to kids mode')).catch(() => {})}><${Icon} name="unlock" size=${14} w=${2.4} />${mins}m</button>`;
+  }
+  const down = () => { clearTimeout(hold.current); hold.current = setTimeout(() => { hold.current = 'held'; setPad(true); }, 1500); };
+  const up = () => { if (hold.current !== 'held') { clearTimeout(hold.current); toast('Kids mode · hold the badge to unlock'); } hold.current = null; };
+  return html`<button type="button" class="r-lock" aria-label="Kids mode, hold to unlock" onPointerDown=${down} onPointerUp=${up} onPointerLeave=${() => clearTimeout(hold.current)}
+    onContextMenu=${(ev) => ev.preventDefault()}><${Icon} name="lock" size=${14} w=${2.4} />Kids</button>
+    ${pad && html`<${PinPad} onClose=${() => setPad(false)} />`}`;
+}
+
+function PinPad({ onClose }) {
+  const [pin, setPin] = useState('');
+  const [bad, setBad] = useState(false);
+  const press = (d) => {
+    if (pin.length >= 4) return;
+    const next = pin + d;
+    setPin(next); setBad(false);
+    if (next.length === 4) {
+      post('/api/seat/unlock', { pin: next })
+        .then(() => { toast('Grown-up mode · 20 minutes'); onClose(); })
+        .catch((e) => { setBad(true); setPin(''); toast(e.message, true); });
+    }
+  };
+  const ask = () => post('/api/seat/ask', {}).then((r) => { toast(r.again ? 'Already asked · check your phones' : 'Asked · a grown-up\'s phone will buzz'); onClose(); }).catch((e) => toast(e.message, true));
+  return html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) onClose(); }}>
+    <div class="r-sheet r-pin" role="dialog" aria-label="Grown-up PIN">
+      <div class="r-grab"></div>
+      <h3>Grown-up mode</h3><p>Enter the PIN · unlocks for 20 minutes</p>
+      <div class=${`r-dots${bad ? ' bad' : ''}`}>${[0, 1, 2, 3].map((i) => html`<i class=${i < pin.length ? 'f' : ''}></i>`)}</div>
+      <div class="r-pinkeys">
+        ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => html`<button type="button" onClick=${() => press(String(n))}>${n}</button>`)}
+        <button type="button" class="x" onClick=${onClose}>Cancel</button>
+        <button type="button" onClick=${() => press('0')}>0</button>
+        <button type="button" class="x" aria-label="Delete" onClick=${() => setPin(pin.slice(0, -1))}>⌫</button>
+      </div>
+      <button type="button" class="r-ask" onClick=${ask}>Ask a grown-up</button>
+    </div>
+  </div>`;
 }
 
 function StatusChip() {
@@ -197,6 +277,7 @@ function Shelf({ title, link, items, onOpen, empty }) {
 }
 
 function Scenes() {
+  const kids = useKids();
   const roomOn = useRoomOn();
   const gaming = useGaming();
   const tracked = useEntity('input_select.theater_scene')?.state;
@@ -208,7 +289,7 @@ function Scenes() {
   };
   return html`<section>
     <div class="r-h2"><h2>Scenes</h2></div>
-    <div class="r-scn-grid">${SCENES.map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
+    <div class="r-scn-grid">${SCENES.filter((sc) => !kids || !['pre_show', 'movie_time'].includes(sc.name)).map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
       onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
     ${(roomOn || gaming) && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
   </section>`;
@@ -281,18 +362,20 @@ function Home({ onOpen, onTab }) {
   const [deck] = useLoad(() => get('/api/plex/ondeck?size=12'), []);
   const [recent] = useLoad(() => get('/api/plex/recent?size=24'), []);
   const seen = new Set();
-  const added = recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14);
+  const added = useKidsFilter(recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14));
+  const deckShown = useKidsFilter(deck);
+  const kids = useKids();
   const d = new Date();
   const part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
   return html`<div class="r-page">
     <${Top} title="Home Theater" kicker=${`${d.toLocaleDateString('en-AU', { weekday: 'long' })} ${part}`}><${StatusChip} /><//>
     <${NowPlaying} onTab=${onTab} />
-    <${Shelf} title="Continue" items=${deck} onOpen=${onOpen} empty="Nothing in progress." />
+    <${Shelf} title="Continue" items=${deckShown} onOpen=${onOpen} empty=${kids ? 'Nothing for kids mode here.' : 'Nothing in progress.'} />
     <${Shelf} title="Just added" items=${added} onOpen=${onOpen} empty="Nothing new."
       link=${html`<button type="button" class="r-link" onClick=${() => onTab('watch')}>Browse</button>`} />
     <${Scenes} />
-    <${Devices} />
-    <${Blind} />
+    ${!kids && html`<${Devices} />`}
+    ${!kids && html`<${Blind} />`}
   </div>`;
 }
 
@@ -353,6 +436,8 @@ function Watch({ onOpen }) {
     return () => io.disconnect();
   });
 
+  const kids = useKids();
+  const visible = useKidsFilter(items);
   const toggle = (k) => setFilters(filters.includes(k) ? filters.filter((f) => f !== k) : [...filters, k]);
   const kicker = q ? `Stremio search · ${total} results` : `${kind === 'show' ? 'TV Shows' : 'Movies'}${open ? ` · ${shortTab(open)}` : ''}`;
 
@@ -368,14 +453,15 @@ function Watch({ onOpen }) {
       ${query && html`<button type="button" aria-label="Clear search" onClick=${() => setQuery('')}><${Icon} name="x" size=${18} /></button>`}
     </label>
     ${!q && html`
+      ${kids && html`<div class="r-kidsnote">Kids mode · G and PG only</div>`}
       <div class="r-seg kind">${[['movie', 'Movies'], ['show', 'TV Shows']].map(([k, label]) => html`<button type="button" aria-pressed=${kind === k ? 'true' : 'false'} onClick=${() => { if (k !== kind) { setKind(k); setLib(null); } }}>${label}</button>`)}</div>
       <div class="r-pills">${kindLibs.map((l) => html`<button type="button" class="r-pill tab" key=${l.id} aria-pressed=${l.id === libId ? 'true' : 'false'} onClick=${() => setLib(l.id)}>${shortTab(l)}</button>`)}</div>
       <div class="r-pills">${shown.map((f) => html`<button type="button" class="r-pill" key=${f.key} aria-pressed=${filters.includes(f.key) ? 'true' : 'false'} onClick=${() => toggle(f.key)}>
         ${filters.includes(f.key) && html`<${Icon} name="check" size=${15} w=${2.6} />`}${f.label}</button>`)}</div>`}
     <div class="r-grid">
-      ${items === null ? html`<div class="r-empty wide">Loading…</div>`
-        : !items.length ? html`<div class="r-empty wide">${q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
-        : items.map((m) => {
+      ${visible === null ? html`<div class="r-empty wide">Loading…</div>`
+        : !visible.length ? html`<div class="r-empty wide">${kids && items?.length ? (hasMore ? 'Looking for G and PG titles…' : 'Nothing rated G or PG here. Try another tab or a search.') : q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
+        : visible.map((m) => {
           const name = m.type === 'episode' ? m.showTitle : m.title;
           return html`<button type="button" class="r-poster" key=${m.id} onClick=${() => onOpen(m)} aria-label=${name}>
             <${Poster} src=${m.poster} title=${name}>${m.rating ? html`<span class="rating">★ ${Number(m.rating).toFixed(1)}</span>` : null}<//>
@@ -591,6 +677,20 @@ function Remote() {
     if (played) setTab('home');
   };
   useSeatFollow({ tab, setTab, sheet, close, hasXbox });
+  // Grown-up mode lasts 20 minutes from the last touch: tell the server someone is using it
+  // (at most once a minute).
+  useEffect(() => {
+    if (!seat) return undefined;
+    let last = 0;
+    const t = () => {
+      const st = getState().seat;
+      if (!st?.enabled || st.locked || Date.now() - last < 60e3) return;
+      last = Date.now();
+      post('/api/seat/touch', {}).catch(() => {});
+    };
+    window.addEventListener('pointerdown', t, true);
+    return () => window.removeEventListener('pointerdown', t, true);
+  }, []);
   return html`<div class="r-app">
     ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi or Tailscale?</div>`}
     ${tab === 'games' && hasXbox ? html`<${Games} />` : tab === 'remote' ? html`<${TvRemote} onTab=${setTab} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
@@ -626,6 +726,7 @@ function GTile({ g, on, onPick }) {
 }
 
 function Games() {
+  const kids = useKids();
   const e = useStore((s) => s.entities) || {};
   const box = useEntity(e.xbox);
   const scene = useEntity(e.xboxScene);
@@ -664,7 +765,7 @@ function Games() {
       <section class="rg-hero playing">
         <div class="rg-kick"><span class="rg-pill"><${Icon} name="pad" size=${18} w=${2} />Xbox</span><span class="rg-eye">${playing ? 'Now playing' : 'On'}</span></div>
         <div class="rg-big">${playing || (offInput ? 'Not on screen' : 'Xbox home')}</div>
-        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : offInput ? 'The Denon is on the Chromecast · switch Source to Xbox below' : 'Pick a game below, or use the controller'}</div>
+        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : offInput ? (kids ? 'The Denon is on the Chromecast · tap the game below to switch to it' : 'The Denon is on the Chromecast · switch Source to Xbox below') : 'Pick a game below, or use the controller'}</div>
         ${playing && Number.isFinite(progress) && html`<div class="rg-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${Math.round(progress)} %</span></div>`}
         ${isUp(avr) && html`<div class="rg-vol">
           <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}><${Icon} name="volm" size=${20} /></button>
@@ -679,7 +780,7 @@ function Games() {
       </section>
       <div class="r-h2"><h2>Switch game</h2><span class="r-aside">${games.length ? 'Recent first' : ''}</span></div>
       ${err ? html`<div class="r-empty">${err.message}</div>` : html`<div class="rg-strip">${[...games, ...apps].map((g) => html`<${GTile} key=${g.id} g=${g} on=${current?.id === g.id} onPick=${pick} />`)}</div>`}
-      ${isUp(avr) && html`<${Source} avr=${avr} />`}`
+      ${isUp(avr) && !kids && html`<${Source} avr=${avr} />`}`
     : html`
       <section class="rg-hero">
         <div class="rg-eye">${starting ? 'Starting the room' : 'Xbox is off'}</div>

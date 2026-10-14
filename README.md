@@ -281,6 +281,18 @@ comes on, **Remote** (Now playing) while a film or show plays, **Home** otherwis
 has touched it for a minute), and back there after three minutes untouched. No kiosk app needed: add it to the home screen from Chrome
 and pin it with Android's screen pinning (Settings > Security > Pin windows).
 
+**Kids mode on the seat phone.** Set a four-digit **Grown-up PIN** on the settings page (Seat
+phone) and the seat phone starts in kids mode: a green **Kids** badge, no Devices, Source or Blind,
+no Pre-show or Movie time, and Watch, Continue, Just added and search show only titles rated **G
+or PG** in Australia (TMDB; C and P for children's TV; unrated titles are hidden). Hold the badge
+for the PIN pad, or tap **Ask a grown-up**: the panel fires `theater_panel_seat_ask` in HA, and an
+automation can turn that into a phone notification whose Unlock action turns on
+`input_boolean.theater_seat_unlock` (the helper is a setting). Grown-up mode shows the minutes left
+on the badge and ends 20 minutes after the last touch, or with a tap on the badge. The server
+checks every action from the seat phone, so hidden buttons are not the only guard. Other phones
+and the wall panels are never affected. The pad on the Remote tab still reaches everything inside
+the TV's apps; Netflix profile PINs and the Streamer's own kids profile cover that side.
+
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.
 It needs the panel to trust the phone's address (see [Access](#access-and-security)); from outside
 the house that works over a VPN such as Tailscale.
