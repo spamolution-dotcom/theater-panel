@@ -21,11 +21,11 @@ async function api(path, body) {
 // moving between pages: one draft holds everything, the page only decides what is on screen.
 const PAGES = [
   { id: 'overview', label: 'Overview', icon: 'home' },
-  { id: 'connections', label: 'Connections', icon: 'server', groups: ['Home Assistant', 'Home Assistant device', 'Plex', 'Seerr', 'TMDB'], blurb: 'Where the panel gets its pictures, its room, and its holiday lists from, and how it shows up in Home Assistant as a device.' },
-  { id: 'room', label: 'Room', icon: 'bulb', groups: ['Entities', 'Soundbar', 'Lights'], blurb: 'The Home Assistant entities behind each control, the soundbar, and the favourite moods.' },
-  { id: 'projector', label: 'Projector & games', icon: 'pad', groups: ['Projector apps', 'Tonight', 'Games'], blurb: 'Apps launched over ADB, the evening around a film, the HDMI switcher, consoles and the gaming PC.' },
+  { id: 'connections', label: 'Connections', icon: 'server', groups: ['Home Assistant', 'Home Assistant device', 'TMDB'], blurb: 'Home Assistant, how the panel shows up there as a device, and TMDB (cast, ratings, holiday lists). Stremio signs in from the add-on options.' },
+  { id: 'room', label: 'Room', icon: 'bulb', groups: ['Entities', 'Lights'], blurb: 'The Home Assistant entities behind each control, and the favourite moods.' },
+  { id: 'projector', label: 'Evening & games', icon: 'pad', groups: ['Projector apps', 'Tonight', 'Games'], blurb: 'Pre-roll and intermission sounds, the evening around a film, and the Xbox.' },
   { id: 'display', label: 'Display', icon: 'eye', groups: ['Display', 'Mystery box', 'Year in review'], blurb: 'Theme, holiday accents, the idle screen, what shows on posters, what the Mystery box may pick, and the December message.' },
-  { id: 'access', label: 'Access', icon: 'user', groups: ['Access'], blurb: 'Who gets in without the panel key.' },
+  { id: 'access', label: 'Access', icon: 'user', groups: ['Access', 'Seat phone'], blurb: 'Who gets in without the panel key, and the seat phone\'s kids mode PIN.' },
 ];
 const pageFromHash = () => PAGES.find((p) => p.id === location.hash.replace(/^#\/?/, ''))?.id || 'overview';
 
@@ -148,7 +148,7 @@ function Settings({ page, signOut }) {
     setBusy(false);
   }
   const pending = data.fromContainer.length > 0 || data.gamesSource === 'file';
-  const REQUIRED = ['HA_URL', 'HA_TOKEN', 'PLEX_URL', 'PLEX_TOKEN', 'SEERR_URL', 'SEERR_API_KEY'];
+  const REQUIRED = ['HA_URL', 'HA_TOKEN'];
   const isSet = (k) => { const v = data.values[k]; return typeof v.saved === 'boolean' ? v.saved || v.container : Boolean(v.saved || v.container); };
   const missing = REQUIRED.filter((k) => !isSet(k));
   const current = PAGES.find((p) => p.id === page) || PAGES[0];
@@ -170,7 +170,7 @@ function Settings({ page, signOut }) {
     <section class="card">
       <div class="card-head"><h2>Services</h2></div>
       <div class="services">
-        ${[['Home Assistant', 'HA_URL'], ['Plex', 'PLEX_URL'], ['Seerr', 'SEERR_URL'], ['Steam', 'STEAM_API_KEY']].map(([n, k]) => html`
+        ${[['Home Assistant', 'HA_URL'], ['TMDB', 'TMDB_API_KEY']].map(([n, k]) => html`
           <a class=${`svc ${isSet(k) ? 'on' : ''}`} href="#/connections"><span class="dot"></span>${n}<small>${isSet(k) ? (data.values[k].saved || data.values[k].container || 'configured') : 'not set'}</small></a>`)}
       </div>
     </section>
@@ -188,7 +188,6 @@ function Settings({ page, signOut }) {
         <div class="card-head"><h2>${g}</h2>${TESTS[g] && html`<${Test} service=${TESTS[g]} draft=${draft} label=${TEST_LABELS[TESTS[g]]} />`}</div>
         ${data.fields.filter((f) => f.group === g).map((f) => html`<${Field} f=${f} value=${draft[f.key]} base=${data.values[f.key]} entities=${entities}
           cleared=${clear[f.key]} onClear=${(v) => setClear({ ...clear, [f.key]: v })} onChange=${(v) => set(f.key, v)} />`)}
-        ${g === 'Games' && html`<${GamesEditor} games=${games} source=${data.gamesSource} entities=${entities} onChange=${(v) => { setGames(v); setGamesDirty(true); }} />`}
       </section>`)}`}
     <div class=${`savebar ${dirty || status ? 'show' : ''}`}>
       <span class=${status ? (status.ok ? 'ok' : 'err') : 'muted'}>${status ? status.text : dirty ? `Unsaved changes on ${[...dirtyPages].map((id) => PAGES.find((p) => p.id === id).label).join(', ')}` : 'All changes saved'}</span>
@@ -251,7 +250,7 @@ function Field({ f, value, base, entities, cleared, onClear, onChange }) {
   }
   const list = f.type === 'entity' ? `dl-${f.domain}` : undefined;
   return html`<div class="field"><label for=${id}>${label}</label>
-    <input id=${id} type="text" spellcheck="false" list=${list} placeholder=${base.container || (f.placeholder ? `Not set (e.g. ${f.placeholder})` : 'Not set')} value=${value} onInput=${(e) => onChange(e.target.value)} />
+    <input id=${id} type="text" spellcheck="false" list=${list} placeholder=${base.container || (f.fallback ? `Default: ${f.fallback}` : f.placeholder ? `Not set (e.g. ${f.placeholder})` : 'Not set')} value=${value} onInput=${(e) => onChange(e.target.value)} />
     ${list && html`<${EntityOptions} id=${list} domain=${f.domain} entities=${entities} />`}
     ${f.type === 'entity' && value && entities.length > 0 && !entities.some((x) => x.id === value) && html`<small class="err">Home Assistant has no ${value}</small>`}
     ${note}</div>`;
