@@ -25,7 +25,7 @@ const PAGES = [
   { id: 'room', label: 'Room', icon: 'bulb', groups: ['Entities', 'Soundbar', 'Lights'], blurb: 'The Home Assistant entities behind each control, the soundbar, and the favourite moods.' },
   { id: 'projector', label: 'Projector & games', icon: 'pad', groups: ['Projector apps', 'Tonight', 'Games'], blurb: 'Apps launched over ADB, the evening around a film, the HDMI switcher, consoles and the gaming PC.' },
   { id: 'display', label: 'Display', icon: 'eye', groups: ['Display', 'Mystery box', 'Year in review'], blurb: 'Theme, holiday accents, the idle screen, what shows on posters, what the Mystery box may pick, and the December message.' },
-  { id: 'access', label: 'Access', icon: 'user', groups: ['Access'], blurb: 'Who gets in without the panel key.' },
+  { id: 'access', label: 'Access', icon: 'user', groups: ['Access', 'Seat phone'], blurb: 'Who gets in without the panel key, and the seat phone\'s kids mode PIN.' },
 ];
 const pageFromHash = () => PAGES.find((p) => p.id === location.hash.replace(/^#\/?/, ''))?.id || 'overview';
 
