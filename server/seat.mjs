@@ -11,7 +11,9 @@
 // only guard. Other phones and the wall panels are never affected.
 
 import { timingSafeEqual } from 'node:crypto';
-import { config } from './config.mjs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { config, SETTINGS_FILE } from './config.mjs';
 import * as tmdb from './tmdb.mjs';
 import { httpError } from './admin.mjs';
 
@@ -74,22 +76,60 @@ export async function ask() {
 }
 
 const kindOf = (type) => (type === 'show' || type === 'episode' ? 'show' : type === 'movie' ? 'movie' : '');
-export async function kidsOk(id, type) {
-  const imdb = String(id || '').split(':')[0];
-  if (!config.tmdb.apiKey) return false;
-  const cert = await tmdb.auRating(imdb, kindOf(type)).catch(() => undefined);
-  return KIDS.has(cert);
+
+// Ratings don't change, so they are kept on disk next to the settings (a month; a title with no
+// AU rating is asked again after three days) and survive add-on updates and restarts. Lookups for
+// the same title share one request.
+const RATINGS_FILE = join(dirname(SETTINGS_FILE), 'kids-ratings.json');
+let known = null;          // `${imdb}:${kind}` -> { c: cert | null, at }
+const inflight = new Map();
+let saveTimer = null;
+function loadKnown() {
+  if (known) return known;
+  try { known = new Map(Object.entries(JSON.parse(readFileSync(RATINGS_FILE, 'utf8')))); } catch { known = new Map(); }
+  return known;
+}
+function saveSoon() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try { mkdirSync(dirname(RATINGS_FILE), { recursive: true }); writeFileSync(RATINGS_FILE, JSON.stringify(Object.fromEntries(known))); }
+    catch (e) { console.warn('[seat] could not save ratings:', e.message); }
+  }, 5000);
+  saveTimer.unref?.();
+}
+async function certOf(imdb, kind) {
+  if (!/^tt\d{5,10}$/.test(imdb) || !config.tmdb.apiKey) return null;
+  const key = `${imdb}:${kind}`;
+  const hit = loadKnown().get(key);
+  if (hit && Date.now() - hit.at < (hit.c ? 30 : 3) * 864e5) return hit.c;
+  if (inflight.has(key)) return inflight.get(key);
+  const p = tmdb.auRating(imdb, kind)
+    .then((c) => { known.set(key, { c: c || null, at: Date.now() }); saveSoon(); return c || null; })
+    .catch(() => undefined)   // TMDB down: not remembered, asked again next time
+    .finally(() => inflight.delete(key));
+  inflight.set(key, p);
+  return p;
 }
 
-// Which of these titles kids mode shows: { id: true | false }. A few at a time, so a page of
-// posters doesn't fire dozens of TMDB lookups at once.
+export async function kidsOk(id, type) {
+  return KIDS.has(await certOf(String(id || '').split(':')[0], kindOf(type)));
+}
+
+// Which of these titles kids mode shows: { id: true | false }. Ten lookups at a time.
 export async function ratings(list) {
   const items = (Array.isArray(list) ? list : []).slice(0, 120).filter((x) => x && typeof x.id === 'string');
   const out = {};
-  for (let i = 0; i < items.length; i += 6) {
-    await Promise.all(items.slice(i, i + 6).map(async (x) => { out[x.id] = await kidsOk(x.id, x.type); }));
-  }
+  let next = 0;
+  const worker = async () => { while (next < items.length) { const x = items[next++]; out[x.id] = await kidsOk(x.id, x.type); } };
+  await Promise.all(Array.from({ length: Math.min(10, items.length) }, worker));
   return out;
+}
+
+// A list was just served (Watch, search, Continue, Just added): look its ratings up in the
+// background, so the seat phone's kids mode finds them ready. Only while kids mode is set up.
+export function prewarm(list) {
+  if (!pinSet() || !config.tmdb.apiKey || !Array.isArray(list) || !list.length) return;
+  ratings(list.map((m) => ({ id: m?.id, type: m?.type }))).catch(() => {});
 }
 
 // Every action from the seat phone passes through here first.

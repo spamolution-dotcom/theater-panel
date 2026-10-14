@@ -114,25 +114,35 @@ function Top({ title, kicker, children }) {
 const useKids = () => useStore((s) => Boolean(seat && s.seat?.enabled && s.seat?.locked));
 
 // Which titles kids mode shows, asked of the server (TMDB's Australian rating: G and PG) and
-// remembered for the session. Returns the list unchanged outside kids mode, null while asking.
+// remembered for the session. A dozen at a time, each batch shown as it arrives, so a long list
+// fills in rather than waiting for its slowest title. Returns [list, checking]: the list is
+// unchanged outside kids mode, null while nothing is known yet.
 const kidsOk = {};
+const kidsAsked = new Set();
+const kidsHeard = new Set();   // every list waiting on ratings hears when a batch comes back
 function useKidsFilter(items) {
   const kids = useKids();
   const [, bump] = useState(0);
+  useEffect(() => { const f = () => bump((x) => x + 1); kidsHeard.add(f); return () => kidsHeard.delete(f); }, []);
   const need = kids && items ? items.filter((m) => m?.id && !(m.id in kidsOk)) : [];
   const key = need.map((m) => m.id).join(',');
   useEffect(() => {
     if (!key) return undefined;
-    let live = true;
-    post('/api/ratings', { items: need.map((m) => ({ id: m.id, type: m.type })) })
-      .then((r) => Object.assign(kidsOk, r.ok || {}))
-      .catch(() => need.forEach((m) => { kidsOk[m.id] = false; }))
-      .finally(() => { if (live) bump((x) => x + 1); });
-    return () => { live = false; };
+    const ask = need.filter((m) => !kidsAsked.has(m.id));
+    ask.forEach((m) => kidsAsked.add(m.id));
+    for (let i = 0; i < ask.length; i += 12) {
+      const batch = ask.slice(i, i + 12);
+      post('/api/ratings', { items: batch.map((m) => ({ id: m.id, type: m.type })) })
+        .then((r) => Object.assign(kidsOk, r.ok || {}))
+        .catch(() => batch.forEach((m) => { kidsOk[m.id] = false; }))
+        .finally(() => { batch.forEach((m) => kidsAsked.delete(m.id)); kidsHeard.forEach((f) => f()); });
+    }
+    return undefined;
   }, [key]);
-  if (!kids || !items) return items;
-  if (need.length) return null;
-  return items.filter((m) => kidsOk[m.id]);
+  if (!kids || !items) return [items, false];
+  const shown = items.filter((m) => kidsOk[m.id]);
+  if (need.length && !shown.length) return [null, true];
+  return [shown, need.length > 0];
 }
 
 // The lock in the corner. Kids: hold it for the PIN pad (a tap only says so). Grown-up: the
@@ -362,8 +372,8 @@ function Home({ onOpen, onTab }) {
   const [deck] = useLoad(() => get('/api/plex/ondeck?size=12'), []);
   const [recent] = useLoad(() => get('/api/plex/recent?size=24'), []);
   const seen = new Set();
-  const added = useKidsFilter(recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14));
-  const deckShown = useKidsFilter(deck);
+  const [added] = useKidsFilter(recent && recent.filter((m) => { const k = m.showTitle || m.id; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 14));
+  const [deckShown] = useKidsFilter(deck);
   const kids = useKids();
   const d = new Date();
   const part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
@@ -437,7 +447,13 @@ function Watch({ onOpen }) {
   });
 
   const kids = useKids();
-  const visible = useKidsFilter(items);
+  const [visible, checking] = useKidsFilter(items);
+  // While a new filter, tab or search loads, the previous posters stay up (dimmed) instead of the
+  // grid emptying to "Loading…" and refilling, which flickered on slower phones.
+  const lastShown = useRef(null);
+  if (visible) lastShown.current = visible;
+  const grid = visible ?? lastShown.current;
+  const stale = visible === null && grid !== null;
   const toggle = (k) => setFilters(filters.includes(k) ? filters.filter((f) => f !== k) : [...filters, k]);
   const kicker = q ? `Stremio search · ${total} results` : `${kind === 'show' ? 'TV Shows' : 'Movies'}${open ? ` · ${shortTab(open)}` : ''}`;
 
@@ -458,10 +474,10 @@ function Watch({ onOpen }) {
       <div class="r-pills">${kindLibs.map((l) => html`<button type="button" class="r-pill tab" key=${l.id} aria-pressed=${l.id === libId ? 'true' : 'false'} onClick=${() => setLib(l.id)}>${shortTab(l)}</button>`)}</div>
       <div class="r-pills">${shown.map((f) => html`<button type="button" class="r-pill" key=${f.key} aria-pressed=${filters.includes(f.key) ? 'true' : 'false'} onClick=${() => toggle(f.key)}>
         ${filters.includes(f.key) && html`<${Icon} name="check" size=${15} w=${2.6} />`}${f.label}</button>`)}</div>`}
-    <div class="r-grid">
-      ${visible === null ? html`<div class="r-empty wide">Loading…</div>`
-        : !visible.length ? html`<div class="r-empty wide">${kids && items?.length ? (hasMore ? 'Looking for G and PG titles…' : 'Nothing rated G or PG here. Try another tab or a search.') : q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
-        : visible.map((m) => {
+    <div class=${`r-grid${stale ? ' stale' : ''}`} aria-busy=${stale ? 'true' : 'false'}>
+      ${grid === null ? html`<div class="r-empty wide">Loading…</div>`
+        : !grid.length ? html`<div class="r-empty wide">${kids && items?.length ? (hasMore ? 'Looking for G and PG titles…' : 'Nothing rated G or PG here. Try another tab or a search.') : q ? 'Nothing found.' : 'Nothing matches. Try removing a filter.'}</div>`
+        : grid.map((m) => {
           const name = m.type === 'episode' ? m.showTitle : m.title;
           return html`<button type="button" class="r-poster" key=${m.id} onClick=${() => onOpen(m)} aria-label=${name}>
             <${Poster} src=${m.poster} title=${name}>${m.rating ? html`<span class="rating">★ ${Number(m.rating).toFixed(1)}</span>` : null}<//>
@@ -469,6 +485,7 @@ function Watch({ onOpen }) {
           </button>`;
         })}
     </div>
+    ${checking && visible?.length > 0 && html`<div class="r-empty">Checking ratings…</div>`}
     ${hasMore && html`<div class="r-empty" ref=${sentinel}>${busy ? 'Loading more…' : ''}</div>`}
     ${!q && html`<div class="r-h2"><h2>Apps</h2></div>
       <div class="r-apps">${APPS.map((a) => html`<button type="button" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}><img src=${`/assets/apps/${a.id}.png`} alt="" /></button>`)}</div>`}
