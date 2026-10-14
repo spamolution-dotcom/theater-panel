@@ -7,7 +7,7 @@
 import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
+import { html, Icon, Play, Pause, Prev, Next, Poster } from './lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
@@ -15,8 +15,9 @@ import { streamerNow } from './lib/streamer.mjs';
 
 // The seat phone: a phone kept at the recliners, always on this page. Opened once with ?seat=1 it
 // remembers that (?seat=0 undoes it), so only that phone changes: a dark theme for a dark room, full
-// screen on a tap, and the page follows the room (Games when the Xbox comes on, Home for a film,
-// back there after a few minutes untouched). Every other phone keeps the remote as it is.
+// screen on a tap, and the page follows the room (Games when the Xbox comes on, Remote while a
+// film or show plays, Home otherwise; back there after a few minutes untouched). Every other
+// phone keeps the remote as it is.
 const SEAT_KEY = 'theaterSeat';
 const seat = (() => {
   const q = new URLSearchParams(location.search).get('seat');
@@ -35,8 +36,8 @@ if (seat) {
     if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
   }, true);
 }
-const SEAT_IDLE_MS = 3 * 60e3; // untouched this long: back to Home (Games while the Xbox is on)
-const SEAT_SWITCH_MS = 60e3;   // the Xbox or a film starting moves the page if untouched this long
+const SEAT_IDLE_MS = 3 * 60e3; // untouched this long: back to the tab that fits what's on
+const SEAT_SWITCH_MS = 60e3;   // a change (Xbox on, a film playing) moves the page if untouched this long
 
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
@@ -113,21 +114,30 @@ function StatusChip() {
   return html`<span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : gaming ? 'Xbox on' : 'Cinema off'}</span>`;
 }
 
-function NowPlaying({ onTab }) {
+// What the Streamer is showing: a Stremio session first; otherwise what Cast reports (YouTube,
+// Spotify...), else the TV itself. `active` = a film or show is playing or paused (not the home
+// screen or a stream list), which is when the Remote tab leads with Now playing.
+function useMedia() {
   const e = useStore((s) => s.entities) || {};
   const roomOn = useRoomOn();
   const tv = useEntity(e.appleTv);
   const castSt = useEntity(e.streamerCast);
-  const avr = useEntity(e.avr);
   const session = useStore((s) => (s.ui?.theaterSessions ? s.sessions?.[0] : undefined));
-  const sessionsAt = useStore((s) => s.sessionsAt) || Date.now();
   const now = streamerNow(tv, castSt);
-  // A Stremio session first; otherwise what Cast reports (YouTube, Spotify...), else the TV itself.
   const state = useStore((s) => (session ? playbackState(s) : now.state || playbackState(s)));
+  const shown = roomOn && Boolean(session || isUp(tv));
+  const active = shown && ['playing', 'paused'].includes(state) && (Boolean(session) || !now.home);
+  return { e, tv, session, now, state, shown, active };
+}
+
+function NowPlaying({ onTab, inRemote }) {
+  const { e, tv, session, now, state, shown } = useMedia();
+  const avr = useEntity(e.avr);
+  const sessionsAt = useStore((s) => s.sessionsAt) || Date.now();
   const playing = state === 'playing';
   const [, tick] = useState(0);
   useEffect(() => { if (!playing) return undefined; const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, [playing]);
-  if (!roomOn || !(session || isUp(tv))) return null;
+  if (!shown) return null;
 
   const a = tv?.attributes || {};
   const app = session?.app || now.key;
@@ -155,7 +165,7 @@ function NowPlaying({ onTab }) {
         <button type="button" aria-label="Back 10 seconds" onClick=${() => t('seek_rel', { seconds: -10 })}>−10</button>
         <button type="button" class="pp" aria-label=${playing ? 'Pause' : 'Play'} onClick=${() => t('play_pause')}>${playing ? html`<${Pause} size=${22} />` : html`<${Play} size=${22} />`}</button>
         <button type="button" aria-label="Forward 30 seconds" onClick=${() => t('seek_rel', { seconds: 30 })}>+30</button>
-        <button type="button" class="pad" aria-label="TV remote" onClick=${() => onTab('remote')}><${Icon} name="remote" size=${20} /></button>
+        ${!inRemote && html`<button type="button" class="pad" aria-label="TV remote" onClick=${() => onTab('remote')}><${Icon} name="remote" size=${20} /></button>`}
       </div>
       ${isUp(avr) && html`<div class="r-vol">
         <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
@@ -428,38 +438,96 @@ function TitleSheet({ start, onClose }) {
 
 // ---------- the TV remote ----------
 
-function TvRemote() {
-  const e = useStore((s) => s.entities) || {};
-  const tv = useEntity(e.appleTv);
+function TvRemote({ onTab }) {
+  const { e, tv, session, now, active } = useMedia();
   const avr = useEntity(e.avr);
   const roomOn = useRoomOn();
-  const appName = streamerNow(tv, useEntity(e.streamerCast)).name;
+  const appName = now.name;
   const key = (k) => act({ action: 'tv_key', key: k });
   const t = (cmd) => act({ action: 'transport', cmd });
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
+  // While a film or show plays: Now playing first (pause and volume are what people reach for),
+  // then the pad (menus, Next episode), then what it is and who's in it.
   return html`<div class="r-page">
-    <${Top} title="TV Remote" kicker=${`Google TV Streamer · ${appName}`}><${StatusChip} /><//>
+    <${Top} title=${active ? 'Now playing' : 'TV Remote'} kicker=${`${active ? `${appName} · ` : ''}Google TV Streamer${active ? '' : ` · ${appName}`}`}><${StatusChip} /><//>
     ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
-    <div class="r-pad">
+    ${active && html`<${NowPlaying} onTab=${onTab} inRemote />`}
+    ${active && session && /^tt\d+:\d+:\d+$/.test(session.id || '') && html`<${EpisodeNav} id=${session.id} key=${session.id} />`}
+    <div class=${`r-pad${active ? ' sm' : ''}`}>
       <button type="button" class="up" aria-label="Up" onClick=${() => key('up')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="left" aria-label="Left" onClick=${() => key('left')}><${Icon} name="left" size=${30} w=${2.6} /></button>
       <button type="button" class="ok" aria-label="OK" onClick=${() => key('ok')}>OK</button>
       <button type="button" class="right" aria-label="Right" onClick=${() => key('right')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="down" aria-label="Down" onClick=${() => key('down')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
     </div>
-    <div class="r-keys">
+    <div class=${`r-keys${active ? ' two' : ''}`}>
       <button type="button" onClick=${() => key('back')}><${Icon} name="left" size=${18} />Back</button>
       <button type="button" onClick=${() => key('home')}><${Icon} name="home" size=${18} />Home</button>
-      <button type="button" onClick=${() => t('play_pause')}><${Play} size=${15} />Play / Pause</button>
+      ${!active && html`<button type="button" onClick=${() => t('play_pause')}><${Play} size=${15} />Play / Pause</button>`}
     </div>
-    ${isUp(avr) && html`<div class="r-vol r-vol-card">
+    ${!active && isUp(avr) && html`<div class="r-vol r-vol-card">
       <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
       <div class="r-bar thin"><i style=${`width:${vol != null ? Math.min(100, vol * 100) : 0}%`}></i></div>
       <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}>−</button>
       <button type="button" aria-label="Volume up" onClick=${() => t('vol_up')}>+</button>
     </div>`}
+    ${active && session && /^tt\d+/.test(session.id || '') && html`<${AboutPlaying} id=${session.id} key=${session.id} />`}
   </div>`;
+}
+
+// Previous / Next episode of a Stremio show (across seasons). Two taps, as switching ends what's
+// on: the first arms the button for a few seconds. It opens the episode like Watch does, so the
+// stream list comes up (or the first stream plays, with auto-play on).
+function EpisodeNav({ id }) {
+  const roomOn = useRoomOn();
+  const [nb] = useLoad(() => get(`/api/plex/neighbours/${encodeURIComponent(id)}`).catch(() => null), [id]);
+  const [armed, setArmed] = useState(null);
+  useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(null), 4000); return () => clearTimeout(t); }, [armed]);
+  if (!nb?.prev && !nb?.next) return null;
+  const go = (which) => {
+    const ep = nb[which];
+    if (!ep) return;
+    if (armed !== which) { setArmed(which); return; }
+    setArmed(null);
+    playItem({ id: ep.id, type: 'episode', title: ep.title, showTitle: ep.showTitle }, roomOn, false);
+  };
+  const num = (ep) => `${ep.season !== Number(id.split(':')[1]) ? `S${ep.season} ` : ''}E${ep.episode}`;
+  const label = (ep) => (ep ? `${num(ep)} · ${ep.title}` : '');
+  const btn = (which, text, icon) => {
+    const ep = nb[which];
+    const on = armed === which;
+    return html`<button type="button" class=${`${which === 'next' ? 'nx' : ''}${on ? ' armed' : ''}`} disabled=${!ep} onClick=${() => go(which)}
+      aria-label=${ep ? `${text}: ${label(ep)}` : `No ${text.toLowerCase()} episode`}>
+      ${which === 'prev' && icon}<span><s>${on ? 'Tap again' : text}</s>${on ? `to play ${num(ep)}` : ep ? label(ep) : '—'}</span>${which === 'next' && icon}
+    </button>`;
+  };
+  return html`<div class="r-eprow">
+    ${btn('prev', 'Previous', html`<${Prev} size=${15} />`)}
+    ${btn('next', 'Next', html`<${Next} size=${15} />`)}
+  </div>`;
+}
+
+// What's playing (Stremio titles): the synopsis, genres and the cast with characters and photos
+// (TMDB, when the panel has a key; Stremio's names otherwise).
+function AboutPlaying({ id }) {
+  const imdb = id.split(':')[0];
+  const episode = id.includes(':');
+  const [it] = useLoad(() => get(`/api/plex/item/${encodeURIComponent(id)}`).catch(() => null), [id]);
+  const [cr] = useLoad(() => get(`/api/credits/${imdb}?kind=${episode ? 'show' : 'movie'}`).catch(() => null), [imdb]);
+  const cast = cr?.cast?.length ? cr.cast : (it?.cast || []).map((name) => ({ name: typeof name === 'string' ? name : name?.tag || name?.name || '' })).filter((c) => c.name);
+  if (!it && !cast.length) return null;
+  const facts = episode && it ? [`S${it.season} · E${it.episode}`, runtime(it.duration)] : [it?.year, runtime(it?.duration)];
+  return html`<section class="r-about">
+    ${it?.summary && html`<div class="r-h2"><h2>${episode ? 'About this episode' : 'About this film'}</h2><span class="r-aside">${facts.filter(Boolean).join(' · ')}</span></div>
+      <p class="r-syn">${it.summary}</p>`}
+    ${it?.genres?.length ? html`<div class="r-meta2">${it.genres.map((g) => (typeof g === 'string' ? g : g.tag || g.name)).join(' · ')}</div>` : null}
+    ${cast.length > 0 && html`<div class="r-h2"><h2>Cast</h2></div>
+      <div class="r-cast">${cast.map((c) => html`<div class="r-person" key=${c.name}>
+        <div class="ph">${c.photo ? html`<img src=${c.photo} alt="" loading="lazy" />` : html`<span>${c.name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span>`}</div>
+        <b>${c.name}</b>${c.character && html`<s>${c.character}</s>`}
+      </div>`)}</div>`}
+  </section>`;
 }
 
 // ---------- the app ----------
@@ -469,15 +537,16 @@ function Toast() {
   return t ? html`<div class=${`r-toast ${t.err ? 'err' : ''}`} role="status">${t.text}</div>` : null;
 }
 
-// The seat phone follows the room: when the Xbox or a film starts it opens Games or Home, and
-// after a few minutes untouched it goes back there (sheet closed, scrolled to the top). It never
-// moves while someone is using it. Does nothing on any other phone.
+// The seat phone follows the room: Games when the Xbox comes on, Remote (Now playing) when a film
+// or show plays, Home otherwise. It moves when that changes, and after a few minutes untouched it
+// goes back there (sheet closed, scrolled to the top). It never moves while someone is using it. Does nothing on any other phone.
 function useSeatFollow({ tab, setTab, sheet, close, hasXbox }) {
   const gaming = useGaming();
   const roomOn = useRoomOn();
-  const mode = gaming ? 'xbox' : roomOn ? 'film' : 'off';
+  const { active } = useMedia();
+  const mode = gaming ? 'xbox' : active ? 'playing' : roomOn ? 'on' : 'off';
   const now = useRef({});
-  now.current = { tab, sheet, close, target: gaming && hasXbox ? 'games' : 'home' };
+  now.current = { tab, sheet, close, target: gaming && hasXbox ? 'games' : active ? 'remote' : 'home' };
   const touched = useRef(Date.now());
   const prev = useRef(mode);
   const goHome = () => {
@@ -524,7 +593,7 @@ function Remote() {
   useSeatFollow({ tab, setTab, sheet, close, hasXbox });
   return html`<div class="r-app">
     ${connected === false && html`<div class="r-offline">Can't reach the cinema panel. Are you on the home Wi-Fi or Tailscale?</div>`}
-    ${tab === 'games' && hasXbox ? html`<${Games} />` : tab === 'remote' ? html`<${TvRemote} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
+    ${tab === 'games' && hasXbox ? html`<${Games} />` : tab === 'remote' ? html`<${TvRemote} onTab=${setTab} />` : tab === 'watch' ? html`<${Watch} onOpen=${setSheet} />` : html`<${Home} onOpen=${setSheet} onTab=${setTab} />`}
     <nav class="r-tabs">
       <button type="button" aria-pressed=${tab === 'home' ? 'true' : 'false'} onClick=${() => setTab('home')}><${Icon} name="home" size=${24} />Home</button>
       <button type="button" aria-pressed=${tab === 'watch' ? 'true' : 'false'} onClick=${() => setTab('watch')}><${Icon} name="film" size=${24} />Watch</button>

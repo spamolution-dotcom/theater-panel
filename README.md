@@ -265,12 +265,20 @@ separate page laid out for phones; the wall panel is unchanged.
 - A round pad (**up, down, left, right, OK**), **Back**, **Home** and **Play / Pause** for the
   Google TV Streamer, plus the Denon's volume. This is how you pick a stream in Stremio without
   finding the physical remote.
+- While a film or show plays it becomes **Now playing**: the playing card (pause, −10 / +30,
+  volume) on top, the pad under it, then **About** (synopsis, genres) and **Cast** with character
+  names and photos (from TMDB when `tmdb_api_key` is set; Stremio's names otherwise). About and
+  Cast are for Stremio titles; Netflix and YouTube show the card and the pad.
+- For a Stremio show, **Previous** and **Next** episode (across seasons) sit under the card. Two
+  taps, as it ends what's on. It opens the episode like Watch does: the stream list comes up, or
+  the first stream plays with auto-play on (which may not be the same source as now; Stremio's
+  own Next episode prompt at the credits keeps the source).
 
 **A seat phone.** For a spare phone kept at the seats, open `/remote?seat=1` once; that phone
 remembers it (`?seat=0` undoes it) and no other phone changes. On it the remote is dark for a dark
 room, goes full screen on a tap (no address bar), and follows the room: **Games** when the Xbox
-comes on and **Home** when a film starts (only if nobody has touched it for a minute), and back
-there after three minutes untouched. No kiosk app needed: add it to the home screen from Chrome
+comes on, **Remote** (Now playing) while a film or show plays, **Home** otherwise (only if nobody
+has touched it for a minute), and back there after three minutes untouched. No kiosk app needed: add it to the home screen from Chrome
 and pin it with Android's screen pinning (Settings > Security > Pin windows).
 
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.

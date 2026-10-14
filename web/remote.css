@@ -221,3 +221,26 @@ html.seat .r-play2 { color: var(--ink); }
 html.seat .r-tabs { background: #120C09; }
 html.seat .r-sheet-back { background: rgba(0, 0, 0, .6); }
 html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
+
+/* ---------- Remote tab while something plays: Now playing, the pad, About and Cast ---------- */
+.r-page > .r-np { margin-bottom: 4px; }
+.r-pad.sm { width: min(230px, 62vw); margin: 14px auto; }
+.r-keys.two { grid-template-columns: repeat(2, 1fr); }
+.r-about { margin-top: 4px; }
+.r-syn { font: 500 14px/1.5 var(--sans); margin: 0 0 6px; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.r-meta2 { font: 600 12px var(--mono); color: var(--muted); }
+.r-cast { display: flex; gap: 12px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px; scrollbar-width: none; }
+.r-cast::-webkit-scrollbar { display: none; }
+.r-person { width: 84px; flex-shrink: 0; text-align: center; }
+.r-person .ph { width: 72px; height: 72px; margin: 0 auto 6px; border-radius: 50%; overflow: hidden; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; font: 800 20px var(--disp); color: var(--muted); }
+.r-person .ph img { width: 100%; height: 100%; object-fit: cover; }
+.r-person b { display: block; font: 600 12.5px/1.25 var(--sans); }
+.r-person s { display: block; text-decoration: none; font: 500 11.5px/1.25 var(--sans); color: var(--muted); margin-top: 2px; }
+.r-eprow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 2px; }
+.r-eprow button { height: 52px; min-width: 0; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 12px; text-align: left; font: 600 13px/1.2 var(--sans); color: var(--ink); }
+.r-eprow button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-eprow button s { display: block; text-decoration: none; font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.r-eprow button svg { flex-shrink: 0; color: var(--muted); }
+.r-eprow .nx { justify-content: flex-end; text-align: right; }
+.r-eprow .armed { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
+.r-eprow .armed s, .r-eprow .armed svg { color: var(--acc); }
