@@ -1088,3 +1088,24 @@ html.cinema .kind-toggle button[aria-pressed="true"] { background: var(--acc-sof
 .gametime .gt-band { position: absolute; top: 0; left: 0; right: 0; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 14px; padding: 20px; background: var(--xb); color: #0b1209; font: 800 40px/1 var(--disp); letter-spacing: 4px; text-transform: uppercase; }
 .gametime .ends { color: var(--xb-text); }
 .gametime .transport .pp { border-color: var(--xb); color: var(--xb-text); }
+
+/* The hallway board: volume inside the centre card, the scenes down the left, Full controls with
+   Aisle glow and All off on the right, and the cast ("Starring") along the bottom. */
+.showtime.hall .tp-card { flex-grow: 1; min-width: 0; display: flex; flex-direction: column; border: 1.5px solid var(--d-line); border-radius: 36px; background: var(--d-fill); }
+.showtime.hall .tp-card .transport { border: 0; background: none; flex-grow: 1; }
+.showtime.hall .tp-vol { display: flex; align-items: center; gap: 14px; padding: 0 22px 22px; }
+.showtime.hall .tp-vol .dbtn { width: 96px; height: 84px; flex-shrink: 0; }
+.showtime.hall .tp-vol .st-mute { width: 120px; height: 84px !important; }
+.showtime.hall .tp-vol .st-vol { flex-grow: 1; min-width: 0; }
+.showtime.hall .st-side { display: flex; flex-direction: column; }
+.showtime.hall .st-scenes, .showtime.hall .st-side:last-child { width: 200px !important; }
+.showtime.hall .st-scenes .dbtn { flex-grow: 1; gap: 6px; }
+.showtime.hall .st-scenes .dbtn .big { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 26px; }
+.showtime.hall .st-castrow .k { font: 600 13px var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--d-dim); margin-bottom: 12px; }
+.showtime.hall .st-castrow .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; }
+.showtime.hall .st-castrow .p { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.showtime.hall .st-castrow img, .showtime.hall .st-castrow i { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 1.5px solid var(--d-line); }
+.showtime.hall .st-castrow i { display: flex; align-items: center; justify-content: center; font: 800 22px var(--disp); font-style: normal; color: var(--d-dim); background: var(--d-fill); }
+.showtime.hall .st-castrow span { min-width: 0; }
+.showtime.hall .st-castrow b { display: block; font: 600 15px/1.2 var(--sans); color: #EADFD1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.showtime.hall .st-castrow s { display: block; text-decoration: none; font: 500 13px/1.2 var(--sans); color: var(--d-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
