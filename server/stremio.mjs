@@ -518,6 +518,22 @@ export async function episodes(seasonId) {
     .map((v) => fromVideo(v, show, { offset: s?.video_id === v.id ? s.timeOffset || 0 : 0 }));
 }
 
+// The episodes either side of one (tt…:S:E), across seasons, for Previous / Next on the phone.
+// Specials (season 0) and episodes not out yet are skipped.
+export async function episodeNeighbours(id) {
+  const [showId, sn, en] = checkId(id, 'episode id').split(':');
+  if (!sn || !en) throw httpError(400, 'Not an episode');
+  const show = await meta('series', showId);
+  if (!show) throw httpError(404, 'Not found');
+  const now = Date.now();
+  const eps = (show.videos || [])
+    .filter((v) => Number(v.season) > 0 && (!v.released || Date.parse(v.released) <= now))
+    .sort((a, b) => Number(a.season) - Number(b.season) || episodeNo(a) - episodeNo(b));
+  const i = eps.findIndex((v) => Number(v.season) === Number(sn) && episodeNo(v) === Number(en));
+  const pick = (v) => (v ? { id: v.id || `${showId}:${v.season}:${episodeNo(v)}`, season: Number(v.season), episode: episodeNo(v), title: v.name || v.title || `Episode ${episodeNo(v)}`, showTitle: show.name } : null);
+  return i < 0 ? { prev: null, next: null } : { prev: pick(eps[i - 1]), next: pick(eps[i + 1]) };
+}
+
 // Continue watching, as Stremio's own apps show it: anything with a saved position, newest first.
 export async function onDeck(size = 12) {
   const rows = (await rawLibrary()).filter(inProgress).sort((a, b) => lastWatched(b) - lastWatched(a)).slice(0, size);

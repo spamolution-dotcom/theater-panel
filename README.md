@@ -269,6 +269,10 @@ separate page laid out for phones; the wall panel is unchanged.
   volume) on top, the pad under it, then **About** (synopsis, genres) and **Cast** with character
   names and photos (from TMDB when `tmdb_api_key` is set; Stremio's names otherwise). About and
   Cast are for Stremio titles; Netflix and YouTube show the card and the pad.
+- For a Stremio show, **Previous** and **Next** episode (across seasons) sit under the card. Two
+  taps, as it ends what's on. It opens the episode like Watch does: the stream list comes up, or
+  the first stream plays with auto-play on (which may not be the same source as now; Stremio's
+  own Next episode prompt at the credits keeps the source).
 
 **A seat phone.** For a spare phone kept at the seats, open `/remote?seat=1` once; that phone
 remembers it (`?seat=0` undoes it) and no other phone changes. On it the remote is dark for a dark

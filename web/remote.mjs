@@ -7,7 +7,7 @@
 import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
-import { html, Icon, Play, Pause, Poster } from './lib/ui.mjs';
+import { html, Icon, Play, Pause, Prev, Next, Poster } from './lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
@@ -453,6 +453,7 @@ function TvRemote({ onTab }) {
     <${Top} title=${active ? 'Now playing' : 'TV Remote'} kicker=${`${active ? `${appName} · ` : ''}Google TV Streamer${active ? '' : ` · ${appName}`}`}><${StatusChip} /><//>
     ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
     ${active && html`<${NowPlaying} onTab=${onTab} inRemote />`}
+    ${active && session && /^tt\d+:\d+:\d+$/.test(session.id || '') && html`<${EpisodeNav} id=${session.id} key=${session.id} />`}
     <div class=${`r-pad${active ? ' sm' : ''}`}>
       <button type="button" class="up" aria-label="Up" onClick=${() => key('up')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="left" aria-label="Left" onClick=${() => key('left')}><${Icon} name="left" size=${30} w=${2.6} /></button>
@@ -472,6 +473,38 @@ function TvRemote({ onTab }) {
       <button type="button" aria-label="Volume up" onClick=${() => t('vol_up')}>+</button>
     </div>`}
     ${active && session && /^tt\d+/.test(session.id || '') && html`<${AboutPlaying} id=${session.id} key=${session.id} />`}
+  </div>`;
+}
+
+// Previous / Next episode of a Stremio show (across seasons). Two taps, as switching ends what's
+// on: the first arms the button for a few seconds. It opens the episode like Watch does, so the
+// stream list comes up (or the first stream plays, with auto-play on).
+function EpisodeNav({ id }) {
+  const roomOn = useRoomOn();
+  const [nb] = useLoad(() => get(`/api/plex/neighbours/${encodeURIComponent(id)}`).catch(() => null), [id]);
+  const [armed, setArmed] = useState(null);
+  useEffect(() => { if (!armed) return undefined; const t = setTimeout(() => setArmed(null), 4000); return () => clearTimeout(t); }, [armed]);
+  if (!nb?.prev && !nb?.next) return null;
+  const go = (which) => {
+    const ep = nb[which];
+    if (!ep) return;
+    if (armed !== which) { setArmed(which); return; }
+    setArmed(null);
+    playItem({ id: ep.id, type: 'episode', title: ep.title, showTitle: ep.showTitle }, roomOn, false);
+  };
+  const num = (ep) => `${ep.season !== Number(id.split(':')[1]) ? `S${ep.season} ` : ''}E${ep.episode}`;
+  const label = (ep) => (ep ? `${num(ep)} · ${ep.title}` : '');
+  const btn = (which, text, icon) => {
+    const ep = nb[which];
+    const on = armed === which;
+    return html`<button type="button" class=${`${which === 'next' ? 'nx' : ''}${on ? ' armed' : ''}`} disabled=${!ep} onClick=${() => go(which)}
+      aria-label=${ep ? `${text}: ${label(ep)}` : `No ${text.toLowerCase()} episode`}>
+      ${which === 'prev' && icon}<span><s>${on ? 'Tap again' : text}</s>${on ? `to play ${num(ep)}` : ep ? label(ep) : '—'}</span>${which === 'next' && icon}
+    </button>`;
+  };
+  return html`<div class="r-eprow">
+    ${btn('prev', 'Previous', html`<${Prev} size=${15} />`)}
+    ${btn('next', 'Next', html`<${Next} size=${15} />`)}
   </div>`;
 }
 

@@ -236,3 +236,11 @@ html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
 .r-person .ph img { width: 100%; height: 100%; object-fit: cover; }
 .r-person b { display: block; font: 600 12.5px/1.25 var(--sans); }
 .r-person s { display: block; text-decoration: none; font: 500 11.5px/1.25 var(--sans); color: var(--muted); margin-top: 2px; }
+.r-eprow { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 2px; }
+.r-eprow button { height: 52px; min-width: 0; border-radius: 14px; background: var(--card); border: 1px solid var(--line); display: flex; align-items: center; gap: 8px; padding: 0 12px; text-align: left; font: 600 13px/1.2 var(--sans); color: var(--ink); }
+.r-eprow button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.r-eprow button s { display: block; text-decoration: none; font: 600 10.5px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.r-eprow button svg { flex-shrink: 0; color: var(--muted); }
+.r-eprow .nx { justify-content: flex-end; text-align: right; }
+.r-eprow .armed { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
+.r-eprow .armed s, .r-eprow .armed svg { color: var(--acc); }
