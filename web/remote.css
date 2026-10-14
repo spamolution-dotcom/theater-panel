@@ -247,3 +247,20 @@ html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
 .r-eprow .nx { justify-content: flex-end; text-align: right; }
 .r-eprow .armed { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
 .r-eprow .armed s, .r-eprow .armed svg { color: var(--acc); }
+
+/* ---------- kids mode on the seat phone ---------- */
+.r-topr { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.r-lock { display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 11px; border-radius: 999px; background: #1E2A1C; border: 1px solid #2F4A2C; color: #8FCB7D; font: 700 13px var(--sans); -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.r-lock.open { background: #33220F; border-color: #5A4220; color: #E3A865; }
+.r-kidsnote { font: 600 12px var(--mono); letter-spacing: .04em; text-transform: uppercase; color: #8FCB7D; margin: 10px 0 0; }
+.r-pin { text-align: center; padding-bottom: calc(28px + env(safe-area-inset-bottom)); }
+.r-pin h3 { font: 800 28px var(--disp); margin: 4px 0 4px; }
+.r-pin p { font: 500 13px var(--sans); color: var(--muted); margin: 0 0 16px; }
+.r-dots { display: flex; gap: 14px; justify-content: center; margin-bottom: 18px; }
+.r-dots i { width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--acc); }
+.r-dots i.f { background: var(--acc); }
+.r-dots.bad i { border-color: var(--warn); }
+.r-pinkeys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 300px; margin: 0 auto; }
+.r-pinkeys button { height: 58px; border-radius: 16px; background: var(--bg); border: 1px solid var(--line); font: 600 22px var(--sans); color: var(--ink); }
+.r-pinkeys button.x { background: none; border: 0; font-size: 15px; color: var(--muted); }
+.r-ask { margin-top: 16px; width: 100%; max-width: 300px; height: 48px; border-radius: 14px; border: 1px solid var(--acc); color: var(--acc); font: 700 15px var(--sans); }

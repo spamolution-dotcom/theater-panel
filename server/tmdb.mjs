@@ -98,3 +98,25 @@ export async function credits(imdb, kind) {
     }));
   });
 }
+
+// ---------- the Australian rating ----------
+
+// A title's Australian classification by IMDb id (G, PG, M, MA15+, R18+; C and P for children's
+// TV), for the seat phone's kids mode. Films: the first AU certification among their releases.
+// Series: the AU content rating. null when TMDB has no AU rating (or no match). Cached a week.
+export async function auRating(imdb, kind) {
+  if (!/^tt\d{5,10}$/.test(String(imdb || ''))) return null;
+  return remember(`au:${imdb}:${kind || ''}`, 7 * 24 * 3600e3, async () => {
+    const f = await api(`/find/${imdb}`, { external_source: 'imdb_id' });
+    const series = kind === 'show' || (kind !== 'movie' && !f.movie_results?.length && f.tv_results?.length > 0);
+    const hit = series ? f.tv_results?.[0] : f.movie_results?.[0];
+    if (!hit) return null;
+    if (series) {
+      const r = await api(`/tv/${hit.id}/content_ratings`);
+      return (r.results || []).find((x) => x.iso_3166_1 === 'AU')?.rating || null;
+    }
+    const r = await api(`/movie/${hit.id}/release_dates`);
+    const au = (r.results || []).find((x) => x.iso_3166_1 === 'AU');
+    return (au?.release_dates || []).map((d) => d.certification).find(Boolean) || null;
+  });
+}

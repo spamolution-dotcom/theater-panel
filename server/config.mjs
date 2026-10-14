@@ -144,6 +144,8 @@ function build(env) {
     xboxAccount: env.XBOX_ACCOUNT || 'xbox',
     xboxArt: env.ENTITY_XBOX_ART || 'image.cinema_xbox_superhero_art',
     xboxStorage: env.ENTITY_XBOX_STORAGE || 'sensor.xboxone_free_space_internal_storage',
+    // The helper a grown-up's phone turns on to unlock the seat phone (see server/seat.mjs).
+    seatUnlock: env.ENTITY_SEAT_UNLOCK || 'input_boolean.theater_seat_unlock',
     soundSpeaker: env.ENTITY_SOUND_SPEAKER || 'media_player.cinema_google_mini',
     // Music Assistant players offered under "Play on"; the first is the theater's own.
     musicPlayers: list(env.ENTITY_MUSIC_PLAYERS, []),
@@ -206,6 +208,8 @@ function build(env) {
   // TMDB, for the holiday shelves: a public list per season (the number from the list's address
   // on themoviedb.org), read with a free API key. Blank = no TMDB lists; the shelves fall back to
   // Kometa's collections and TMDB's tags through Seerr.
+  // The seat phone's kids mode (server/seat.mjs): on while a 4-digit PIN is set.
+  seat: { pin: (env.SEAT_PIN || '').trim() },
   tmdb: {
     apiKey: env.TMDB_API_KEY || '',
     lists: {
@@ -359,7 +363,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.streamerCast, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
+    e.appleTv, e.appleTvRemote, e.streamerCast, e.seatUnlock, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

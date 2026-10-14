@@ -36,6 +36,8 @@ const PATHS = {
   screen: 'M2 4h20v13H2zM6 21h12',
   dice: 'M4 4h16v16H4zM9 9h.01M15 15h.01M15 9h.01M9 15h.01',
   chev: 'M9 6l6 6-6 6',
+  lock: 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11',
+  unlock: 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 6.6-1.6',
   down: 'M6 9l6 6 6-6',
   left: 'M15 6l-6 6 6 6',
   alert: 'M12 3l10 18H2zM12 10v5M12 18h.01',

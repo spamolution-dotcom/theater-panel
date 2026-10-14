@@ -118,6 +118,8 @@ export const FIELDS = [
   { group: 'Display', key: 'CINEMA_MODE', label: 'Dim the panel when the room is dark', type: 'bool', default: true, help: 'Cinema mode: whenever the downlights are off or under a quarter, the panel drops to a dark palette instead of lighting the room from the wall. Showtime and the idle screen are dark already.' },
   { group: 'Display', key: 'SHOW_QUALITY_BADGES', label: '4K / HDR / Dolby Vision labels on posters', type: 'bool', default: true },
   { group: 'Display', key: 'SHOW_NETWORK_BADGES', label: 'Streaming network labels on posters', type: 'bool', default: false },
+  { group: 'Seat phone', key: 'SEAT_PIN', label: 'Grown-up PIN', type: 'secret', help: 'Four digits. Set, the seat phone (/remote?seat=1) starts in kids mode: no device power, input or blind, no Pre-show or Movie time, and only G and PG titles (needs the TMDB key). The PIN, or "Ask a grown-up" approved from a phone, unlocks it for 20 minutes after the last touch. Blank turns kids mode off.' },
+  { group: 'Seat phone', key: 'ENTITY_SEAT_UNLOCK', label: 'Unlock helper', type: 'entity', domain: 'input_boolean', help: 'Turned on by your "Ask a grown-up" notification\'s Unlock action; the panel unlocks the seat phone and turns it back off.' },
   { group: 'Display', key: 'FRAME_ANCESTORS', label: 'Pages allowed to embed the panel', type: 'list', help: 'The Home Assistant dashboard Kiosk Satellite shows.' },
 ];
 const BY_KEY = Object.fromEntries(FIELDS.map((f) => [f.key, f]));

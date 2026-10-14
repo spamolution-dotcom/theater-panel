@@ -17,8 +17,12 @@ export async function post(path, data) {
 }
 
 // Fire an action; failures surface as a toast instead of throwing into the UI.
+// Extra fields every action carries (the seat phone marks its actions so the server can apply
+// kids mode to them).
+let actExtra = {};
+export function setActExtra(extra) { actExtra = { ...extra }; }
 export async function act(data) {
-  try { return await post('/api/action', data); }
+  try { return await post('/api/action', { ...data, ...actExtra }); }
   catch (e) { toast(e.message, true); return null; }
 }
 
@@ -95,7 +99,7 @@ export async function startLive({ navigate } = {}) {
         bootBuild ??= d.build;
         if (d.build !== bootBuild) set({ stale: d.build });
       }
-      set({ connected: true, haConnected: d.ha.connected, haConfigured: d.ha.configured, states: d.ha.states, sessions: d.sessions, streams: d.streams || [] });
+      set({ connected: true, haConnected: d.ha.connected, haConfigured: d.ha.configured, states: d.ha.states, sessions: d.sessions, streams: d.streams || [], seat: d.seat || null });
     });
     es.addEventListener('states', (e) => {
       const changed = JSON.parse(e.data);
@@ -104,6 +108,7 @@ export async function startLive({ navigate } = {}) {
       set({ states });
     });
     es.addEventListener('ha', (e) => set({ haConnected: JSON.parse(e.data).connected }));
+    es.addEventListener('seat', (e) => set({ seat: JSON.parse(e.data) }));
     es.addEventListener('sessions', (e) => set({ sessions: JSON.parse(e.data), sessionsAt: Date.now() }));
     // Everything playing on the Plex server, behind the "N streams" pill.
     es.addEventListener('streams', (e) => set({ streams: JSON.parse(e.data) }));

@@ -26,6 +26,7 @@ import * as vote from './vote.mjs';
 import * as tonight from './tonight.mjs';
 import * as guest from './guest.mjs';
 import * as tmdb from './tmdb.mjs';
+import * as seat from './seat.mjs';
 import { netList, clientIp } from './net.mjs';
 import { versions } from './version.mjs';
 import * as hass from './hass.mjs';
@@ -624,7 +625,16 @@ post(/^\/api\/navigate$/, (m, q, body) => {
   return { ok: true, panels: clients.size };
 });
 
+// The seat phone's kids mode (server/seat.mjs).
+get(/^\/api\/seat$/, () => seat.state());
+post(/^\/api\/seat\/unlock$/, (m, q, body) => seat.unlock(body?.pin));
+post(/^\/api\/seat\/lock$/, () => seat.lock());
+post(/^\/api\/seat\/touch$/, () => seat.touch());
+post(/^\/api\/seat\/ask$/, () => seat.ask());
+post(/^\/api\/ratings$/, async (m, q, body) => ({ ok: await seat.ratings(body?.items) }));
+
 post(/^\/api\/action$/, async (m, q, body) => {
+  await seat.guard(body);
   const r = await runAction(ha, body);
   // A film is on its way (after the pre-roll, and the projector waking): look for its Plex
   // session sooner than the idle 30 s poll would, so Showtime comes up with the film.
@@ -718,7 +728,7 @@ const server = createServer(async (req, res) => {
 
     if (path === '/api/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: ha.states }, sessions, streams, build: config.build.version })}\n\n`);
+      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: ha.states }, sessions, streams, seat: seat.state(), build: config.build.version })}\n\n`);
       clients.add(res);
       hass.panelsChanged();
       if (clients.size === 1) pollSessions(); // first viewer: don't wait for the next poll
@@ -822,6 +832,7 @@ sleep.init({ ha, broadcast, run: (body) => runAction(ha, body), script: (name, v
 hass.init({ ha, broadcast, run: (body) => runAction(ha, body), save: async (body) => admin.save(body), applySettings, panels: () => clients.size, voice: (body) => voiceIntent(body) });
 hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });
+seat.init({ ha, broadcast });
 ha.start();
 pollSessions();
 if (config.media.on) { plex.warmMovies(); }
