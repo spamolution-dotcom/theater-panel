@@ -93,6 +93,13 @@
     return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="' + (w || 2) +
       '" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + PATHS[name] + '"/></svg>';
   }
+  // The panel's images (/img/...) with a marker only this page adds. Images are cached for a year
+  // under their address, and the iPad kept WebP copies it cannot draw from before the server sent
+  // it JPEGs (server/images.mjs); a new address makes it fetch them again. The server ignores it.
+  function imgSrc(src) {
+    if (!src || String(src).indexOf('/img/') !== 0) return src;
+    return src + (src.indexOf('?') >= 0 ? '&' : '?') + 'lite=1';
+  }
   function playIcon(size) { return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l12.5-7.5z" fill="currentColor"/></svg>'; }
   function pauseIcon(size) { return '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24" aria-hidden="true"><rect x="5.5" y="4" width="4.5" height="16" rx="1" fill="currentColor"/><rect x="14" y="4" width="4.5" height="16" rx="1" fill="currentColor"/></svg>'; }
 
@@ -310,7 +317,7 @@
     return '<span class="l-chip ' + cls + '"><span class="dot"></span>' + (warming ? 'Starting…' : on ? 'Cinema on' : g ? 'Xbox on' : 'Cinema off') + '</span>';
   }
   function poster(src, title, extra) {
-    return '<div class="poster"><div class="fallback">' + esc(title) + '</div>' + (src ? '<img src="' + esc(src) + '" alt="">' : '') + (extra || '') + '</div>';
+    return '<div class="poster"><div class="fallback">' + esc(title) + '</div>' + (src ? '<img src="' + esc(imgSrc(src)) + '" alt="">' : '') + (extra || '') + '</div>';
   }
 
   function nowPlaying(inRemote) {
@@ -331,7 +338,7 @@
     var label = playing ? 'Now playing' : m.state === 'paused' ? 'Paused' : m.state === 'choosing' ? 'Pick a stream on the TV' : now.home ? 'Nothing playing' : 'On the TV';
     var vol = attrs(avr).volume_level;
     var muted = Boolean(attrs(avr).is_volume_muted);
-    var art = session && session.poster ? '<img src="' + esc(session.poster) + '" alt="">' : app ? '<img class="app" src="/assets/apps/' + esc(app) + '.png" alt="">' : icon('tv', 34);
+    var art = session && session.poster ? '<img src="' + esc(imgSrc(session.poster)) + '" alt="">' : app ? '<img class="app" src="/assets/apps/' + esc(app) + '.png" alt="">' : icon('tv', 34);
     var info = [sub, left != null ? (runtime(left * 1000) || mmss(left)) + ' left · ends ' + endsAt(left * 1000) : ''].filter(Boolean).join(' · ');
     return '<section class="l-np' + (inRemote ? ' mini' : '') + '">' +
       '<div class="l-np-art">' + art + '</div>' +
@@ -585,7 +592,7 @@
     if (it && it.genres && it.genres.length) html += '<div class="l-meta2">' + esc(it.genres.map(function (g) { return typeof g === 'string' ? g : g.tag || g.name; }).join(' · ')) + '</div>';
     if (cast.length) html += '<div class="l-h2"><h2>Cast</h2></div><div class="l-cast">' + cast.map(function (c) {
       var ini = c.name.split(' ').map(function (w) { return w[0]; }).slice(0, 2).join('');
-      return '<div class="l-person"><div class="ph"><span>' + esc(ini) + '</span>' + (c.photo ? '<img src="' + esc(c.photo) + '" alt="">' : '') + '</div><b>' + esc(c.name) + '</b>' + (c.character ? '<s>' + esc(c.character) + '</s>' : '') + '</div>';
+      return '<div class="l-person"><div class="ph"><span>' + esc(ini) + '</span>' + (c.photo ? '<img src="' + esc(imgSrc(c.photo)) + '" alt="">' : '') + '</div><b>' + esc(c.name) + '</b>' + (c.character ? '<s>' + esc(c.character) + '</s>' : '') + '</div>';
     }).join('') + '</div>';
     return '<section class="l-about">' + html + '</section>';
   }
@@ -605,7 +612,7 @@
   function gTile(g, on) {
     REG['g:' + g.id] = g;
     return '<button type="button" class="l-gtile' + (on ? ' on' : '') + '" data-a="game" data-id="' + esc('g:' + g.id) + '"><div class="sq" style="background:linear-gradient(160deg,' + gTint(g.id) + ')"><span>' + esc(g.title) + '</span>' +
-      (g.thumb ? '<img src="' + esc(g.thumb) + '" alt="">' : '') + '</div><b>' + esc(g.title) + '</b><span>' + esc(g.kind === 'app' ? 'App' : gAgo(g.playedAt) || 'Game') + '</span></button>';
+      (g.thumb ? '<img src="' + esc(imgSrc(g.thumb)) + '" alt="">' : '') + '</div><b>' + esc(g.title) + '</b><span>' + esc(g.kind === 'app' ? 'App' : gAgo(g.playedAt) || 'Game') + '</span></button>';
   }
   function gamesSlots() {
     var k = kids();
@@ -650,7 +657,7 @@
         '<div class="big">' + (starting ? 'Starting…' : 'Play Xbox') + '</div>' +
         '<div class="sub">' + (starting ? 'Denon, projector, then the Xbox · about 40 seconds' : 'Starts the room for gaming · about 40 seconds') + '</div>' +
         '<button type="button" class="l-gplay" data-a="xstart"' + (starting ? ' disabled' : '') + '>' + icon('pad', 26) + 'Play Xbox</button>' +
-        (last ? (REG['g:' + last.id] = last, '<div class="l-glast"><div class="sq" style="background:linear-gradient(160deg,' + gTint(last.id) + ')">' + (last.thumb ? '<img src="' + esc(last.thumb) + '" alt="">' : '') + '</div>' +
+        (last ? (REG['g:' + last.id] = last, '<div class="l-glast"><div class="sq" style="background:linear-gradient(160deg,' + gTint(last.id) + ')">' + (last.thumb ? '<img src="' + esc(imgSrc(last.thumb)) + '" alt="">' : '') + '</div>' +
           '<div class="tx"><span class="eye">Jump back in</span><b>' + esc(last.title) + '</b><span>' + esc(gAgo(last.playedAt)) + '</span></div>' +
           '<button type="button" data-a="game" data-id="' + esc('g:' + last.id) + '">Play</button></div>') : '') +
         '</section>' +
