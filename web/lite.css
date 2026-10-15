@@ -24,6 +24,9 @@ body.locked { overflow: hidden; }
 input { -webkit-user-select: text; user-select: text; }
 button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; -webkit-appearance: none; touch-action: manipulation; }
 button:disabled { opacity: .45; cursor: default; }
+/* iOS Safari only passes a tap on to the page's click handler when the element looks clickable:
+   without this, tapping the Home Theater title (reload) or a sheet's backdrop (close) did nothing. */
+[data-a] { cursor: pointer; }
 svg { display: block; flex-shrink: 0; }
 
 #page { padding: 30px 28px 130px; padding-top: calc(30px + env(safe-area-inset-top)); }
