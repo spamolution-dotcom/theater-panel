@@ -288,8 +288,10 @@
 
   // ---------- pieces ----------
 
-  function top(title, kicker, right) {
-    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1>' + esc(title) + '</h1></div><div class="l-topr">' + badge() + (right || '') + '</div></header>';
+  // Home's title, held for 3 s, reloads the page: there is no address bar or reload button from the
+  // home screen, and Guided Access stops it being closed and reopened.
+  function top(title, kicker, right, holdRefresh) {
+    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1' + (holdRefresh ? ' data-hold="refresh"' : '') + '>' + esc(title) + '</h1></div><div class="l-topr">' + badge() + (right || '') + '</div></header>';
   }
   function badge() {
     var s = S.seat;
@@ -428,7 +430,7 @@
     var part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
     var k = kids();
     return [
-      ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip())],
+      ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
       ['h-np', nowPlaying(false)],
       ['h-deck', shelf('Continue', '', kidsFilter(deck).list, k ? 'Nothing for kids mode here.' : 'Nothing in progress.')],
       ['h-new', shelf('Just added', '<button type="button" class="l-link" data-a="tab" data-v="watch">Browse</button>', kidsFilter(added).list, 'Nothing new.')],
@@ -813,18 +815,24 @@
     if (!h) return;
     held = false;
     clearTimeout(holdTimer);
+    if (h.getAttribute('data-hold') === 'refresh') {
+      holdTimer = setTimeout(function () { held = true; toast('Reloading…'); setTimeout(function () { location.reload(); }, 300); }, 3000);
+      return;
+    }
     holdTimer = setTimeout(function () { held = true; U.pin = { pin: '', bad: false }; paint(); }, 1500);
   }
   function onUp(ev) {
     var h = ev.target.closest && ev.target.closest('[data-hold]');
     clearTimeout(holdTimer);
-    if (h && !held) toast('Kids mode · hold the badge to unlock');
+    if (h && !held && h.getAttribute('data-hold') === 'badge') toast('Kids mode · hold the badge to unlock');
     if (h && ev.cancelable) ev.preventDefault();
     held = false;
   }
   document.addEventListener('touchstart', function (ev) { lastTouch = Date.now(); onDown(ev); }, true);
   document.addEventListener('touchend', function (ev) { lastTouch = Date.now(); onUp(ev); }, true);
   document.addEventListener('touchcancel', function () { clearTimeout(holdTimer); }, true);
+  // A finger that moves is scrolling, not holding.
+  document.addEventListener('touchmove', function () { clearTimeout(holdTimer); }, { capture: true, passive: true });
   document.addEventListener('mousedown', function (ev) { if (Date.now() - lastTouch > 800) onDown(ev); }, true);
   document.addEventListener('mouseup', function (ev) { if (Date.now() - lastTouch > 800) onUp(ev); }, true);
   document.addEventListener('keydown', function () { touched = Date.now(); }, true);

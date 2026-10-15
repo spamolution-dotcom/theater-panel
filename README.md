@@ -298,7 +298,8 @@ the TV's apps; Netflix profile PINs and the Streamer's own kids profile cover th
 following the room, written in plain script that Safari 12 runs, laid out for a 7.9" screen in
 portrait. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
 Home Screen opens it without the address bar; Guided Access (Settings > Accessibility) keeps it
-there, and Auto-Lock set to Never keeps the screen on.
+there, and Auto-Lock set to Never keeps the screen on. With no reload button, hold the **Home Theater** title for
+three seconds to reload the page.
 
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.
 It needs the panel to trust the phone's address (see [Access](#access-and-security)); from outside
