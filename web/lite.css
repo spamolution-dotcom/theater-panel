@@ -142,7 +142,7 @@ svg { display: block; flex-shrink: 0; }
 
 /* remote */
 .l-pad { position: relative; width: 440px; height: 440px; margin: 30px auto 26px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); }
-.l-pad.sm { width: 380px; height: 380px; margin-top: 26px; }
+.l-pad.sm { width: 330px; height: 330px; margin-top: 18px; margin-bottom: 18px; }
 .l-pad button { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .l-pad button:active { color: var(--acc); }
 .l-pad .up, .l-pad .down { left: 30%; right: 30%; height: 28%; }
@@ -154,7 +154,10 @@ svg { display: block; flex-shrink: 0; }
 .l-pad .ok { top: 30%; left: 30%; right: 30%; bottom: 30%; border-radius: 50%; background: #2E2017; color: var(--ink); font: 700 30px var(--sans); }
 .l-pad .ok:active { background: var(--acc); color: #1A0F08; }
 .l-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 14px; gap: 14px; }
-.l-keys.two { grid-template-columns: 1fr 1fr; }
+.l-keys.n2 { grid-template-columns: 1fr 1fr; }
+.l-keys.n4 { grid-template-columns: repeat(4, 1fr); }
+.l-keys .off { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
+.l-keys .off.armed { background: var(--warn); color: #1A0F08; }
 .l-keys button { display: flex; align-items: center; justify-content: center; height: 72px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); font: 700 20px var(--sans); }
 .l-keys button svg { margin-right: 8px; }
 .l-keys button:active { background: var(--on); }

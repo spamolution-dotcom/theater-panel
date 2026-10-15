@@ -284,7 +284,7 @@ and pin it with Android's screen pinning (Settings > Security > Pin windows).
 **Kids mode on the seat phone.** Set a four-digit **Grown-up PIN** on the settings page (Seat
 phone) and the seat phone starts in kids mode: a green **Kids** badge, no Devices, Source or Blind,
 no Pre-show or Movie time, and Watch, Continue, Just added and search show only titles rated **G
-or PG** in Australia (TMDB; C and P for children's TV; unrated titles are hidden). Hold the badge
+or PG** in Australia (TMDB; C and P for children's TV; unrated titles are hidden). Tap the badge
 for the PIN pad, or tap **Ask a grown-up**: the panel fires `theater_panel_seat_ask` in HA, and an
 automation can turn that into a phone notification whose Unlock action turns on
 `input_boolean.theater_seat_unlock` (the helper is a setting). Grown-up mode shows the minutes left
@@ -299,7 +299,7 @@ following the room, written in plain script that Safari 12 runs, laid out for a 
 portrait. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
 Home Screen opens it without the address bar; Guided Access (Settings > Accessibility) keeps it
 there, and Auto-Lock set to Never keeps the screen on. With no reload button, tap the **Home Theater** title on Home
-to reload the page. Posters that are WebP reach it as JPEGs (Safari 12 cannot show WebP).
+to reload the page; a tap on the **Kids** badge opens the PIN pad. Posters that are WebP reach it as JPEGs (Safari 12 cannot show WebP).
 
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.
 It needs the panel to trust the phone's address (see [Access](#access-and-security)); from outside
