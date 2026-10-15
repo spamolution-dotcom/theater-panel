@@ -541,16 +541,20 @@
     var session = m.session;
     var kicker = (m.active ? m.now.name + ' · ' : '') + 'Google TV Streamer' + (m.active ? '' : ' · ' + m.now.name);
     var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
+    var offOk = roomOn() || gaming();
+    var keyCount = 2 + (m.active ? 0 : 1) + (offOk ? 1 : 0);
     var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + '">' +
       '<button type="button" class="up" data-a="key" data-v="up" aria-label="Up">' + icon('chev', 34, 2.6) + '</button>' +
       '<button type="button" class="left" data-a="key" data-v="left" aria-label="Left">' + icon('left', 34, 2.6) + '</button>' +
       '<button type="button" class="ok" data-a="key" data-v="ok">OK</button>' +
       '<button type="button" class="right" data-a="key" data-v="right" aria-label="Right">' + icon('chev', 34, 2.6) + '</button>' +
       '<button type="button" class="down" data-a="key" data-v="down" aria-label="Down">' + icon('chev', 34, 2.6) + '</button></div>' +
-      '<div class="l-keys' + (m.active ? ' two' : '') + '">' +
+      '<div class="l-keys n' + keyCount + '">' +
       '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
       '<button type="button" data-a="key" data-v="home">' + icon('home', 20) + 'Home</button>' +
-      (!m.active ? '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' : '') + '</div>' +
+      (!m.active ? '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' : '') +
+      // All off right here, so nobody has to go to Home and scroll for it. Two taps, as on Home.
+      (offOk ? '<button type="button" class="off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 20) + (isArmed('alloff') ? 'Tap again' : 'All off') + '</button>' : '') + '</div>' +
       (!m.active && isUp(avr) ? '<div class="l-vol card"><span class="k">' + (muted ? 'Muted' : 'Vol ' + (vol == null ? '–' : Math.round(vol * 200) / 2)) + '</span>' +
         '<div class="l-bar thin"><i style="width:' + (vol != null ? Math.min(100, vol * 100) : 0) + '%"></i></div>' +
         '<button type="button" data-a="t" data-v="vol_down">−</button><button type="button" data-a="t" data-v="vol_up">+</button></div>' : '');
