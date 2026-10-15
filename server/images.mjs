@@ -80,8 +80,11 @@ export async function serveImage(req, res) {
   if (!r) { res.writeHead(404).end(); return; }
   const key = createHash('sha1').update(r.upstream.replace(/X-Plex-Token=[^&]+/, '')).digest('hex');
   const file = join(dir, key);
+  // A browser that cannot show WebP (Safari 12 on an old iPad) says so by leaving it out of Accept.
+  const noWebp = !/image\/webp/.test(req.headers.accept || '');
   try {
     const body = await readFile(file);
+    if (noWebp && isWebp(body)) return sendJpeg(res, r, file, body);
     return send(res, body);
   } catch {}
   try {
@@ -90,11 +93,47 @@ export async function serveImage(req, res) {
     const body = Buffer.from(await up.arrayBuffer());
     // The type comes from the bytes both now and on later hits from disk, so the same image
     // never changes type between the first view and the cached one.
-    send(res, body);
     await store(file, body);
+    if (noWebp && isWebp(body)) return sendJpeg(res, r, file, body);
+    send(res, body);
   } catch (e) {
     if (!res.headersSent) res.writeHead(502).end();
   }
+}
+
+const isWebp = (b) => b.length > 12 && b.toString('latin1', 0, 4) === 'RIFF' && b.toString('latin1', 8, 12) === 'WEBP';
+
+// The same picture as a JPEG for a browser without WebP, kept beside the original ("<key>.jpg"):
+// the upstream again, asked for JPEG; else, for a Stremio poster (an IMDb id in its URL), TMDB's
+// poster of that title; else the WebP after all (the page shows the title instead).
+async function sendJpeg(res, r, file, webp) {
+  const jpgFile = `${file}.jpg`;
+  try { return send(res, await readFile(jpgFile)); } catch {}
+  const tryFetch = async (url, headers) => {
+    const up = await fetch(url, { headers, signal: AbortSignal.timeout(15000) });
+    if (!up.ok) return null;
+    const b = Buffer.from(await up.arrayBuffer());
+    return isWebp(b) ? null : b;
+  };
+  let body = null;
+  try {
+    body = await tryFetch(r.upstream, {
+      ...(r.headers || {}),
+      accept: 'image/jpeg,image/png;q=0.9,image/*;q=0.5',
+      'user-agent': 'Mozilla/5.0 (iPad; CPU OS 12_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/12.1 Mobile/15E148 Safari/604.1',
+    });
+  } catch {}
+  const imdb = !body && /^https?:\/\/[^/]*metahub\./.test(r.upstream) ? (r.upstream.match(/\b(tt\d{5,10})\b/) || [])[1] : null;
+  if (imdb) {
+    try {
+      const { posterPath } = await import('./tmdb.mjs');
+      const path = await posterPath(imdb);
+      if (path) body = await tryFetch(`https://image.tmdb.org/t/p/w342${path}`);
+    } catch {}
+  }
+  if (!body) return send(res, webp);
+  send(res, body);
+  await store(jpgFile, body);
 }
 
 // Written under a temporary name and renamed into place, so a request arriving mid-write reads
@@ -119,6 +158,8 @@ function send(res, body) {
     // Posters, backdrops and logos are effectively permanent, and each URL carries its own
     // identifiers, so the panel's browser can keep them for a year and never re-ask.
     'cache-control': 'public, max-age=31536000, immutable',
+    // WebP for most browsers, a JPEG for one that cannot show it (sendJpeg).
+    vary: 'Accept',
   });
   res.end(body);
 }
