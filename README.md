@@ -293,6 +293,13 @@ checks every action from the seat phone, so hidden buttons are not the only guar
 and the wall panels are never affected. The pad on the Remote tab still reaches everything inside
 the TV's apps; Netflix profile PINs and the Streamer's own kids profile cover that side.
 
+**An old iPad as the seat remote.** `/remote` needs a current browser. For an iPad stuck on iOS 12
+(an iPad Mini 2, say), open **`/lite`**: the same Home, Watch, Games and Remote tabs, kids mode and
+following the room, written in plain script that Safari 12 runs, laid out for a 7.9" screen in
+portrait. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
+Home Screen opens it without the address bar; Guided Access (Settings > Accessibility) keeps it
+there, and Auto-Lock set to Never keeps the screen on.
+
 **Using it from Home Assistant.** Point a dashboard button at the page with a `url` tap action.
 It needs the panel to trust the phone's address (see [Access](#access-and-security)); from outside
 the house that works over a VPN such as Tailscale.
