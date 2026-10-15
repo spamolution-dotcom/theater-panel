@@ -142,13 +142,12 @@ function useKidsFilter(items) {
   return [items.filter((m) => kidsOk[m.id]), false];
 }
 
-// The lock in the corner. Kids: hold it for the PIN pad (a tap only says so). Grown-up: the
-// minutes left; a tap goes back to kids mode.
+// The lock in the corner. Kids: a tap opens the PIN pad (the PIN still guards grown-up mode).
+// Grown-up: the minutes left; a tap goes back to kids mode.
 function SeatBadge() {
   const st = useStore((s) => s.seat);
   const [pad, setPad] = useState(false);
   const [, tick] = useState(0);
-  const hold = useRef(null);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 30e3); return () => clearInterval(t); }, []);
   if (!st?.enabled) return null;
   if (!st.locked) {
@@ -156,10 +155,7 @@ function SeatBadge() {
     return html`<button type="button" class="r-lock open" aria-label="Grown-up mode, tap to go back to kids mode"
       onClick=${() => post('/api/seat/lock', {}).then(() => toast('Back to kids mode')).catch(() => {})}><${Icon} name="unlock" size=${14} w=${2.4} />${mins}m</button>`;
   }
-  const down = () => { clearTimeout(hold.current); hold.current = setTimeout(() => { hold.current = 'held'; setPad(true); }, 1500); };
-  const up = () => { if (hold.current !== 'held') { clearTimeout(hold.current); toast('Kids mode · hold the badge to unlock'); } hold.current = null; };
-  return html`<button type="button" class="r-lock" aria-label="Kids mode, hold to unlock" onPointerDown=${down} onPointerUp=${up} onPointerLeave=${() => clearTimeout(hold.current)}
-    onContextMenu=${(ev) => ev.preventDefault()}><${Icon} name="lock" size=${14} w=${2.4} />Kids</button>
+  return html`<button type="button" class="r-lock" aria-label="Kids mode, tap to unlock" onClick=${() => setPad(true)}><${Icon} name="lock" size=${14} w=${2.4} />Kids</button>
     ${pad && html`<${PinPad} onClose=${() => setPad(false)} />`}`;
 }
 
