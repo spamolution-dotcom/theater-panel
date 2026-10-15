@@ -307,7 +307,8 @@
       var mins = Math.max(1, Math.ceil(((s.until || 0) - Date.now()) / 60e3));
       return '<button type="button" class="l-lock open" data-a="relock">' + icon('unlock', 16, 2.4) + mins + 'm</button>';
     }
-    return '<button type="button" class="l-lock" data-hold="badge">' + icon('lock', 16, 2.4) + 'Kids</button>';
+    // A tap opens the PIN pad (holding it was hard to get right on the iPad); the PIN still guards it.
+    return '<button type="button" class="l-lock" data-a="pinopen">' + icon('lock', 16, 2.4) + 'Kids</button>';
   }
   function statusChip() {
     var warm = st(S.entities.warmupScript);
@@ -928,6 +929,7 @@
       });
     },
     relock: function () { post('/api/seat/lock', {}).then(function () { toast('Back to kids mode'); }).catch(function () {}); },
+    pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
     pindel: function () { if (U.pin) { U.pin.pin = U.pin.pin.slice(0, -1); paint(); } },
     pinclose: function () { U.pin = null; paint(); },
