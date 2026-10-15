@@ -99,6 +99,17 @@ export async function credits(imdb, kind) {
   });
 }
 
+// A title's poster on TMDB by IMDb id (a JPEG path such as "/abc.jpg"), or null. For browsers
+// that cannot show WebP (Safari 12): see server/images.mjs. Cached for a month.
+export async function posterPath(imdb) {
+  if (!/^tt\d{5,10}$/.test(String(imdb || ''))) return null;
+  return remember(`poster:${imdb}`, 30 * 24 * 3600e3, async () => {
+    const f = await api(`/find/${imdb}`, { external_source: 'imdb_id' });
+    const hit = f.movie_results?.[0] || f.tv_results?.[0];
+    return hit?.poster_path || null;
+  });
+}
+
 // ---------- the Australian rating ----------
 
 // A title's Australian classification by IMDb id (G, PG, M, MA15+, R18+; C and P for children's

@@ -288,10 +288,10 @@
 
   // ---------- pieces ----------
 
-  // Home's title, held for 3 s, reloads the page: there is no address bar or reload button from the
+  // A tap on Home's title reloads the page: there is no address bar or reload button from the
   // home screen, and Guided Access stops it being closed and reopened.
-  function top(title, kicker, right, holdRefresh) {
-    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1' + (holdRefresh ? ' data-hold="refresh"' : '') + '>' + esc(title) + '</h1></div><div class="l-topr">' + badge() + (right || '') + '</div></header>';
+  function top(title, kicker, right, reload) {
+    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1' + (reload ? ' data-a="reload"' : '') + '>' + esc(title) + '</h1></div><div class="l-topr">' + badge() + (right || '') + '</div></header>';
   }
   function badge() {
     var s = S.seat;
@@ -815,16 +815,12 @@
     if (!h) return;
     held = false;
     clearTimeout(holdTimer);
-    if (h.getAttribute('data-hold') === 'refresh') {
-      holdTimer = setTimeout(function () { held = true; toast('Reloading…'); setTimeout(function () { location.reload(); }, 300); }, 3000);
-      return;
-    }
     holdTimer = setTimeout(function () { held = true; U.pin = { pin: '', bad: false }; paint(); }, 1500);
   }
   function onUp(ev) {
     var h = ev.target.closest && ev.target.closest('[data-hold]');
     clearTimeout(holdTimer);
-    if (h && !held && h.getAttribute('data-hold') === 'badge') toast('Kids mode · hold the badge to unlock');
+    if (h && !held) toast('Kids mode · hold the badge to unlock');
     if (h && ev.cancelable) ev.preventDefault();
     held = false;
   }
@@ -859,6 +855,7 @@
 
   var A = {
     tab: function (v) { setTab(v); },
+    reload: function () { toast('Reloading…'); setTimeout(function () { location.reload(); }, 300); },
     t: function (v) { transport(v); },
     mute: function (v) { act({ action: 'transport', cmd: 'mute', muted: v === '1' }); },
     key: function (v) { act({ action: 'tv_key', key: v }); },
