@@ -427,6 +427,15 @@
       btn('open', pos >= 100, 'blindOpen', 'Open') + btn('movie', pos === 20, 'blindMovie', 'Movie') + btn('close', pos <= 0, 'blindClose', 'Close') + '</div></section>';
   }
 
+  // The apps on the Streamer. Kids mode keeps Netflix only (its profiles have PINs); the server
+  // refuses the others too (server/seat.mjs).
+  function appsRow() {
+    var list = kids() ? APPS.filter(function (a) { return a.id === 'netflix'; }) : APPS;
+    return '<div class="l-h2"><h2>Apps</h2></div><div class="l-apps">' + list.map(function (a) {
+      return '<button type="button" data-a="app" data-v="' + a.id + '" data-name="' + a.name + '"><img src="/assets/apps/' + a.id + '.png" alt="' + a.name + '"></button>';
+    }).join('') + '</div>';
+  }
+
   // ---------- Home ----------
 
   function homeSlots() {
@@ -440,6 +449,7 @@
     return [
       ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
       ['h-np', nowPlaying(false)],
+      ['h-apps', appsRow()],
       ['h-deck', shelf('Continue', '', kidsFilter(deck).list, k ? 'Nothing for kids mode here.' : 'Nothing in progress.')],
       ['h-new', shelf('Just added', '<button type="button" class="l-link" data-a="tab" data-v="watch">Browse</button>', kidsFilter(added).list, 'Nothing new.')],
       ['h-scenes', scenes()],
@@ -528,7 +538,7 @@
       ['w-ctl', controls],
       ['w-grid', '<div class="l-grid' + (stale ? ' stale' : '') + '">' + gridHtml + '</div>'],
       ['w-more', hasMore() ? '<div class="l-empty">' + (W.busy ? 'Loading more…' : '') + '</div>' : ''],
-      ['w-apps', W.q ? '' : '<div class="l-h2"><h2>Apps</h2></div><div class="l-apps">' + APPS.map(function (a) { return '<button type="button" data-a="app" data-v="' + a.id + '" data-name="' + a.name + '"><img src="/assets/apps/' + a.id + '.png" alt="' + a.name + '"></button>'; }).join('') + '</div>'],
+      ['w-apps', W.q ? '' : appsRow()],
     ];
   }
 

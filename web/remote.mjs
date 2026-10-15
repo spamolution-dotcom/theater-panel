@@ -260,6 +260,15 @@ function NowPlaying({ onTab, inRemote }) {
   </section>`;
 }
 
+// The apps on the Streamer. Kids mode on the seat phone keeps Netflix only (its profiles have
+// PINs); the server refuses the others too (server/seat.mjs).
+function Apps() {
+  const kids = useKids();
+  const list = kids ? APPS.filter((a) => a.id === 'netflix') : APPS;
+  return html`<div class="r-h2"><h2>Apps</h2></div>
+    <div class="r-apps">${list.map((a) => html`<button type="button" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}><img src=${`/assets/apps/${a.id}.png`} alt="" /></button>`)}</div>`;
+}
+
 function Shelf({ title, link, items, onOpen, empty }) {
   return html`<section>
     <div class="r-h2"><h2>${title}</h2>${link}</div>
@@ -373,6 +382,7 @@ function Home({ onOpen, onTab }) {
   return html`<div class="r-page">
     <${Top} title="Home Theater" kicker=${`${d.toLocaleDateString('en-AU', { weekday: 'long' })} ${part}`}><${StatusChip} /><//>
     <${NowPlaying} onTab=${onTab} />
+    <${Apps} />
     <${Shelf} title="Continue" items=${deckShown} onOpen=${onOpen} empty=${kids ? 'Nothing for kids mode here.' : 'Nothing in progress.'} />
     <${Shelf} title="Just added" items=${added} onOpen=${onOpen} empty="Nothing new."
       link=${html`<button type="button" class="r-link" onClick=${() => onTab('watch')}>Browse</button>`} />
@@ -481,8 +491,7 @@ function Watch({ onOpen }) {
         })}
     </div>
     ${hasMore && html`<div class="r-empty" ref=${sentinel}>${busy ? 'Loading more…' : ''}</div>`}
-    ${!q && html`<div class="r-h2"><h2>Apps</h2></div>
-      <div class="r-apps">${APPS.map((a) => html`<button type="button" key=${a.id} onClick=${() => openApp(a)} aria-label=${`Open ${a.name}`}><img src=${`/assets/apps/${a.id}.png`} alt="" /></button>`)}</div>`}
+    ${!q && html`<${Apps} />`}
   </div>`;
 }
 
