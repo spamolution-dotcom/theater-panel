@@ -138,5 +138,7 @@ export async function guard(body) {
   const no = (what) => { throw httpError(403, `${what} needs grown-up mode`); };
   if (body.action === 'cinema' && ['device', 'source', 'blind'].includes(body.cmd)) no('That');
   if (body.action === 'scene' && ['pre_show', 'movie_time'].includes(body.name)) no('That scene');
+  // Kids mode keeps Netflix (its profiles have their own PINs); the other apps wait for a grown-up.
+  if (body.action === 'app' && body.id !== 'netflix') no('That app');
   if (body.action === 'play' && !(await kidsOk(String(body.ratingKey || ''), body.type))) no('That title');
 }
