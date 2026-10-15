@@ -809,6 +809,8 @@ const server = createServer(async (req, res) => {
     if (path === '/guest' || path === '/guest/') return serveFile(res, join(WEB, 'guest.html'));
     // The phone remote: the panel's controls and Watch at phone width (home network only).
     if (path === '/remote' || path === '/remote/') return serveFile(res, join(WEB, 'remote.html'));
+    // The same remote for an old iPad (Safari 12): plain script, always the seat remote.
+    if (path === '/lite' || path === '/lite/') return serveFile(res, join(WEB, 'lite.html'));
     if (path === '/marquee' || path === '/marquee/') return serveFile(res, join(WEB, 'marquee.html'));
 
     if (path.startsWith('/api/')) {
