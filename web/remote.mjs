@@ -288,6 +288,37 @@ function Shelf({ title, link, items, onOpen, empty }) {
   </section>`;
 }
 
+// The sleep timer (server/sleep.mjs): the cinema turns itself off when the film ends, or after
+// 30, 60 or 90 minutes. The server keeps it, so it holds whatever this page does.
+const SLEEP_OPTS = [
+  { mode: 'end', label: 'After this', desc: 'When the film ends' },
+  { mode: 'timer', minutes: 30, label: '30 min' },
+  { mode: 'timer', minutes: 60, label: '60 min' },
+  { mode: 'timer', minutes: 90, label: '90 min' },
+];
+const sleepText = (sl) => (!sl ? 'Set a timer' : sl.mode === 'end' ? 'Off after this' : `Off in ${Math.max(1, Math.ceil(((sl.at || 0) - Date.now()) / 60e3))} min`);
+function SleepButton() {
+  const sl = useStore((s) => s.sleep);
+  const [open, setOpen] = useState(false);
+  const [, tick] = useState(0);
+  useEffect(() => { if (!sl) return undefined; const t = setInterval(() => tick((x) => x + 1), 20e3); return () => clearInterval(t); }, [Boolean(sl)]);
+  const pick = (opt) => {
+    setOpen(false);
+    post('/api/sleep', opt).then((r) => toast(r.mode ? (r.mode === 'end' ? 'The cinema turns off when the film ends' : `The cinema turns off in ${r.minutes} minutes`) : 'Sleep timer off'))
+      .catch((e) => toast(e.message, true));
+  };
+  return html`<button type="button" class=${`r-sleep${sl ? ' on' : ''}`} aria-pressed=${sl ? 'true' : 'false'} onClick=${() => setOpen(true)}><${Icon} name="moon" size=${18} /><span><b>Sleep</b><s>${sleepText(sl)}</s></span></button>
+    ${open && html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) setOpen(false); }}>
+      <div class="r-sheet" role="dialog" aria-label="Sleep timer">
+        <div class="r-grab"></div>
+        <h3>Sleep timer</h3><p class="r-plot" style="margin-top:4px">Turn the cinema off</p>
+        <div class="r-scn-grid">${SLEEP_OPTS.map((o) => html`<button type="button" class="r-scn" key=${o.label}
+          aria-pressed=${sl && sl.mode === o.mode && (o.mode === 'end' || sl.minutes === o.minutes) ? 'true' : 'false'} onClick=${() => pick({ mode: o.mode, minutes: o.minutes })}>
+          <span><b>${o.label}</b>${o.desc && html`<s>${o.desc}</s>`}</span></button>`)}</div>
+        ${sl && html`<button type="button" class="r-play2" onClick=${() => pick({ mode: 'off' })}>Cancel the timer</button>`}
+      </div></div>`}`;
+}
+
 function Scenes() {
   const kids = useKids();
   const roomOn = useRoomOn();
@@ -560,6 +591,7 @@ function TvRemote({ onTab }) {
     ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
     ${active && html`<${NowPlaying} onTab=${onTab} inRemote />`}
     ${active && session && /^tt\d+:\d+:\d+$/.test(session.id || '') && html`<${EpisodeNav} id=${session.id} key=${session.id} />`}
+    ${active && !session && now.key === 'youtube' && html`<${VideoNav} />`}
     <div class=${`r-pad${active ? ' sm' : ''}`}>
       <button type="button" class="up" aria-label="Up" onClick=${() => key('up')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="left" aria-label="Left" onClick=${() => key('left')}><${Icon} name="left" size=${30} w=${2.6} /></button>
@@ -567,10 +599,11 @@ function TvRemote({ onTab }) {
       <button type="button" class="right" aria-label="Right" onClick=${() => key('right')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="down" aria-label="Down" onClick=${() => key('down')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
     </div>
-    <div class=${`r-keys${active ? ' two' : ''}`}>
+    <div class=${`r-keys n${2 + (active ? 0 : 1) + (roomOn ? 1 : 0)}`}>
       <button type="button" onClick=${() => key('back')}><${Icon} name="left" size=${18} />Back</button>
       <button type="button" onClick=${() => key('home')}><${Icon} name="home" size=${18} />Home</button>
       ${!active && html`<button type="button" onClick=${() => t('play_pause')}><${Play} size=${15} />Play / Pause</button>`}
+      ${roomOn && html`<${SleepButton} />`}
     </div>
     ${!active && isUp(avr) && html`<div class="r-vol r-vol-card">
       <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
@@ -611,6 +644,15 @@ function EpisodeNav({ id }) {
   return html`<div class="r-eprow">
     ${btn('prev', 'Previous', html`<${Prev} size=${15} />`)}
     ${btn('next', 'Next', html`<${Next} size=${15} />`)}
+  </div>`;
+}
+
+// YouTube: Previous / Next video. One tap: a skipped video is easy to go back to.
+function VideoNav() {
+  const go = (cmd) => act({ action: 'transport', cmd }).then((r) => { if (r) toast(cmd === 'next' ? 'Next video' : 'Previous video'); });
+  return html`<div class="r-eprow">
+    <button type="button" onClick=${() => go('prev')} aria-label="Previous video"><${Prev} size=${15} /><span><s>YouTube</s>Previous video</span></button>
+    <button type="button" class="nx" onClick=${() => go('next')} aria-label="Next video"><span><s>YouTube</s>Next video</span><${Next} size=${15} /></button>
   </div>`;
 }
 

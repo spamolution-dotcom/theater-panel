@@ -64,6 +64,7 @@
     home: 'M3 11l9-8 9 8v10h-6v-6H9v6H3z',
     film: 'M3 4h18v16H3zM7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4',
     music: 'M9 18V5l11-2v13M6 15a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM17 13a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
+    moon: 'M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z',
     search: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
     power: 'M12 3v9M6.3 7.5a8 8 0 1 0 11.4 0',
     check: 'M5 12l5 5 9-10',
@@ -137,11 +138,11 @@
 
   // ---------- live state (the panel's event stream) ----------
 
-  var S = { connected: null, states: {}, sessions: [], sessionsAt: Date.now(), entities: {}, ui: {}, seat: null };
+  var S = { connected: null, states: {}, sessions: [], sessionsAt: Date.now(), entities: {}, ui: {}, seat: null, sleep: null };
   var bootBuild = null;
   var staleBuild = false;
   function loadSettings() {
-    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; paint(); }).catch(function () {});
+    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; paint(); }).catch(function () {});
   }
   function startLive() {
     loadSettings();
@@ -160,6 +161,7 @@
         paint();
       });
       es.addEventListener('seat', function (e) { S.seat = JSON.parse(e.data); paint(); });
+      es.addEventListener('sleep', function (e) { var d = JSON.parse(e.data); S.sleep = d.mode ? d : null; paint(); });
       es.addEventListener('sessions', function (e) { S.sessions = JSON.parse(e.data) || []; S.sessionsAt = Date.now(); paint(); });
       es.addEventListener('settings', loadSettings);
       es.onerror = function () {
@@ -383,9 +385,27 @@
     return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid">' + list.map(function (sc) {
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
         '<span><b>' + sc.label + '</b><s>' + sc.desc + '</s></span></button>';
-    }).join('') + '</div>' +
+    }).join('') +
+      '</div>' +
       (off ? '<button type="button" class="l-alloff' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 22) + (isArmed('alloff') ? 'Tap again to turn everything off' : 'All off') + '</button>' : '') +
       '</section>';
+  }
+
+  var SLEEP_OPTS = [['end', 'After this', 'When the film ends'], ['30', '30 min', ''], ['60', '60 min', ''], ['90', '90 min', '']];
+  function sleepText() {
+    var sl = S.sleep;
+    if (!sl) return 'Set a timer';
+    if (sl.mode === 'end') return 'Off after this';
+    return 'Off in ' + Math.max(1, Math.ceil(((sl.at || 0) - Date.now()) / 60e3)) + ' min';
+  }
+  function sleepSheet() {
+    var sl = S.sleep;
+    return '<div class="l-back" data-a="sleepclose" data-self="1"><div class="l-sheet l-pin"><div class="grab"></div><h3>Sleep timer</h3><p>Turn the cinema off</p>' +
+      '<div class="l-scn-grid">' + SLEEP_OPTS.map(function (o) {
+        var on = sl && (o[0] === 'end' ? sl.mode === 'end' : sl.mode === 'timer' && String(sl.minutes) === o[0]);
+        return '<button type="button" class="l-scn' + (on ? ' on' : '') + '" data-a="sleeppick" data-v="' + o[0] + '"><span><b>' + o[1] + '</b>' + (o[2] ? '<s>' + o[2] + '</s>' : '') + '</span></button>';
+      }).join('') + '</div>' +
+      (sl ? '<button type="button" class="l-play2" data-a="sleeppick" data-v="off">Cancel the timer</button>' : '') + '</div></div>';
   }
 
   function devices() {
@@ -553,8 +573,11 @@
     var kicker = (m.active ? m.now.name + ' · ' : '') + 'Google TV Streamer' + (m.active ? '' : ' · ' + m.now.name);
     var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
     var offOk = roomOn() || gaming();
-    var keyCount = 2 + (m.active ? 0 : 1) + (offOk ? 1 : 0);
-    var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + '">' +
+    var sleepOk = roomOn();
+    var keyCount = 2 + (m.active ? 0 : 1) + (sleepOk ? 1 : 0) + (offOk ? 1 : 0);
+    // With a Previous / Next row as well, the pad shrinks again so the buttons stay above the tabs.
+    var navRow = m.active && (/^tt\d+:\d+:\d+$/.test((m.session && m.session.id) || '') || (!m.session && m.now.key === 'youtube'));
+    var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + (navRow ? ' xs' : '') + '">' +
       '<button type="button" class="up" data-a="key" data-v="up" aria-label="Up">' + icon('chev', 34, 2.6) + '</button>' +
       '<button type="button" class="left" data-a="key" data-v="left" aria-label="Left">' + icon('left', 34, 2.6) + '</button>' +
       '<button type="button" class="ok" data-a="key" data-v="ok">OK</button>' +
@@ -564,6 +587,8 @@
       '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
       '<button type="button" data-a="key" data-v="home">' + icon('home', 20) + 'Home</button>' +
       (!m.active ? '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' : '') +
+      // The sleep timer (server/sleep.mjs): off when the film ends, or after 30, 60 or 90 minutes.
+      (sleepOk ? '<button type="button" class="sl' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 20) + '<span><b>Sleep</b><s>' + sleepText() + '</s></span></button>' : '') +
       // All off right here, so nobody has to go to Home and scroll for it. Two taps, as on Home.
       (offOk ? '<button type="button" class="off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 20) + (isArmed('alloff') ? 'Tap again' : 'All off') + '</button>' : '') + '</div>' +
       (!m.active && isUp(avr) ? '<div class="l-vol card"><span class="k">' + (muted ? 'Muted' : 'Vol ' + (vol == null ? '–' : Math.round(vol * 200) / 2)) + '</span>' +
@@ -574,7 +599,7 @@
       ['r-top', top(m.active ? 'Now playing' : 'TV Remote', kicker, statusChip())],
       ['r-note', note],
       ['r-np', m.active ? nowPlaying(true) : ''],
-      ['r-eps', m.active && /^tt\d+:\d+:\d+$/.test(sid) ? episodeNav(sid) : ''],
+      ['r-eps', m.active && /^tt\d+:\d+:\d+$/.test(sid) ? episodeNav(sid) : m.active && !session && m.now.key === 'youtube' ? videoNav() : ''],
       ['r-pad', pad],
       ['r-about', m.active && /^tt\d+/.test(sid) ? about(sid) : ''],
     ];
@@ -593,6 +618,11 @@
         '<span><s>' + (on ? 'Tap again' : text) + '</s>' + esc(on ? 'to play ' + num(ep) : ep ? num(ep) + ' · ' + ep.title : '—') + '</span></button>';
     };
     return '<div class="l-eprow">' + btn('prev', 'Previous') + btn('next', 'Next') + '</div>';
+  }
+  // YouTube: Previous / Next video. One tap: a skipped video is easy to go back to.
+  function videoNav() {
+    return '<div class="l-eprow"><button type="button" data-a="vid" data-v="prev"><span><s>YouTube</s>Previous video</span></button>' +
+      '<button type="button" class="nx" data-a="vid" data-v="next"><span><s>YouTube</s>Next video</span></button></div>';
   }
   function about(id) {
     var imdb = id.split(':')[0];
@@ -686,6 +716,7 @@
   // ---------- the title sheet and the PIN pad ----------
 
   function sheetHtml() {
+    if (U.sleepPick) return sleepSheet();
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -777,7 +808,7 @@
     tabs.push(['remote', 'Remote', 'remote']);
     setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join(''));
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = U.sheet || U.pin ? 'locked' : '';
+    document.body.className = U.sheet || U.pin || U.sleepPick ? 'locked' : '';
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -803,6 +834,7 @@
   function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
+    U.sleepPick = false;
     if (U.sheet) { U.sheet = null; U.season = null; }
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
@@ -815,7 +847,7 @@
   }
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
-    if (U.sheet || U.pin || U.tab !== target() || window.pageYOffset > 0) goHome();
+    if (U.sheet || U.pin || U.sleepPick || U.tab !== target() || window.pageYOffset > 0) goHome();
     // A new panel build was installed: reload while nobody's using it.
     if (staleBuild) location.reload();
   }, 10e3);
@@ -939,6 +971,16 @@
       });
     },
     relock: function () { post('/api/seat/lock', {}).then(function () { toast('Back to kids mode'); }).catch(function () {}); },
+    vid: function (v) { act({ action: 'transport', cmd: v }).then(function (r) { if (r) toast(v === 'next' ? 'Next video' : 'Previous video'); }); },
+    sleepopen: function () { U.sleepPick = true; paint(); },
+    sleepclose: function () { U.sleepPick = false; paint(); },
+    sleeppick: function (v) {
+      U.sleepPick = false; paint();
+      var opt = v === 'off' ? { mode: 'off' } : v === 'end' ? { mode: 'end' } : { mode: 'timer', minutes: Number(v) };
+      post('/api/sleep', opt).then(function (r) {
+        toast(r.mode ? (r.mode === 'end' ? 'The cinema turns off when the film ends' : 'The cinema turns off in ' + r.minutes + ' minutes') : 'Sleep timer off');
+      }).catch(function (e) { toast(e.message, true); });
+    },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
     pindel: function () { if (U.pin) { U.pin.pin = U.pin.pin.slice(0, -1); paint(); } },

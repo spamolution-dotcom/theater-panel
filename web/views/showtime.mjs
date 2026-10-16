@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { hallway } from '../lib/role.mjs';
-import { html, Icon, Pause, Play } from '../lib/ui.mjs';
-import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState, castVideo } from '../lib/api.mjs';
+import { html, Icon, Pause, Play, Prev, Next } from '../lib/ui.mjs';
+import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState, castVideo, toast } from '../lib/api.mjs';
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
 import { go, route } from '../app.mjs';
 import { SleepPicker, sleepLabel } from './sleep.mjs';
@@ -129,9 +129,16 @@ export function Showtime() {
   const lightsBtn = html`<button type="button" class=${fxc('lights_up', scene === 'Lights up')} style=${board ? '' : 'flex-grow:1;height:150px'} onClick=${() => press('lights_up', { action: 'scene', name: 'lights_up' })}>
     <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">Lights 100%</span></button>`;
   const sleepBtn = html`<button type="button" class=${fxc('sleep', Boolean(sleep))} style=${board ? '' : 'width:280px;height:150px'} aria-pressed=${sleep ? 'true' : 'false'} onClick=${() => setSleepOpen(true)}>
-    <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? sleepLabel(sleep) : 'Off'}</span></button>`;
+    <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? `Off ${sleep.mode === 'end' ? 'after this' : `in ${sleepLabel(sleep)}`}` : 'Set a timer'}</span></button>`;
   const fullBtn = html`<button type="button" class="dbtn" style=${board ? 'flex-grow:1;background:#000' : 'width:260px;height:150px;background:#000'} onClick=${() => go('lobby', { manual: true })}>
     <${Icon} name="home" size=${36} w=${1.8} color="var(--d-dim)" /><span class="s">Full controls</span></button>`;
+  // The board's right column, laid out like the scenes on the left: icon and title, a line under it.
+  const aisleTile = html`<button type="button" class=${fxc('aisle', glowOn)} aria-pressed=${glowOn ? 'true' : 'false'} onClick=${() => press('aisle', { action: 'aisle_glow' })}>
+    <span class="big"><${Icon} name="bulb" size=${40} w=${1.8} />Aisle glow</span><span class="s">${media?.state === 'on' ? `Lights ${mediaPct}%` : 'Off'}</span></button>`;
+  const offTile = html`<button type="button" class=${`${fxc('alloff')}${offArmed ? ' armed' : ''}`} onClick=${allOff}>
+    <span class="big"><${Icon} name="power" size=${40} w=${1.8} />${offArmed ? 'Tap again' : 'All off'}</span><span class="s">${offArmed ? 'to turn off' : 'Ends the night'}</span></button>`;
+  const fullTile = html`<button type="button" class="dbtn" style="background:#000" onClick=${() => go('lobby', { manual: true })}>
+    <span class="big"><${Icon} name="home" size=${40} w=${1.8} />Full controls</span><span class="s">Back to home</span></button>`;
   return html`<div class=${`showtime${hallway ? ' hall' : ''}`} style=${hallway ? '' : bg} onPointerDown=${poke}>
     ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : (session?.app || castApp) ? html`<div class="st-poster-app"><img src=${`/assets/apps/${session?.app || castApp}.png`} alt=${title} /></div>` : html`<div class="st-poster-t">${title}</div>`}</div>`}
     ${hallway && html`<div class="st-art" style=${bg}></div>`}
@@ -155,10 +162,10 @@ export function Showtime() {
       </div>
       ${board ? html`<div style="flex-grow:1;display:flex;gap:28px;min-height:0">
         <div class="st-side st-scenes">${interBtn}${lightsBtn}${sleepBtn}</div>
-        <div class="tp-card">${transport}
+        <div class="tp-card">${/^tt\d+:\d+:\d+$/.test(session?.id || '') ? html`<${HallEpisodes} id=${session.id} key=${session.id} />` : castApp === 'youtube' ? html`<${HallVideos} />` : null}${transport}
           <div class="tp-vol">${volDownBtn}${volBox}${volUpBtn}${muteBtn}</div>
         </div>
-        <div class="st-side">${aisleBtn}${offBtn}${fullBtn}</div>
+        <div class="st-side st-scenes">${aisleTile}${offTile}${fullTile}</div>
       </div>
       ${starring.length > 0 && html`<div class="st-castrow"><div class="k">Starring</div>
         <div class="row">${starring.map((c) => html`<div class="p" key=${c.name}>
@@ -176,5 +183,44 @@ export function Showtime() {
       <div class="st-bottom" style="display:flex;gap:28px">${interBtn}${lightsBtn}${sleepBtn}${fullBtn}</div>`}
       ${sleepOpen && html`<${SleepPicker} onClose=${() => setSleepOpen(false)} />`}
     </div>
+  </div>`;
+}
+
+// The hallway board, a Stremio show: Previous / Next episode across the top of the transport card.
+// Two taps, as switching ends what's on (the first arms the button for 4 s), like the phone remote.
+function HallEpisodes({ id }) {
+  const [nb] = useLoad(() => get(`/api/plex/neighbours/${encodeURIComponent(id)}`).catch(() => null), [id]);
+  const [armed, setArmed] = useState(null);
+  useEffect(() => { if (!armed) return undefined; const x = setTimeout(() => setArmed(null), 4000); return () => clearTimeout(x); }, [armed]);
+  if (!nb?.prev && !nb?.next) return null;
+  const season = Number(id.split(':')[1]);
+  const num = (ep) => `${ep.season !== season ? `S${ep.season} ` : ''}E${ep.episode}`;
+  const go = (which) => {
+    const ep = nb[which];
+    if (!ep) return;
+    if (armed !== which) { setArmed(which); return; }
+    setArmed(null);
+    act({ action: 'play', ratingKey: ep.id, type: 'episode', title: ep.showTitle || ep.title, offset: 0 })
+      .then((r) => { if (r) toast(`Opening ${num(ep)} · ${ep.title}`); });
+  };
+  const btn = (which, text) => {
+    const ep = nb[which];
+    const on = armed === which;
+    return html`<button type="button" class=${`ep ${which}${on ? ' armed' : ''}`} disabled=${!ep} onClick=${() => go(which)}
+      aria-label=${ep ? `${text} episode: ${num(ep)} ${ep.title}` : `No ${text.toLowerCase()} episode`}>
+      ${which === 'prev' && html`<${Prev} size=${30} />`}
+      <span><s>${on ? 'Tap again' : `${text} episode`}</s><b>${on ? `to play ${num(ep)}` : ep ? `${num(ep)} · ${ep.title}` : '—'}</b></span>
+      ${which === 'next' && html`<${Next} size=${30} />`}</button>`;
+  };
+  return html`<div class="tp-eps">${btn('prev', 'Previous')}${btn('next', 'Next')}</div>`;
+}
+
+// The hallway board, YouTube: Previous / Next video. One tap, as a skipped video is easy to go back
+// to (Cast's next / previous track, or the remote's media keys: server/actions.mjs).
+function HallVideos() {
+  const go = (cmd) => act({ action: 'transport', cmd }).then((r) => { if (r) toast(cmd === 'next' ? 'Next video' : 'Previous video'); });
+  return html`<div class="tp-eps">
+    <button type="button" class="ep prev" onClick=${() => go('prev')} aria-label="Previous video"><${Prev} size=${30} /><span><s>YouTube</s><b>Previous video</b></span></button>
+    <button type="button" class="ep next" onClick=${() => go('next')} aria-label="Next video"><span><s>YouTube</s><b>Next video</b></span><${Next} size=${30} /></button>
   </div>`;
 }

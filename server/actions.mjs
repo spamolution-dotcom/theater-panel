@@ -539,6 +539,17 @@ async function streamerTransport(ha, body) {
   }
   const key = { play_pause: 'MEDIA_PLAY_PAUSE', play: 'MEDIA_PLAY', pause: 'MEDIA_PAUSE', stop: 'MEDIA_STOP' }[body.cmd];
   if (key) return ha.callService('remote', 'send_command', { command: key }, { target: { entity_id: e.appleTvRemote } });
+  // Next / previous video (YouTube): Google Cast's next and previous track when Cast says the app
+  // takes them (NEXT_TRACK 32, PREVIOUS_TRACK 16 in supported_features), else the remote's media keys.
+  if (body.cmd === 'next' || body.cmd === 'prev') {
+    const next = body.cmd === 'next';
+    const c = ha.states[e.streamerCast];
+    const feats = Number(c?.attributes?.supported_features) || 0;
+    if (c && ['playing', 'paused', 'buffering'].includes(c.state) && (feats & (next ? 32 : 16))) {
+      return ha.callService('media_player', next ? 'media_next_track' : 'media_previous_track', {}, { target: { entity_id: e.streamerCast } });
+    }
+    return ha.callService('remote', 'send_command', { command: next ? 'MEDIA_NEXT' : 'MEDIA_PREVIOUS' }, { target: { entity_id: e.appleTvRemote } });
+  }
   if (body.cmd === 'seek_rel') {
     const n = Number(body.seconds || 0);
     return ha.callService('remote', 'send_command', { command: n < 0 ? 'MEDIA_REWIND' : 'MEDIA_FAST_FORWARD' }, { target: { entity_id: e.appleTvRemote } });
