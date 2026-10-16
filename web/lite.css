@@ -156,6 +156,13 @@ svg { display: block; flex-shrink: 0; }
 .l-keys { display: grid; grid-template-columns: repeat(3, 1fr); grid-gap: 14px; gap: 14px; }
 .l-keys.n2 { grid-template-columns: 1fr 1fr; }
 .l-keys.n4 { grid-template-columns: repeat(4, 1fr); }
+.l-keys.n5 { grid-template-columns: repeat(3, 1fr); }
+.l-keys .sl { text-align: left; }
+.l-keys .sl span { min-width: 0; }
+.l-keys .sl b { display: block; font: 700 19px var(--sans); }
+.l-keys .sl s { display: block; text-decoration: none; font: 500 13px var(--sans); color: var(--muted); white-space: nowrap; }
+.l-keys .sl.on { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
+.l-keys .sl.on s { color: var(--acc); }
 .l-keys .off { border-color: var(--warn-line); background: var(--warn-soft); color: var(--warn); }
 .l-keys .off.armed { background: var(--warn); color: #1A0F08; }
 .l-keys button { display: flex; align-items: center; justify-content: center; height: 72px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); font: 700 20px var(--sans); }

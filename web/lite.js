@@ -386,8 +386,6 @@
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
         '<span><b>' + sc.label + '</b><s>' + sc.desc + '</s></span></button>';
     }).join('') +
-      // The sleep timer (server/sleep.mjs): off when the film ends, or after 30, 60 or 90 minutes.
-      (roomOn() ? '<button type="button" class="l-scn' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 26) + '<span><b>Sleep</b><s>' + sleepText() + '</s></span></button>' : '') +
       '</div>' +
       (off ? '<button type="button" class="l-alloff' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 22) + (isArmed('alloff') ? 'Tap again to turn everything off' : 'All off') + '</button>' : '') +
       '</section>';
@@ -575,7 +573,8 @@
     var kicker = (m.active ? m.now.name + ' · ' : '') + 'Google TV Streamer' + (m.active ? '' : ' · ' + m.now.name);
     var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
     var offOk = roomOn() || gaming();
-    var keyCount = 2 + (m.active ? 0 : 1) + (offOk ? 1 : 0);
+    var sleepOk = roomOn();
+    var keyCount = 2 + (m.active ? 0 : 1) + (sleepOk ? 1 : 0) + (offOk ? 1 : 0);
     var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + '">' +
       '<button type="button" class="up" data-a="key" data-v="up" aria-label="Up">' + icon('chev', 34, 2.6) + '</button>' +
       '<button type="button" class="left" data-a="key" data-v="left" aria-label="Left">' + icon('left', 34, 2.6) + '</button>' +
@@ -586,6 +585,8 @@
       '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
       '<button type="button" data-a="key" data-v="home">' + icon('home', 20) + 'Home</button>' +
       (!m.active ? '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' : '') +
+      // The sleep timer (server/sleep.mjs): off when the film ends, or after 30, 60 or 90 minutes.
+      (sleepOk ? '<button type="button" class="sl' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 20) + '<span><b>Sleep</b><s>' + sleepText() + '</s></span></button>' : '') +
       // All off right here, so nobody has to go to Home and scroll for it. Two taps, as on Home.
       (offOk ? '<button type="button" class="off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 20) + (isArmed('alloff') ? 'Tap again' : 'All off') + '</button>' : '') + '</div>' +
       (!m.active && isUp(avr) ? '<div class="l-vol card"><span class="k">' + (muted ? 'Muted' : 'Vol ' + (vol == null ? '–' : Math.round(vol * 200) / 2)) + '</span>' +

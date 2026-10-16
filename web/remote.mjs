@@ -297,7 +297,7 @@ const SLEEP_OPTS = [
   { mode: 'timer', minutes: 90, label: '90 min' },
 ];
 const sleepText = (sl) => (!sl ? 'Set a timer' : sl.mode === 'end' ? 'Off after this' : `Off in ${Math.max(1, Math.ceil(((sl.at || 0) - Date.now()) / 60e3))} min`);
-function SleepTile() {
+function SleepButton() {
   const sl = useStore((s) => s.sleep);
   const [open, setOpen] = useState(false);
   const [, tick] = useState(0);
@@ -307,7 +307,7 @@ function SleepTile() {
     post('/api/sleep', opt).then((r) => toast(r.mode ? (r.mode === 'end' ? 'The cinema turns off when the film ends' : `The cinema turns off in ${r.minutes} minutes`) : 'Sleep timer off'))
       .catch((e) => toast(e.message, true));
   };
-  return html`<button type="button" class="r-scn" aria-pressed=${sl ? 'true' : 'false'} onClick=${() => setOpen(true)}><${Icon} name="moon" size=${22} /><span><b>Sleep</b><s>${sleepText(sl)}</s></span></button>
+  return html`<button type="button" class=${`r-sleep${sl ? ' on' : ''}`} aria-pressed=${sl ? 'true' : 'false'} onClick=${() => setOpen(true)}><${Icon} name="moon" size=${18} /><span><b>Sleep</b><s>${sleepText(sl)}</s></span></button>
     ${open && html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) setOpen(false); }}>
       <div class="r-sheet" role="dialog" aria-label="Sleep timer">
         <div class="r-grab"></div>
@@ -333,7 +333,7 @@ function Scenes() {
   return html`<section>
     <div class="r-h2"><h2>Scenes</h2></div>
     <div class="r-scn-grid">${SCENES.filter((sc) => !kids || !['pre_show', 'movie_time'].includes(sc.name)).map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
-      onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}${roomOn && html`<${SleepTile} />`}</div>
+      onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
     ${(roomOn || gaming) && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
   </section>`;
 }
@@ -598,10 +598,11 @@ function TvRemote({ onTab }) {
       <button type="button" class="right" aria-label="Right" onClick=${() => key('right')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="down" aria-label="Down" onClick=${() => key('down')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
     </div>
-    <div class=${`r-keys${active ? ' two' : ''}`}>
+    <div class=${`r-keys n${2 + (active ? 0 : 1) + (roomOn ? 1 : 0)}`}>
       <button type="button" onClick=${() => key('back')}><${Icon} name="left" size=${18} />Back</button>
       <button type="button" onClick=${() => key('home')}><${Icon} name="home" size=${18} />Home</button>
       ${!active && html`<button type="button" onClick=${() => t('play_pause')}><${Play} size=${15} />Play / Pause</button>`}
+      ${roomOn && html`<${SleepButton} />`}
     </div>
     ${!active && isUp(avr) && html`<div class="r-vol r-vol-card">
       <span class="k">${muted ? 'Muted' : `Vol ${vol == null ? '–' : Math.round(vol * 200) / 2}`}</span>
