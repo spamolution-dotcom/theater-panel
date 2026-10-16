@@ -132,6 +132,13 @@ export function Showtime() {
     <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? sleepLabel(sleep) : 'Off'}</span></button>`;
   const fullBtn = html`<button type="button" class="dbtn" style=${board ? 'flex-grow:1;background:#000' : 'width:260px;height:150px;background:#000'} onClick=${() => go('lobby', { manual: true })}>
     <${Icon} name="home" size=${36} w=${1.8} color="var(--d-dim)" /><span class="s">Full controls</span></button>`;
+  // The board's right column, laid out like the scenes on the left: icon and title, a line under it.
+  const aisleTile = html`<button type="button" class=${fxc('aisle', glowOn)} aria-pressed=${glowOn ? 'true' : 'false'} onClick=${() => press('aisle', { action: 'aisle_glow' })}>
+    <span class="big"><${Icon} name="bulb" size=${40} w=${1.8} />Aisle glow</span><span class="s">${media?.state === 'on' ? `Lights ${mediaPct}%` : 'Off'}</span></button>`;
+  const offTile = html`<button type="button" class=${`${fxc('alloff')}${offArmed ? ' armed' : ''}`} onClick=${allOff}>
+    <span class="big"><${Icon} name="power" size=${40} w=${1.8} />${offArmed ? 'Tap again' : 'All off'}</span><span class="s">${offArmed ? 'to turn off' : 'Ends the night'}</span></button>`;
+  const fullTile = html`<button type="button" class="dbtn" style="background:#000" onClick=${() => go('lobby', { manual: true })}>
+    <span class="big"><${Icon} name="home" size=${40} w=${1.8} />Full controls</span><span class="s">Back to home</span></button>`;
   return html`<div class=${`showtime${hallway ? ' hall' : ''}`} style=${hallway ? '' : bg} onPointerDown=${poke}>
     ${hallway && html`<div class="st-poster">${bigPoster ? html`<img src=${bigPoster} alt="" />` : (session?.app || castApp) ? html`<div class="st-poster-app"><img src=${`/assets/apps/${session?.app || castApp}.png`} alt=${title} /></div>` : html`<div class="st-poster-t">${title}</div>`}</div>`}
     ${hallway && html`<div class="st-art" style=${bg}></div>`}
@@ -158,7 +165,7 @@ export function Showtime() {
         <div class="tp-card">${/^tt\d+:\d+:\d+$/.test(session?.id || '') && html`<${HallEpisodes} id=${session.id} key=${session.id} />`}${transport}
           <div class="tp-vol">${volDownBtn}${volBox}${volUpBtn}${muteBtn}</div>
         </div>
-        <div class="st-side">${aisleBtn}${offBtn}${fullBtn}</div>
+        <div class="st-side st-scenes">${aisleTile}${offTile}${fullTile}</div>
       </div>
       ${starring.length > 0 && html`<div class="st-castrow"><div class="k">Starring</div>
         <div class="row">${starring.map((c) => html`<div class="p" key=${c.name}>
