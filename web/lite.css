@@ -143,6 +143,7 @@ svg { display: block; flex-shrink: 0; }
 /* remote */
 .l-pad { position: relative; width: 440px; height: 440px; margin: 30px auto 26px; border-radius: 50%; background: var(--card); border: 1px solid var(--line); }
 .l-pad.sm { width: 330px; height: 330px; margin-top: 18px; margin-bottom: 18px; }
+.l-pad.sm.xs { width: 260px; height: 260px; margin-top: 14px; margin-bottom: 14px; }
 .l-pad button { position: absolute; display: flex; align-items: center; justify-content: center; color: var(--muted); }
 .l-pad button:active { color: var(--acc); }
 .l-pad .up, .l-pad .down { left: 30%; right: 30%; height: 28%; }

@@ -591,6 +591,7 @@ function TvRemote({ onTab }) {
     ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
     ${active && html`<${NowPlaying} onTab=${onTab} inRemote />`}
     ${active && session && /^tt\d+:\d+:\d+$/.test(session.id || '') && html`<${EpisodeNav} id=${session.id} key=${session.id} />`}
+    ${active && !session && now.key === 'youtube' && html`<${VideoNav} />`}
     <div class=${`r-pad${active ? ' sm' : ''}`}>
       <button type="button" class="up" aria-label="Up" onClick=${() => key('up')}><${Icon} name="chev" size=${30} w=${2.6} /></button>
       <button type="button" class="left" aria-label="Left" onClick=${() => key('left')}><${Icon} name="left" size=${30} w=${2.6} /></button>
@@ -643,6 +644,15 @@ function EpisodeNav({ id }) {
   return html`<div class="r-eprow">
     ${btn('prev', 'Previous', html`<${Prev} size=${15} />`)}
     ${btn('next', 'Next', html`<${Next} size=${15} />`)}
+  </div>`;
+}
+
+// YouTube: Previous / Next video. One tap: a skipped video is easy to go back to.
+function VideoNav() {
+  const go = (cmd) => act({ action: 'transport', cmd }).then((r) => { if (r) toast(cmd === 'next' ? 'Next video' : 'Previous video'); });
+  return html`<div class="r-eprow">
+    <button type="button" onClick=${() => go('prev')} aria-label="Previous video"><${Prev} size=${15} /><span><s>YouTube</s>Previous video</span></button>
+    <button type="button" class="nx" onClick=${() => go('next')} aria-label="Next video"><span><s>YouTube</s>Next video</span><${Next} size=${15} /></button>
   </div>`;
 }
 

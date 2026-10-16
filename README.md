@@ -272,7 +272,12 @@ separate page laid out for phones; the wall panel is unchanged.
 - For a Stremio show, **Previous** and **Next** episode (across seasons) sit under the card. Two
   taps, as it ends what's on. It opens the episode like Watch does: the stream list comes up, or
   the first stream plays with auto-play on (which may not be the same source as now; Stremio's
-  own Next episode prompt at the credits keeps the source).
+  own Next episode prompt at the credits keeps the source). The hallway board has the same pair
+  across the top of its transport card.
+- For YouTube, **Previous video** and **Next video** in the same place (one tap): Google Cast's
+  next / previous track when the Streamer offers them, else the remote's media keys.
+- **Sleep** sits beside Back and Home while the cinema is on: the room turns itself off after this
+  film, or after 30, 60 or 90 minutes (the same server-side timer as the wall panel's Sleep).
 
 **A seat phone.** For a spare phone kept at the seats, open `/remote?seat=1` once; that phone
 remembers it (`?seat=0` undoes it) and no other phone changes. On it the remote is dark for a dark

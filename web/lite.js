@@ -575,7 +575,9 @@
     var offOk = roomOn() || gaming();
     var sleepOk = roomOn();
     var keyCount = 2 + (m.active ? 0 : 1) + (sleepOk ? 1 : 0) + (offOk ? 1 : 0);
-    var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + '">' +
+    // With a Previous / Next row as well, the pad shrinks again so the buttons stay above the tabs.
+    var navRow = m.active && (/^tt\d+:\d+:\d+$/.test((m.session && m.session.id) || '') || (!m.session && m.now.key === 'youtube'));
+    var pad = '<div class="l-pad' + (m.active ? ' sm' : '') + (navRow ? ' xs' : '') + '">' +
       '<button type="button" class="up" data-a="key" data-v="up" aria-label="Up">' + icon('chev', 34, 2.6) + '</button>' +
       '<button type="button" class="left" data-a="key" data-v="left" aria-label="Left">' + icon('left', 34, 2.6) + '</button>' +
       '<button type="button" class="ok" data-a="key" data-v="ok">OK</button>' +
@@ -597,7 +599,7 @@
       ['r-top', top(m.active ? 'Now playing' : 'TV Remote', kicker, statusChip())],
       ['r-note', note],
       ['r-np', m.active ? nowPlaying(true) : ''],
-      ['r-eps', m.active && /^tt\d+:\d+:\d+$/.test(sid) ? episodeNav(sid) : ''],
+      ['r-eps', m.active && /^tt\d+:\d+:\d+$/.test(sid) ? episodeNav(sid) : m.active && !session && m.now.key === 'youtube' ? videoNav() : ''],
       ['r-pad', pad],
       ['r-about', m.active && /^tt\d+/.test(sid) ? about(sid) : ''],
     ];
@@ -616,6 +618,11 @@
         '<span><s>' + (on ? 'Tap again' : text) + '</s>' + esc(on ? 'to play ' + num(ep) : ep ? num(ep) + ' · ' + ep.title : '—') + '</span></button>';
     };
     return '<div class="l-eprow">' + btn('prev', 'Previous') + btn('next', 'Next') + '</div>';
+  }
+  // YouTube: Previous / Next video. One tap: a skipped video is easy to go back to.
+  function videoNav() {
+    return '<div class="l-eprow"><button type="button" data-a="vid" data-v="prev"><span><s>YouTube</s>Previous video</span></button>' +
+      '<button type="button" class="nx" data-a="vid" data-v="next"><span><s>YouTube</s>Next video</span></button></div>';
   }
   function about(id) {
     var imdb = id.split(':')[0];
@@ -964,6 +971,7 @@
       });
     },
     relock: function () { post('/api/seat/lock', {}).then(function () { toast('Back to kids mode'); }).catch(function () {}); },
+    vid: function (v) { act({ action: 'transport', cmd: v }).then(function (r) { if (r) toast(v === 'next' ? 'Next video' : 'Previous video'); }); },
     sleepopen: function () { U.sleepPick = true; paint(); },
     sleepclose: function () { U.sleepPick = false; paint(); },
     sleeppick: function (v) {

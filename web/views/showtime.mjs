@@ -162,7 +162,7 @@ export function Showtime() {
       </div>
       ${board ? html`<div style="flex-grow:1;display:flex;gap:28px;min-height:0">
         <div class="st-side st-scenes">${interBtn}${lightsBtn}${sleepBtn}</div>
-        <div class="tp-card">${/^tt\d+:\d+:\d+$/.test(session?.id || '') && html`<${HallEpisodes} id=${session.id} key=${session.id} />`}${transport}
+        <div class="tp-card">${/^tt\d+:\d+:\d+$/.test(session?.id || '') ? html`<${HallEpisodes} id=${session.id} key=${session.id} />` : castApp === 'youtube' ? html`<${HallVideos} />` : null}${transport}
           <div class="tp-vol">${volDownBtn}${volBox}${volUpBtn}${muteBtn}</div>
         </div>
         <div class="st-side st-scenes">${aisleTile}${offTile}${fullTile}</div>
@@ -213,4 +213,14 @@ function HallEpisodes({ id }) {
       ${which === 'next' && html`<${Next} size=${30} />`}</button>`;
   };
   return html`<div class="tp-eps">${btn('prev', 'Previous')}${btn('next', 'Next')}</div>`;
+}
+
+// The hallway board, YouTube: Previous / Next video. One tap, as a skipped video is easy to go back
+// to (Cast's next / previous track, or the remote's media keys: server/actions.mjs).
+function HallVideos() {
+  const go = (cmd) => act({ action: 'transport', cmd }).then((r) => { if (r) toast(cmd === 'next' ? 'Next video' : 'Previous video'); });
+  return html`<div class="tp-eps">
+    <button type="button" class="ep prev" onClick=${() => go('prev')} aria-label="Previous video"><${Prev} size=${30} /><span><s>YouTube</s><b>Previous video</b></span></button>
+    <button type="button" class="ep next" onClick=${() => go('next')} aria-label="Next video"><span><s>YouTube</s><b>Next video</b></span><${Next} size=${30} /></button>
+  </div>`;
 }
