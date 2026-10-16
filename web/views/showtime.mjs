@@ -129,7 +129,7 @@ export function Showtime() {
   const lightsBtn = html`<button type="button" class=${fxc('lights_up', scene === 'Lights up')} style=${board ? '' : 'flex-grow:1;height:150px'} onClick=${() => press('lights_up', { action: 'scene', name: 'lights_up' })}>
     <span class="big"><${Icon} name="sun" size=${40} w=${1.8} />Lights up</span><span class="s">Lights 100%</span></button>`;
   const sleepBtn = html`<button type="button" class=${fxc('sleep', Boolean(sleep))} style=${board ? '' : 'width:280px;height:150px'} aria-pressed=${sleep ? 'true' : 'false'} onClick=${() => setSleepOpen(true)}>
-    <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? sleepLabel(sleep) : 'Off'}</span></button>`;
+    <span class="big"><${Icon} name="moon" size=${40} w=${1.8} />Sleep</span><span class="s">${sleep ? `Off ${sleep.mode === 'end' ? 'after this' : `in ${sleepLabel(sleep)}`}` : 'Set a timer'}</span></button>`;
   const fullBtn = html`<button type="button" class="dbtn" style=${board ? 'flex-grow:1;background:#000' : 'width:260px;height:150px;background:#000'} onClick=${() => go('lobby', { manual: true })}>
     <${Icon} name="home" size=${36} w=${1.8} color="var(--d-dim)" /><span class="s">Full controls</span></button>`;
   // The board's right column, laid out like the scenes on the left: icon and title, a line under it.
