@@ -288,6 +288,37 @@ function Shelf({ title, link, items, onOpen, empty }) {
   </section>`;
 }
 
+// The sleep timer (server/sleep.mjs): the cinema turns itself off when the film ends, or after
+// 30, 60 or 90 minutes. The server keeps it, so it holds whatever this page does.
+const SLEEP_OPTS = [
+  { mode: 'end', label: 'After this', desc: 'When the film ends' },
+  { mode: 'timer', minutes: 30, label: '30 min' },
+  { mode: 'timer', minutes: 60, label: '60 min' },
+  { mode: 'timer', minutes: 90, label: '90 min' },
+];
+const sleepText = (sl) => (!sl ? 'Set a timer' : sl.mode === 'end' ? 'Off after this' : `Off in ${Math.max(1, Math.ceil(((sl.at || 0) - Date.now()) / 60e3))} min`);
+function SleepTile() {
+  const sl = useStore((s) => s.sleep);
+  const [open, setOpen] = useState(false);
+  const [, tick] = useState(0);
+  useEffect(() => { if (!sl) return undefined; const t = setInterval(() => tick((x) => x + 1), 20e3); return () => clearInterval(t); }, [Boolean(sl)]);
+  const pick = (opt) => {
+    setOpen(false);
+    post('/api/sleep', opt).then((r) => toast(r.mode ? (r.mode === 'end' ? 'The cinema turns off when the film ends' : `The cinema turns off in ${r.minutes} minutes`) : 'Sleep timer off'))
+      .catch((e) => toast(e.message, true));
+  };
+  return html`<button type="button" class="r-scn" aria-pressed=${sl ? 'true' : 'false'} onClick=${() => setOpen(true)}><${Icon} name="moon" size=${22} /><span><b>Sleep</b><s>${sleepText(sl)}</s></span></button>
+    ${open && html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) setOpen(false); }}>
+      <div class="r-sheet" role="dialog" aria-label="Sleep timer">
+        <div class="r-grab"></div>
+        <h3>Sleep timer</h3><p class="r-plot" style="margin-top:4px">Turn the cinema off</p>
+        <div class="r-scn-grid">${SLEEP_OPTS.map((o) => html`<button type="button" class="r-scn" key=${o.label}
+          aria-pressed=${sl && sl.mode === o.mode && (o.mode === 'end' || sl.minutes === o.minutes) ? 'true' : 'false'} onClick=${() => pick({ mode: o.mode, minutes: o.minutes })}>
+          <span><b>${o.label}</b>${o.desc && html`<s>${o.desc}</s>`}</span></button>`)}</div>
+        ${sl && html`<button type="button" class="r-play2" onClick=${() => pick({ mode: 'off' })}>Cancel the timer</button>`}
+      </div></div>`}`;
+}
+
 function Scenes() {
   const kids = useKids();
   const roomOn = useRoomOn();
@@ -302,7 +333,7 @@ function Scenes() {
   return html`<section>
     <div class="r-h2"><h2>Scenes</h2></div>
     <div class="r-scn-grid">${SCENES.filter((sc) => !kids || !['pre_show', 'movie_time'].includes(sc.name)).map((sc) => html`<button type="button" class="r-scn" key=${sc.name} aria-pressed=${sc.name === active ? 'true' : 'false'}
-      onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}</div>
+      onClick=${() => { pick(sc.name); act({ action: 'scene', name: sc.name }); }}><${Icon} name=${sc.icon} size=${22} /><span><b>${sc.label}</b><s>${sc.desc}</s></span></button>`)}${roomOn && html`<${SleepTile} />`}</div>
     ${(roomOn || gaming) && html`<button type="button" class=${`r-alloff ${armed ? 'armed' : ''}`} onClick=${allOff}><${Icon} name="power" size=${20} />${armed ? 'Tap again to turn everything off' : 'All off'}</button>`}
   </section>`;
 }
