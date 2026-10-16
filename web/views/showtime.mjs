@@ -5,8 +5,8 @@
 
 import { useEffect, useState } from 'preact/hooks';
 import { hallway } from '../lib/role.mjs';
-import { html, Icon, Pause, Play } from '../lib/ui.mjs';
-import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState, castVideo } from '../lib/api.mjs';
+import { html, Icon, Pause, Play, Prev, Next } from '../lib/ui.mjs';
+import { act, get, useLoad, useStore, useEntity, livePosition, mmss, clock, getState, playbackState, castVideo, toast } from '../lib/api.mjs';
 import { enterTheater, exitTheater, wake } from '../lib/ks.mjs';
 import { go, route } from '../app.mjs';
 import { SleepPicker, sleepLabel } from './sleep.mjs';
@@ -155,7 +155,7 @@ export function Showtime() {
       </div>
       ${board ? html`<div style="flex-grow:1;display:flex;gap:28px;min-height:0">
         <div class="st-side st-scenes">${interBtn}${lightsBtn}${sleepBtn}</div>
-        <div class="tp-card">${transport}
+        <div class="tp-card">${/^tt\d+:\d+:\d+$/.test(session?.id || '') && html`<${HallEpisodes} id=${session.id} key=${session.id} />`}${transport}
           <div class="tp-vol">${volDownBtn}${volBox}${volUpBtn}${muteBtn}</div>
         </div>
         <div class="st-side">${aisleBtn}${offBtn}${fullBtn}</div>
@@ -177,4 +177,33 @@ export function Showtime() {
       ${sleepOpen && html`<${SleepPicker} onClose=${() => setSleepOpen(false)} />`}
     </div>
   </div>`;
+}
+
+// The hallway board, a Stremio show: Previous / Next episode across the top of the transport card.
+// Two taps, as switching ends what's on (the first arms the button for 4 s), like the phone remote.
+function HallEpisodes({ id }) {
+  const [nb] = useLoad(() => get(`/api/plex/neighbours/${encodeURIComponent(id)}`).catch(() => null), [id]);
+  const [armed, setArmed] = useState(null);
+  useEffect(() => { if (!armed) return undefined; const x = setTimeout(() => setArmed(null), 4000); return () => clearTimeout(x); }, [armed]);
+  if (!nb?.prev && !nb?.next) return null;
+  const season = Number(id.split(':')[1]);
+  const num = (ep) => `${ep.season !== season ? `S${ep.season} ` : ''}E${ep.episode}`;
+  const go = (which) => {
+    const ep = nb[which];
+    if (!ep) return;
+    if (armed !== which) { setArmed(which); return; }
+    setArmed(null);
+    act({ action: 'play', ratingKey: ep.id, type: 'episode', title: ep.showTitle || ep.title, offset: 0 })
+      .then((r) => { if (r) toast(`Opening ${num(ep)} · ${ep.title}`); });
+  };
+  const btn = (which, text) => {
+    const ep = nb[which];
+    const on = armed === which;
+    return html`<button type="button" class=${`ep ${which}${on ? ' armed' : ''}`} disabled=${!ep} onClick=${() => go(which)}
+      aria-label=${ep ? `${text} episode: ${num(ep)} ${ep.title}` : `No ${text.toLowerCase()} episode`}>
+      ${which === 'prev' && html`<${Prev} size=${30} />`}
+      <span><s>${on ? 'Tap again' : `${text} episode`}</s><b>${on ? `to play ${num(ep)}` : ep ? `${num(ep)} · ${ep.title}` : '—'}</b></span>
+      ${which === 'next' && html`<${Next} size=${30} />`}</button>`;
+  };
+  return html`<div class="tp-eps">${btn('prev', 'Previous')}${btn('next', 'Next')}</div>`;
 }
