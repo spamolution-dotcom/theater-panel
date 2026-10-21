@@ -5,6 +5,9 @@
 // - no pointer events (Safari 13): touch events, with mouse events for a desktop browser
 // - layout spacing with grid gaps and margins, never flex `gap`
 // It is always the seat remote: every action carries seat:true, so the server applies kids mode.
+// Held sideways (landscape) it lays out like the hallway board: tabs down a rail on the left, Home
+// in two columns, and while a film plays a Now Showing screen (poster, synopsis, transport,
+// D-pad); the Xbox gets the same with its game poster. Held upright it is the portrait layout.
 // Same server, same actions as /remote; see web/remote.mjs for the behaviour this mirrors.
 (function () {
   'use strict';
@@ -87,6 +90,7 @@
     blindOpen: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 6.5h14M12 6.5v2.5',
     blindMovie: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M12 13v2.5',
     blindClose: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M5 16h14M5 19h14',
+    back: 'M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5',
     cast: 'M3 17a4 4 0 0 1 4 4M3 13a8 8 0 0 1 8 8M3 9.5V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4',
   };
   function icon(name, size, w) {
@@ -247,6 +251,10 @@
   // ---------- page state ----------
 
   var U = { tab: 'home', sheet: null, season: null, pin: null };
+  var LAND = window.innerWidth > window.innerHeight;   // held sideways: the landscape layout
+  var MODE = '';            // the landscape full screens: 'now' (a film playing), 'gplay' (Xbox on)
+  var VS = null;            // the volume slider while it's dragged and just after: { pct, until }
+  var CW = 0;               // which Continue watching card is showing
   var REG = {};             // items on screen by id, for the tap handlers
   var armed = {};           // two-tap buttons: key -> expiry
   var picked = null;        // { name, at }: the scene just tapped, lit until HA says so
@@ -300,7 +308,8 @@
   // A tap on Home's title reloads the page: there is no address bar or reload button from the
   // home screen, and Guided Access stops it being closed and reopened.
   function top(title, kicker, right, reload) {
-    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1' + (reload ? ' data-a="reload"' : '') + '>' + esc(title) + '</h1></div><div class="l-topr">' + badge() + (right || '') + '</div></header>';
+    // In landscape the Kids badge lives at the foot of the rail instead.
+    return '<header class="l-top"><div><div class="l-kick">' + esc(kicker) + '</div><h1' + (reload ? ' data-a="reload"' : '') + '>' + esc(title) + '</h1></div><div class="l-topr">' + (LAND ? '' : badge()) + (right || '') + '</div></header>';
   }
   function badge() {
     var s = S.seat;
@@ -344,7 +353,8 @@
     var art = session && session.poster ? '<img src="' + esc(imgSrc(session.poster)) + '" alt="">' : app ? '<img class="app" src="/assets/apps/' + esc(app) + '.png" alt="">' : icon('tv', 34);
     var info = [sub, left != null ? (runtime(left * 1000) || mmss(left)) + ' left · ends ' + endsAt(left * 1000) : ''].filter(Boolean).join(' · ');
     return '<section class="l-np' + (inRemote ? ' mini' : '') + '">' +
-      '<div class="l-np-art">' + art + '</div>' +
+      // In landscape a tap on the artwork opens Now Showing.
+      '<div class="l-np-art"' + (LAND && !inRemote ? ' data-a="tab" data-v="remote"' : '') + '>' + art + '</div>' +
       '<div class="l-np-body">' +
         '<div class="l-kick">' + label + '</div>' +
         '<div class="l-np-title">' + esc(title) + '</div>' +
@@ -459,6 +469,7 @@
   // ---------- Home ----------
 
   function homeSlots() {
+    if (LAND) return homeLand();
     var deck = load('deck', function () { return get('/api/plex/ondeck?size=12'); }).v;
     var recent = load('recent', function () { return get('/api/plex/recent?size=24'); }).v;
     var seen = {};
@@ -566,6 +577,7 @@
 
   function remoteSlots() {
     var m = media();
+    if (LAND) return m.active ? nowShowingSlots(m) : remoteLand(m);
     var avr = st(m.e.avr);
     var vol = attrs(avr).volume_level;
     var muted = Boolean(attrs(avr).is_volume_muted);
@@ -585,7 +597,7 @@
       '<button type="button" class="down" data-a="key" data-v="down" aria-label="Down">' + icon('chev', 34, 2.6) + '</button></div>' +
       '<div class="l-keys n' + keyCount + '">' +
       '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
-      '<button type="button" data-a="key" data-v="home">' + icon('home', 20) + 'Home</button>' +
+      '<button type="button" data-a="key" data-v="home">' + icon('tv', 20) + 'TV home</button>' +
       (!m.active ? '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' : '') +
       // The sleep timer (server/sleep.mjs): off when the film ends, or after 30, 60 or 90 minutes.
       (sleepOk ? '<button type="button" class="sl' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 20) + '<span><b>Sleep</b><s>' + sleepText() + '</s></span></button>' : '') +
@@ -682,6 +694,7 @@
     var vol = attrs(avr).volume_level;
     var muted = Boolean(attrs(avr).is_volume_muted);
     var chip = '<span class="l-chip ' + (on ? 'on' : starting ? 'warm' : '') + '"><span class="dot"></span>' + (on ? 'Xbox on' : starting ? 'Starting…' : 'Xbox off') + '</span>';
+    if (LAND && on) return gamesLand({ k: k, avr: avr, nowSt: nowSt, lib: lib, libErr: libC.err, games: games, apps: apps, playing: playing, current: current, offInput: offInput, progress: progress, genres: genres });
     var body;
     if (on) {
       body = '<section class="l-ghero playing">' +
@@ -711,6 +724,260 @@
           : '<div class="l-ggrid">' + games.map(function (g) { return gTile(g, false); }).join('') + '</div><div class="l-empty">Tap a game: the room starts and the game opens.</div>');
     }
     return [['g-top', top('Games', 'Xbox', chip)], ['g-body', body]];
+  }
+
+  // ---------- landscape ----------
+  // Slots with a third entry ('L' or 'R') go into the left or right column (see draw()).
+
+  // What the Denon is decoding (web/lib/sound.mjs): Atmos coming through, or stereo only.
+  function soundFormat(raw) {
+    var r = String(raw || '').toUpperCase();
+    if (!r) return null;
+    if (r.indexOf('ATMOS') >= 0) return { label: 'Dolby Atmos', kind: 'atmos' };
+    if (r.indexOf('DTS:X') >= 0 || r.indexOf('DTS-X') >= 0) return { label: 'DTS:X', kind: 'atmos' };
+    if (r.indexOf('MULTI CH') >= 0) return { label: 'Multichannel', kind: 'dolby' };
+    if (r.indexOf('NEURAL') >= 0 || r.indexOf('PCM') >= 0 || r.indexOf('STEREO') >= 0) return { label: 'Stereo · no Atmos', kind: 'pcm' };
+    if (/DOLBY|TRUEHD|DD\+|DSUR/.test(r)) return { label: 'Dolby', kind: 'dolby' };
+    if (r.indexOf('DTS') >= 0) return { label: 'DTS', kind: 'dolby' };
+    return null;
+  }
+
+  // The volume slider: tap or drag along it (the server caps the Denon at 75 %), − and + for one
+  // step, and Mute. While dragging, and for a few seconds after, it shows where the finger left it.
+  var VOL_MAX = 75;
+  function volNow(avr) {
+    if (VS && VS.until > Date.now()) return VS.pct;
+    var v = attrs(avr).volume_level;
+    return v == null ? null : v * 100;
+  }
+  function volSlider(avr) {
+    if (!isUp(avr)) return '';
+    var muted = Boolean(attrs(avr).is_volume_muted);
+    var p = volNow(avr);
+    var w = p == null ? 0 : Math.min(100, p);
+    return '<div class="l-vrow">' +
+      '<button type="button" data-a="t" data-v="vol_down" aria-label="Volume down">−</button>' +
+      '<div class="l-vs" data-vs="1"><div class="k"><span>Volume</span><span class="v">' + (muted ? 'Muted' : p == null ? '–' : Math.round(p * 2) / 2) + '</span></div>' +
+        '<div class="tr"><i style="width:' + w + '%"></i><b style="left:' + w + '%"></b></div></div>' +
+      '<button type="button" data-a="t" data-v="vol_up" aria-label="Volume up">+</button>' +
+      '<button type="button" class="mu' + (muted ? ' on' : '') + '" data-a="mute" data-v="' + (muted ? 0 : 1) + '" aria-label="Mute">' + icon('mute', 24) + '</button></div>';
+  }
+  var vsDrag = false;
+  function vsMove(x) {
+    var tr = document.querySelector('[data-vs] .tr');
+    if (!tr) return;
+    var r = tr.getBoundingClientRect();
+    if (!r.width) return;
+    VS = { pct: Math.round(Math.max(0, Math.min(VOL_MAX, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
+    paint();
+  }
+  function vsStart(ev, x) {
+    if (!(ev.target.closest && ev.target.closest('[data-vs]'))) return false;
+    vsDrag = true; vsMove(x);
+    return true;
+  }
+  function vsEnd() {
+    if (!vsDrag) return;
+    vsDrag = false;
+    if (!VS) return;
+    VS.until = Date.now() + 4000;
+    act({ action: 'cinema', cmd: 'volume', value: VS.pct });
+    setTimeout(paint, 4100);
+  }
+
+  function dpad(cls) {
+    return '<div class="l-pad ' + (cls || '') + '">' +
+      '<button type="button" class="up" data-a="key" data-v="up" aria-label="Up">' + icon('chev', 34, 2.6) + '</button>' +
+      '<button type="button" class="left" data-a="key" data-v="left" aria-label="Left">' + icon('left', 34, 2.6) + '</button>' +
+      '<button type="button" class="ok" data-a="key" data-v="ok">OK</button>' +
+      '<button type="button" class="right" data-a="key" data-v="right" aria-label="Right">' + icon('chev', 34, 2.6) + '</button>' +
+      '<button type="button" class="down" data-a="key" data-v="down" aria-label="Down">' + icon('chev', 34, 2.6) + '</button></div>';
+  }
+  function offKey() {
+    return '<button type="button" class="off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 20) + (isArmed('alloff') ? 'Tap again' : 'All off') + '</button>';
+  }
+  function castOf(sid) {
+    if (!/^tt\d+/.test(sid)) return [];
+    var imdb = sid.split(':')[0];
+    var it = load('item:' + sid, function () { return get('/api/plex/item/' + encodeURIComponent(sid)).catch(function () { return null; }); }).v;
+    var cr = load('credits:' + imdb, function () { return get('/api/credits/' + imdb + '?kind=' + (sid.indexOf(':') >= 0 ? 'show' : 'movie')).catch(function () { return null; }); }).v;
+    return cr && cr.cast && cr.cast.length ? cr.cast : ((it && it.cast) || []).map(function (n) { return { name: typeof n === 'string' ? n : (n && (n.tag || n.name)) || '' }; }).filter(function (c) { return c.name; });
+  }
+
+  // Now Showing: what the Remote tab becomes in landscape while a film or show plays. Like the
+  // hallway board: the whole poster on the left over a blurred copy of itself, the title and
+  // synopsis, progress, transport and volume; for the seat a D-pad, Back, TV home, Intermission
+  // and All off. No rail: "Panel home" goes back to the tabs.
+  function nowShowingSlots(m) {
+    MODE = 'now';
+    var e = m.e, session = m.session, now = m.now, tv = m.tv;
+    var avr = st(e.avr);
+    var a = attrs(tv), ca = attrs(now.cast);
+    var playing = m.state === 'playing';
+    var sid = (session && session.id) || '';
+    var it = /^tt\d+/.test(sid) ? load('item:' + sid, function () { return get('/api/plex/item/' + encodeURIComponent(sid)).catch(function () { return null; }); }).v : null;
+    var app = (session && session.app) || now.key;
+    var title = (session && (session.showTitle || session.title)) || now.title || a.media_title || now.name;
+    var sub = session && session.showTitle ? 'S' + session.season + ' · E' + session.episode + ' · ' + session.title : now.title && now.artist ? now.artist : '';
+    var dur = session && session.duration ? session.duration / 1000 : ca.media_duration || a.media_duration || null;
+    var pos = session && session.viewOffset != null ? session.viewOffset / 1000 + (playing ? (Date.now() - S.sessionsAt) / 1000 : 0) : livePosition(now.cast || tv);
+    var left = dur && pos != null && dur - pos > 1 ? dur - pos : null;
+    var castPic = now.cast && ca.entity_picture ? '/api/ha-image?e=' + encodeURIComponent(e.streamerCast) + '&v=' + encodeURIComponent(ca.entity_picture) : null;
+    var pic = (session && (session.posterLarge || session.poster)) || castPic;
+    // The app's icon or the title underneath, showing if the poster doesn't load.
+    var under = '<div class="fb">' + (app ? '<img class="app" src="/assets/apps/' + esc(app) + '.png" alt="">' : '<div class="tt">' + esc(title) + '</div>') + '</div>';
+    var art = under + (pic ? '<div class="blur" style="background-image:url(\'' + esc(imgSrc(pic)) + '\')"></div><img class="pic" src="' + esc(imgSrc(pic)) + '" alt="">' : '');
+    var fmt = playing ? soundFormat(attrs(avr).sound_mode_raw) : null;
+    var genre = it && it.genres && it.genres.length ? it.genres[0] : null;
+    var facts = [it && it.year, genre && (typeof genre === 'string' ? genre : genre.tag || genre.name)].filter(Boolean).join(' · ');
+    var label = playing ? 'Now showing' : 'Paused';
+    var head = '<div class="l-nh"><div class="tx"><div class="l-kick">' + label + (facts ? ' · ' + esc(facts) : '') + (fmt ? '<span class="l-fmt ' + fmt.kind + '">' + fmt.label + '</span>' : '') + '</div>' +
+      '<h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
+      (it && it.summary ? '<p class="syn">' + esc(it.summary) + '</p>' : '') + '</div>' +
+      (left != null ? '<div class="ends"><span>Ends at</span><b>' + endsAt(left * 1000).replace(/ (am|pm)$/, '') + '</b></div>' : '') + '</div>' +
+      (dur && pos != null ? '<div class="l-bar"><i style="width:' + Math.min(100, (pos / dur) * 100) + '%"></i></div><div class="l-times"><span>' + mmss(pos) + '</span><span>' + (left != null ? mmss(left) + ' left' : '') + '</span></div>' : '');
+    var nav = /^tt\d+:\d+:\d+$/.test(sid) ? episodeNav(sid) : !session && now.key === 'youtube' ? videoNav() : '';
+    var tp = '<div class="l-tp' + (nav ? ' tight' : '') + '"><div class="row">' +
+      '<button type="button" class="sk" data-a="t" data-v="back10">−10</button>' +
+      '<button type="button" class="pp" data-a="t" data-v="play_pause" aria-label="' + (playing ? 'Pause' : 'Play') + '">' + (playing ? pauseIcon(44) : playIcon(44)) + '</button>' +
+      '<button type="button" class="sk" data-a="t" data-v="fwd30">+30</button></div>' + volSlider(avr) + '</div>';
+    var offOk = roomOn() || gaming();
+    var ctl = '<div class="l-nctl">' + dpad(nav ? 'ns xs' : 'ns') + '<div class="l-keys k2">' +
+      '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
+      '<button type="button" data-a="key" data-v="home">' + icon('tv', 20) + 'TV home</button>' +
+      '<button type="button" data-a="scene" data-v="intermission">' + icon('cup', 20) + 'Intermission</button>' +
+      (offOk ? offKey() : '') + '</div></div>';
+    var cast = castOf(sid).slice(0, 4);
+    var castHtml = cast.length ? '<div class="l-ncast"><span class="k">Starring</span>' + cast.map(function (c) {
+      var ini = c.name.split(' ').map(function (w) { return w[0]; }).slice(0, 2).join('');
+      return '<div class="p"><div class="ph"><span>' + esc(ini) + '</span>' + (c.photo ? '<img src="' + esc(imgSrc(c.photo)) + '" alt="">' : '') + '</div><span class="nm"><b>' + esc(c.name) + '</b>' + (c.character ? '<s>' + esc(c.character) + '</s>' : '') + '</span></div>';
+    }).join('') + '</div>' : '';
+    return [
+      ['n-poster', '<div class="l-npost">' + art + '<button type="button" class="l-phome" data-a="tab" data-v="home">' + icon('home', 20) + 'Panel home</button></div>'],
+      ['n-head', head],
+      ['n-tp', tp],
+      ['n-eps', nav],
+      ['n-ctl', ctl],
+      ['n-cast', castHtml],
+    ];
+  }
+
+  // The Remote tab with nothing playing: a big D-pad, the keys and volume beside it, the apps below.
+  function remoteLand(m) {
+    var avr = st(m.e.avr);
+    var offOk = roomOn() || gaming();
+    var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
+    var list = kids() ? APPS.filter(function (a) { return a.id === 'netflix'; }) : APPS;
+    return [
+      ['r-top', top('Remote', 'Google TV Streamer · ' + m.now.name, statusChip())],
+      ['r-note', note],
+      ['r-main', '<div class="l-rmain">' + dpad('big') + '<div class="rr"><div class="l-keys k2">' +
+        '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
+        '<button type="button" data-a="key" data-v="home">' + icon('tv', 20) + 'TV home</button>' +
+        '<button type="button" data-a="t" data-v="play_pause">' + playIcon(17) + 'Play / Pause</button>' +
+        (offOk ? offKey() : '') + '</div>' + volSlider(avr) + '</div></div>'],
+      ['r-apps', '<div class="l-apps2">' + list.map(function (a) {
+        return '<button type="button" data-a="app" data-v="' + a.id + '" data-name="' + a.name + '"><img src="/assets/apps/' + a.id + '.png" alt="' + a.name + '"></button>';
+      }).join('') + '</div>'],
+    ];
+  }
+
+  // Continue watching, as on the hallway board: one title at a time with its artwork, swipe or
+  // the arrows to move through them, Resume and Start over. A tap on the artwork opens its page.
+  function continueCard(list, k) {
+    var head = '<div class="l-h2"><h2>Continue</h2></div>';
+    if (!list) return head + '<div class="l-empty">Loading…</div>';
+    if (!list.length) return head + '<div class="l-empty">' + (k ? 'Nothing for kids mode here.' : 'Nothing in progress.') + '</div>';
+    var n = list.length;
+    var at = ((CW % n) + n) % n;
+    var it = list[at];
+    var left = (it.duration || 0) - (it.viewOffset || 0);
+    var pct = it.duration ? Math.min(100, Math.round(((it.viewOffset || 0) / it.duration) * 100)) : 0;
+    var pic = it.art || it.still || it.poster;
+    REG.cw = it;
+    return '<section class="l-cw" data-sw="cw"><button type="button" class="art" data-a="open" data-id="' + reg(it) + '">' +
+      '<span class="fb">' + esc(nameOf(it)) + '</span>' + (pic ? '<img src="' + esc(imgSrc(pic)) + '" alt="">' : '') + '<span class="sh"></span><span class="nm">' + esc(nameOf(it)) + '</span></button>' +
+      (n > 1 ? '<span class="cnt">' + (at + 1) + ' / ' + n + '</span><button type="button" class="ar l" data-a="cw" data-v="-1" aria-label="Previous">' + icon('left', 26, 2.4) + '</button>' +
+        '<button type="button" class="ar r" data-a="cw" data-v="1" aria-label="Next">' + icon('chev', 26, 2.4) + '</button>' : '') +
+      '<div class="cb"><div class="l-kick hd"><span>Continue watching</span>' + (n > 1 ? '<span class="dots">' + list.map(function (x, i) { return '<i class="' + (i === at ? 'on' : '') + '"></i>'; }).join('') + '</span>' : '') + '</div>' +
+      (it.showTitle ? '<div class="sub">S' + esc(it.season) + ' · E' + esc(it.episode) + ' · ' + esc(it.title) + '</div>' : '') +
+      '<div class="l-bar"><i style="width:' + pct + '%"></i></div>' +
+      '<div class="l-times"><span>' + esc([it.year, left > 0 ? runtime(left) + (it.viewOffset ? ' left' : '') : ''].filter(Boolean).join(' · ')) + '</span><span>' + (left > 0 ? 'ends ' + endsAt(left) : '') + '</span></div>' +
+      '<div class="rs"><button type="button" class="go" data-a="cwplay" data-v="1">' + playIcon(22) + (it.viewOffset ? 'Resume' : 'Play') + '</button>' +
+      (it.viewOffset > 0 ? '<button type="button" class="gh" data-a="cwplay" data-v="0" aria-label="Start over">' + icon('back', 24, 2.2) + '</button>' : '') + '</div></div></section>';
+  }
+
+  // Scenes in landscape: three across, Sleep beside them, All off as the last tile.
+  function scenesLand() {
+    var tracked = st('input_select.theater_scene');
+    var hasActive = roomOn() ? SCENE_OF[tracked && tracked.state] : undefined;
+    if (picked && (picked.name === hasActive || Date.now() - picked.at > 60000)) picked = null;
+    var active = picked ? picked.name : hasActive;
+    var list = SCENES.filter(function (sc) { return !kids() || ['pre_show', 'movie_time'].indexOf(sc.name) < 0; });
+    var tiles = list.map(function (sc) {
+      return '<button type="button" class="l-tile' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 24) + '<b>' + sc.label + '</b><s>' + sc.desc + '</s></button>';
+    });
+    if (roomOn()) tiles.push('<button type="button" class="l-tile' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 24) + '<b>Sleep</b><s>' + sleepText() + '</s></button>');
+    if (roomOn() || gaming()) tiles.push('<button type="button" class="l-tile off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 24) + '<b>' + (isArmed('alloff') ? 'Tap again' : 'All off') + '</b><s>' + (isArmed('alloff') ? 'to turn off' : 'Ends the night') + '</s></button>');
+    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-tiles">' + tiles.join('') + '</div></section>';
+  }
+
+  function homeLand() {
+    var deck = load('deck', function () { return get('/api/plex/ondeck?size=12'); }).v;
+    var recent = load('recent', function () { return get('/api/plex/recent?size=24'); }).v;
+    var seen = {};
+    var added = recent ? recent.filter(function (m) { var k = m.showTitle || m.id; if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 14) : recent;
+    var d = new Date();
+    var part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
+    var k = kids();
+    return [
+      ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
+      ['h-np', nowPlaying(false), 'L'],
+      ['h-apps', appsRow(), 'L'],
+      ['h-new', shelf('Just added', '<button type="button" class="l-link" data-a="tab" data-v="watch">Browse</button>', kidsFilter(added).list, 'Nothing new.'), 'L'],
+      ['h-dev', k ? '' : devices(), 'L'],
+      ['h-deck', continueCard(kidsFilter(deck).list, k), 'R'],
+      ['h-scenes', scenesLand(), 'R'],
+      ['h-blind', k ? '' : blind(), 'R'],
+    ];
+  }
+
+  // Games in landscape with the Xbox on: like the hallway board's Game time. The game's poster on
+  // the left, what's playing, for how long and the achievements, volume, Xbox home and All off,
+  // and the other games in a row underneath.
+  function gamesLand(c) {
+    MODE = 'gplay';
+    var e = S.entities;
+    var a = attrs(c.nowSt);
+    var base = String(e.xboxArt || '').replace(/_superhero_art$/, '');
+    var pid = base && base !== e.xboxArt ? base + '_poster' : null;
+    var pst = st(pid);
+    var pic = c.playing && pst && attrs(pst).entity_picture ? '/api/ha-image?e=' + encodeURIComponent(pid) + '&v=' + encodeURIComponent(attrs(pst).entity_picture) + '&s=' + encodeURIComponent(pst.state || '') : null;
+    var frac = function (v) { var mm = String(v || '').match(/(\d+)\s*\/\s*(\d+)/); return mm ? [Number(mm[1]), Number(mm[2])] : null; };
+    var ach = frac(a.achievements), score = frac(a.gamerscore);
+    var pct = isFinite(c.progress) ? c.progress : ach && ach[1] ? (ach[0] / ach[1]) * 100 : null;
+    var since = c.playing && c.nowSt && c.nowSt.last_changed ? Math.max(0, (Date.now() - Date.parse(c.nowSt.last_changed)) / 1000) : null;
+    var played = since == null ? '' : since >= 3600 ? Math.floor(since / 3600) + 'h ' + Math.floor((since % 3600) / 60) + 'm' : Math.floor(since / 60) + 'm';
+    var genres = Array.isArray(c.genres) ? c.genres.join(', ') : c.genres;
+    var sub = c.playing ? '' : c.offInput ? (c.k ? 'The Denon is on the Chromecast · tap a game below to switch to it' : 'The Denon is on the Chromecast · switch Source to Xbox below') : 'Pick a game below, or use the controller';
+    var all = c.games.concat(c.apps);
+    var head = '<div class="l-nh"><div class="tx"><div class="l-kick"><span class="l-gpill">' + icon('pad', 16) + 'Xbox</span>' + (c.playing ? 'Game' + (genres ? ' · ' + esc(genres) : '') : 'On') + '</div>' +
+      '<h1>' + esc(c.playing || (c.offInput ? 'Not on screen' : 'Xbox home')) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
+      (c.playing && a.short_description ? '<p class="syn">' + esc(a.short_description) + '</p>' : '') + '</div>' +
+      (played ? '<div class="ends"><span>Playing for</span><b>' + played + '</b></div>' : '') + '</div>' +
+      (c.playing && pct != null ? '<div class="l-bar"><i style="width:' + Math.min(100, pct) + '%"></i></div><div class="l-times"><span>' + (ach ? 'Achievements ' + ach[0] + ' / ' + ach[1] : '') + '</span><span>' + (score ? 'Gamerscore ' + score[0] + ' / ' + score[1] : '') + '</span></div>' : '');
+    return [
+      ['g-poster', '<div class="l-npost game"><div class="band">' + icon('pad', 18) + 'Xbox · game</div>' +
+        '<div class="fb"><div class="tt">' + icon('pad', 64, 1.6) + '</div></div>' +
+        (pic ? '<div class="blur" style="background-image:url(\'' + esc(pic) + '\')"></div><img class="pic" src="' + esc(pic) + '" alt="">' : '') + '</div>'],
+      ['g-head', head],
+      ['g-vol', isUp(c.avr) ? '<div class="l-tp">' + volSlider(c.avr) + '</div>' : ''],
+      ['g-keys', '<div class="l-keys k2 g"><button type="button" data-a="xhome">' + icon('pad', 20) + 'Xbox home</button>' +
+        '<button type="button" class="off' + (isArmed('galloff') ? ' armed' : '') + '" data-a="galloff">' + icon('power', 20) + (isArmed('galloff') ? 'Tap again' : 'All off') + '</button></div>'],
+      ['g-switch', '<div class="l-h2"><h2>Switch game</h2></div>' + (c.libErr && !c.lib ? '<div class="l-empty">' + esc(c.libErr.message) + '</div>'
+        : '<div class="l-gscroll">' + all.map(function (g) { return gTile(g, c.current && c.current.id === g.id); }).join('') + '</div>')],
+      ['g-src', isUp(c.avr) && !c.k && c.offInput ? source(c.avr) : ''],
+    ];
   }
 
   // ---------- the title sheet and the PIN pad ----------
@@ -778,7 +1045,7 @@
   var $sheet = document.getElementById('sheet');
   var $toast = document.getElementById('toast');
   var $offline = document.getElementById('offline');
-  var built = { tab: null, slots: {} };
+  var built = { tab: null, shape: null, slots: {} };
   var last = {};
   function setHtml(el, key, html) {
     if (last[key] === html) return;
@@ -794,27 +1061,37 @@
   function draw() {
     follow();
     var tab = U.tab === 'games' && !hasXbox() ? 'home' : U.tab;
+    MODE = '';
     var slots = tab === 'watch' ? watchSlots() : tab === 'remote' ? remoteSlots() : tab === 'games' ? gamesSlots() : homeSlots();
-    if (built.tab !== tab) {
-      built.tab = tab;
+    // The page is rebuilt when the set of slots changes (another tab, turning the iPad, a film
+    // starting); otherwise only the slots whose markup changed are redrawn.
+    var shape = tab + '|' + slots.map(function (s) { return s[0] + (s[2] || ''); }).join(',');
+    if (built.shape !== shape) {
+      var newTab = built.tab !== tab;
+      built.tab = tab; built.shape = shape;
       built.slots = {};
-      $page.innerHTML = slots.map(function (s) { return '<div id="' + s[0] + '"></div>'; }).join('');
+      var div = function (s) { return '<div id="' + s[0] + '"></div>'; };
+      var col = function (c) { return slots.filter(function (s) { return s[2] === c; }).map(div).join(''); };
+      $page.innerHTML = slots.filter(function (s) { return !s[2]; }).map(div).join('') +
+        (slots.some(function (s) { return s[2]; }) ? '<div class="l-cols"><div class="l-col">' + col('L') + '</div><div class="l-col">' + col('R') + '</div></div>' : '');
       slots.forEach(function (s) { built.slots[s[0]] = document.getElementById(s[0]); delete last[s[0]]; });
-      window.scrollTo(0, 0);
+      if (newTab) window.scrollTo(0, 0);
     }
     slots.forEach(function (s) { setHtml(built.slots[s[0]], s[0], s[1]); });
     var tabs = [['home', 'Home', 'home'], ['watch', 'Watch', 'film']];
     if (hasXbox()) tabs.push(['games', 'Games', 'pad']);
-    tabs.push(['remote', 'Remote', 'remote']);
-    setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join(''));
+    // In landscape the Remote tab is Now Showing while something plays.
+    tabs.push(['remote', LAND && media().active ? 'Now' : 'Remote', 'remote']);
+    setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join('') +
+      (LAND ? '<div class="l-railb">' + badge() + '</div>' : ''));
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = U.sheet || U.pin || U.sleepPick ? 'locked' : '';
+    document.body.className = [U.sheet || U.pin || U.sleepPick ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
 
   function setTab(t) {
-    if (t === 'home' && U.tab !== 'home') { forget('deck'); forget('recent'); }
+    if (t === 'home' && U.tab !== 'home') { forget('deck'); forget('recent'); CW = 0; }
     if (t === 'games') forget('xbox');
     if (t === U.tab) window.scrollTo(0, 0);
     U.tab = t;
@@ -878,13 +1155,56 @@
     if (h && ev.cancelable) ev.preventDefault();
     held = false;
   }
-  document.addEventListener('touchstart', function (ev) { lastTouch = Date.now(); onDown(ev); }, true);
-  document.addEventListener('touchend', function (ev) { lastTouch = Date.now(); onUp(ev); }, true);
-  document.addEventListener('touchcancel', function () { clearTimeout(holdTimer); }, true);
+  // Continue watching swipes left and right (landscape). The tap that ends a swipe is not a tap.
+  var swipe = null;
+  var swallowUntil = 0;
+  function swipeEnd(x, y) {
+    var w = swipe;
+    swipe = null;
+    if (!w) return;
+    var dx = x - w.x;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(y - w.y)) return;
+    CW += dx < 0 ? 1 : -1;
+    swallowUntil = Date.now() + 500;
+    paint();
+  }
+  document.addEventListener('touchstart', function (ev) {
+    lastTouch = Date.now(); onDown(ev);
+    var t = ev.touches[0];
+    if (vsStart(ev, t.clientX)) return;
+    swipe = ev.target.closest && ev.target.closest('[data-sw]') ? { x: t.clientX, y: t.clientY } : null;
+  }, true);
+  document.addEventListener('touchend', function (ev) {
+    lastTouch = Date.now(); onUp(ev);
+    if (vsDrag) { vsEnd(); if (ev.cancelable) ev.preventDefault(); return; }
+    var t = ev.changedTouches[0];
+    if (t) swipeEnd(t.clientX, t.clientY);
+  }, true);
+  document.addEventListener('touchcancel', function () { clearTimeout(holdTimer); swipe = null; vsEnd(); }, true);
   // A finger that moves is scrolling, not holding.
   document.addEventListener('touchmove', function () { clearTimeout(holdTimer); }, { capture: true, passive: true });
-  document.addEventListener('mousedown', function (ev) { if (Date.now() - lastTouch > 800) onDown(ev); }, true);
-  document.addEventListener('mouseup', function (ev) { if (Date.now() - lastTouch > 800) onUp(ev); }, true);
+  // Dragging the volume slider must not scroll the page.
+  document.addEventListener('touchmove', function (ev) { if (!vsDrag) return; if (ev.cancelable) ev.preventDefault(); vsMove(ev.touches[0].clientX); }, { capture: true, passive: false });
+  document.addEventListener('mousedown', function (ev) {
+    if (Date.now() - lastTouch <= 800) return;
+    onDown(ev);
+    if (vsStart(ev, ev.clientX)) return;
+    swipe = ev.target.closest && ev.target.closest('[data-sw]') ? { x: ev.clientX, y: ev.clientY } : null;
+  }, true);
+  document.addEventListener('mousemove', function (ev) { if (vsDrag) vsMove(ev.clientX); }, true);
+  document.addEventListener('mouseup', function (ev) {
+    if (Date.now() - lastTouch <= 800) return;
+    onUp(ev);
+    if (vsDrag) { vsEnd(); return; }
+    swipeEnd(ev.clientX, ev.clientY);
+  }, true);
+  // Turning the iPad switches between the portrait and landscape layouts.
+  function orient() {
+    var l = window.innerWidth > window.innerHeight;
+    if (l !== LAND) { LAND = l; paint(); }
+  }
+  window.addEventListener('resize', orient);
+  window.addEventListener('orientationchange', function () { setTimeout(orient, 300); });
   document.addEventListener('keydown', function () { touched = Date.now(); }, true);
   document.addEventListener('contextmenu', function (ev) { if (ev.target.closest && ev.target.closest('[data-hold]')) ev.preventDefault(); });
   // Broken artwork falls back to the title underneath it.
@@ -981,6 +1301,8 @@
         toast(r.mode ? (r.mode === 'end' ? 'The cinema turns off when the film ends' : 'The cinema turns off in ' + r.minutes + ' minutes') : 'Sleep timer off');
       }).catch(function (e) { toast(e.message, true); });
     },
+    cw: function (v) { CW += Number(v); paint(); },
+    cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
     pindel: function () { if (U.pin) { U.pin.pin = U.pin.pin.slice(0, -1); paint(); } },
@@ -991,6 +1313,7 @@
     },
   };
   document.addEventListener('click', function (ev) {
+    if (Date.now() < swallowUntil) { ev.preventDefault(); return; }
     var el = ev.target.closest && ev.target.closest('[data-a]');
     if (!el || el.disabled) return;
     // A sheet's backdrop closes it only when the tap lands on the backdrop itself.
