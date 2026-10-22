@@ -461,7 +461,7 @@
       ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
       ['h-np', nowPlaying(false)],
       ['h-apps', appsRow()],
-      ['h-deck', shelf('Continue', '', kidsFilter(deck).list, k ? 'Nothing for kids mode here.' : 'Nothing in progress.')],
+      ['h-deck', continueCard(kidsFilter(deck).list, k, true)],
       ['h-scenes', scenes()],
       ['h-blind', k ? '' : blind()],
     ];
@@ -705,7 +705,7 @@
   }
 
   // ---------- landscape ----------
-  // Slots with a third entry ('L' or 'R') go into the left or right column (see draw()).
+  // Slots with a third entry ('group:column') go into a row of columns (see draw()).
 
   // What the Denon is decoding (web/lib/sound.mjs): Atmos coming through, or stereo only.
   function soundFormat(raw) {
@@ -862,25 +862,35 @@
 
   // Continue watching, as on the hallway board: one title at a time with its artwork, swipe or
   // the arrows to move through them, Resume and Start over. A tap on the artwork opens its page.
-  function continueCard(list, k) {
+  // `wide`: the full-width card (art on the left, title, synopsis and buttons beside it), used
+  // when nothing is playing; otherwise the compact card beside Now playing. The artwork is the
+  // film's wide backdrop (16:9, as its box), or the poster shown whole over a blurred copy.
+  function continueCard(list, k, wide) {
     var head = '<div class="l-h2"><h2>Continue</h2></div>';
     if (!list) return head + '<div class="l-empty">Loading…</div>';
     if (!list.length) return head + '<div class="l-empty">' + (k ? 'Nothing for kids mode here.' : 'Nothing in progress.') + '</div>';
     var n = list.length;
     var at = ((CW % n) + n) % n;
     var it = list[at];
+    var name = nameOf(it);
     var left = (it.duration || 0) - (it.viewOffset || 0);
     var pct = it.duration ? Math.min(100, Math.round(((it.viewOffset || 0) / it.duration) * 100)) : 0;
-    var pic = it.art || it.still || it.poster;
+    var backdrop = it.art || it.still;
     REG.cw = it;
-    return '<section class="l-cw" data-sw="cw"><button type="button" class="art" data-a="open" data-id="' + reg(it) + '">' +
-      '<span class="fb">' + esc(nameOf(it)) + '</span>' + (pic ? '<img src="' + esc(imgSrc(pic)) + '" alt="">' : '') + '<span class="sh"></span><span class="nm">' + esc(nameOf(it)) + '</span></button>' +
+    var pic = backdrop ? '<img class="cv" src="' + esc(imgSrc(backdrop)) + '" alt="">'
+      : it.poster ? '<span class="bl" style="background-image:url(\'' + esc(imgSrc(it.poster)) + '\')"></span><img class="ct" src="' + esc(imgSrc(it.poster)) + '" alt="">' : '';
+    var art = '<div class="aw"><button type="button" class="art" data-a="open" data-id="' + reg(it) + '"><span class="fb">' + esc(name) + '</span>' + pic +
+      (wide ? '' : '<span class="sh"></span><span class="nm">' + esc(name) + '</span>') + '</button>' +
       (n > 1 ? '<span class="cnt">' + (at + 1) + ' / ' + n + '</span><button type="button" class="ar l" data-a="cw" data-v="-1" aria-label="Previous">' + icon('left', 26, 2.4) + '</button>' +
-        '<button type="button" class="ar r" data-a="cw" data-v="1" aria-label="Next">' + icon('chev', 26, 2.4) + '</button>' : '') +
+        '<button type="button" class="ar r" data-a="cw" data-v="1" aria-label="Next">' + icon('chev', 26, 2.4) + '</button>' : '') + '</div>';
+    var sub = it.showTitle ? 'S' + it.season + ' · E' + it.episode + ' · ' + it.title : wide ? [it.year, it.contentRating].filter(Boolean).join(' · ') : '';
+    return '<section class="l-cw' + (wide ? ' wide' : '') + '" data-sw="cw">' + art +
       '<div class="cb"><div class="l-kick hd"><span>Continue watching</span>' + (n > 1 ? '<span class="dots">' + list.map(function (x, i) { return '<i class="' + (i === at ? 'on' : '') + '"></i>'; }).join('') + '</span>' : '') + '</div>' +
-      (it.showTitle ? '<div class="sub">S' + esc(it.season) + ' · E' + esc(it.episode) + ' · ' + esc(it.title) + '</div>' : '') +
+      (wide ? '<h3>' + esc(name) + '</h3>' : '') +
+      (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
+      (wide && LAND && it.summary ? '<p class="syn">' + esc(it.summary) + '</p>' : '') +
       '<div class="l-bar"><i style="width:' + pct + '%"></i></div>' +
-      '<div class="l-times"><span>' + esc([it.year, left > 0 ? runtime(left) + (it.viewOffset ? ' left' : '') : ''].filter(Boolean).join(' · ')) + '</span><span>' + (left > 0 ? 'ends ' + endsAt(left) : '') + '</span></div>' +
+      '<div class="l-times"><span>' + esc([wide && !it.showTitle ? '' : it.year, left > 0 ? runtime(left) + (it.viewOffset ? ' left' : '') : ''].filter(Boolean).join(' · ')) + '</span><span>' + (left > 0 ? 'ends ' + endsAt(left) : '') + '</span></div>' +
       '<div class="rs"><button type="button" class="go" data-a="cwplay" data-v="1">' + playIcon(22) + (it.viewOffset ? 'Resume' : 'Play') + '</button>' +
       (it.viewOffset > 0 ? '<button type="button" class="gh" data-a="cwplay" data-v="0" aria-label="Start over">' + icon('back', 24, 2.2) + '</button>' : '') + '</div></div></section>';
   }
@@ -905,14 +915,15 @@
     var d = new Date();
     var part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
     var k = kids();
-    return [
-      ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
-      ['h-np', nowPlaying(false), 'L'],
-      ['h-apps', appsRow(), 'L'],
-      ['h-blind', k ? '' : blind(), 'L'],
-      ['h-deck', continueCard(kidsFilter(deck).list, k), 'R'],
-      ['h-scenes', scenesLand(), 'R'],
-    ];
+    // Nothing playing: Continue watching across the top. A film on: Now playing beside it.
+    // Underneath, always the same row: Apps, Scenes, Blind.
+    var list = kidsFilter(deck).list;
+    var top2 = media().active ? [['h-np', nowPlaying(false), 'up:L'], ['h-deck', continueCard(list, k, false), 'up:R']] : [['h-deck', continueCard(list, k, true)]];
+    return [['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)]].concat(top2, [
+      ['h-apps', appsRow(), 'bot:1'],
+      ['h-scenes', scenesLand(), 'bot:2'],
+      ['h-blind', k ? '' : blind(), 'bot:3'],
+    ]);
   }
 
   // Games in landscape with the Xbox on: like the hallway board's Game time. The game's poster on
@@ -1043,10 +1054,20 @@
       var newTab = built.tab !== tab;
       built.tab = tab; built.shape = shape;
       built.slots = {};
+      // A slot tagged 'group:column' goes into that column of a row of columns (Home in landscape).
       var div = function (s) { return '<div id="' + s[0] + '"></div>'; };
-      var col = function (c) { return slots.filter(function (s) { return s[2] === c; }).map(div).join(''); };
-      $page.innerHTML = slots.filter(function (s) { return !s[2]; }).map(div).join('') +
-        (slots.some(function (s) { return s[2]; }) ? '<div class="l-cols"><div class="l-col">' + col('L') + '</div><div class="l-col">' + col('R') + '</div></div>' : '');
+      var html = '', i = 0;
+      while (i < slots.length) {
+        if (!slots[i][2]) { html += div(slots[i]); i += 1; continue; }
+        var g = slots[i][2].split(':')[0], cols = [], byCol = {};
+        while (i < slots.length && slots[i][2] && slots[i][2].split(':')[0] === g) {
+          var c = slots[i][2].split(':')[1];
+          if (!byCol[c]) { byCol[c] = []; cols.push(c); }
+          byCol[c].push(div(slots[i])); i += 1;
+        }
+        html += '<div class="l-cols l-' + g + ' n' + cols.length + '">' + cols.map(function (c) { return '<div class="l-col">' + byCol[c].join('') + '</div>'; }).join('') + '</div>';
+      }
+      $page.innerHTML = html;
       slots.forEach(function (s) { built.slots[s[0]] = document.getElementById(s[0]); delete last[s[0]]; });
       if (newTab) window.scrollTo(0, 0);
     }
