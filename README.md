@@ -302,7 +302,9 @@ the TV's apps; Netflix profile PINs and the Streamer's own kids profile cover th
 (an iPad Mini 2, say), open **`/lite`**: the same Home, Watch, Games and Remote tabs, kids mode and
 following the room, written in plain script that Safari 12 runs, laid out for a 7.9" screen.
 Held sideways it looks like the hallway board: the tabs down a rail on the left, Home in two
-columns with the Continue watching card, and while a film plays a Now Showing screen (the whole
+columns with the Continue watching card (Home keeps only what a seat needs: Now playing, Apps,
+Continue, Intermission, Lights up, Sleep, All off and the Blind; Pre-show, Movie time, Just added
+and Devices stay on the hallway board and the phone), and while a film plays a Now Showing screen (the whole
 poster, synopsis, transport, a volume slider, D-pad, Intermission and All off; **Panel home** goes
 back to the tabs); the Xbox gets the same with its game poster. Held upright it is the portrait
 layout. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
