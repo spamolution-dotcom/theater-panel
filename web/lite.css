@@ -435,3 +435,37 @@ svg { display: block; flex-shrink: 0; }
 .land .l-pinkeys { grid-gap: 10px; gap: 10px; margin-bottom: 12px; }
 .land .l-pinkeys button { height: 64px; font-size: 28px; }
 .land .l-ask { height: 58px; }
+
+/* Continue watching: the wide card (nothing playing) and the artwork rules for both cards */
+.l-cw .aw { position: relative; }
+.l-cw .art .bl { position: absolute; top: -30px; left: -30px; right: -30px; bottom: -30px; background-size: cover; background-position: center; -webkit-filter: blur(20px) brightness(.45); filter: blur(20px) brightness(.45); }
+.l-cw .art img.ct { object-fit: contain; }
+.l-cw.wide { display: flex; }
+.l-cw.wide { margin-top: 22px; }
+.l-cw.wide .aw { width: 380px; flex-shrink: 0; }
+.l-cw.wide .art { height: 214px; }
+.l-cw.wide .ar { top: 85px; }
+.l-cw.wide .cb { flex: 1; min-width: 0; display: flex; flex-direction: column; padding: 12px 20px; }
+.l-cw.wide .go, .l-cw.wide .gh { height: 50px; }
+.l-cw.wide h3 { font: 800 34px/1 var(--disp); color: #F1E4D2; margin: 8px 0 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-cw.wide .syn { font: 500 14px/1.45 var(--sans); color: var(--muted); margin: 6px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.l-cw.wide .l-bar { margin: 10px 0 6px; }
+.l-cw.wide .rs { margin-top: auto; padding-top: 10px; }
+.land .l-cw.wide .aw { width: 480px; }
+.land .l-cw.wide .art { height: 270px; }
+.land .l-cw.wide .ar { top: 113px; }
+.land .l-cw.wide h3 { font-size: 40px; }
+.land .l-cw.wide { margin-top: 0; }
+.land .l-cw.wide .cb { padding: 14px 20px 12px; }
+.land .l-cw.wide h3 { margin: 6px 0 2px; }
+.land .l-cw.wide .syn { margin-top: 4px; }
+.land .l-cw.wide .l-bar { margin-top: 10px; }
+.land .l-cw.wide .go, .land .l-cw.wide .gh { height: 52px; }
+.land .l-cw.wide .rs { padding-top: 8px; }
+/* Home in landscape: the row of three underneath */
+.l-cols.n3 { grid-template-columns: 1fr 1.25fr 1fr; grid-gap: 0 22px; }
+.l-cols.l-bot { margin-top: 18px; }
+.l-bot .l-apps { grid-template-columns: 1fr 1fr; grid-gap: 12px; gap: 12px; }
+.land .l-bot .l-apps img { width: 84px; height: 84px; border-radius: 18px; }
+.l-bot .l-seg { grid-auto-flow: row; grid-auto-columns: auto; grid-gap: 8px; gap: 8px; }
+.land .l-bot .l-seg button { height: 52px; }
