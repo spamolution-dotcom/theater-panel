@@ -19,9 +19,9 @@
   var MAX_ITEMS = 360;
   var XBOX_INPUT = 'Xbox One';
 
+  // From a seat only these two: the lights go down by themselves when a film starts, and Pre-show
+  // is started from the hallway or a phone.
   var SCENES = [
-    { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
-    { name: 'movie_time', label: 'Movie time', desc: 'Lights down', icon: 'film' },
     { name: 'intermission', label: 'Intermission', desc: 'Pause · lights 30%', icon: 'cup' },
     { name: 'lights_up', label: 'Lights up', desc: 'Lights 100%', icon: 'sun' },
   ];
@@ -390,7 +390,7 @@
     var hasActive = roomOn() ? SCENE_OF[tracked && tracked.state] : undefined;
     if (picked && (picked.name === hasActive || Date.now() - picked.at > 60000)) picked = null;
     var active = picked ? picked.name : hasActive;
-    var list = SCENES.filter(function (sc) { return !kids() || ['pre_show', 'movie_time'].indexOf(sc.name) < 0; });
+    var list = SCENES;
     var off = roomOn() || gaming();
     return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid">' + list.map(function (sc) {
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
@@ -418,23 +418,6 @@
       (sl ? '<button type="button" class="l-play2" data-a="sleeppick" data-v="off">Cancel the timer</button>' : '') + '</div></div>';
   }
 
-  function devices() {
-    var e = S.entities;
-    var avr = st(e.avr), proj = st(e.projectorPower), tv = st(e.appleTv);
-    var vol = Math.round((attrs(avr).volume_level || 0) * 100);
-    var list = [
-      { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
-      { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? 'On · ' + vol : 'Off' },
-      { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: streamerNow(tv, st(e.streamerCast)).name },
-    ];
-    var html = '<section><div class="l-h2"><h2>Devices</h2></div><div class="l-devs">' + list.map(function (d) {
-      var k = 'dev:' + d.id;
-      return '<button type="button" class="l-dev' + (d.ok ? ' ok' : '') + (isArmed(k) ? ' armed' : '') + '" data-a="dev" data-v="' + d.id + '" data-on="' + (d.ok ? 1 : 0) + '" data-name="' + d.name + '">' +
-        icon(d.icon, 28) + '<b>' + d.name + '</b><span>' + esc(isArmed(k) ? 'Tap again' : d.note) + '</span></button>';
-    }).join('') + '</div>';
-    if (isUp(avr)) html += source(avr);
-    return html + '</section>';
-  }
   function source(avr) {
     var src = attrs(avr).source;
     if (wantSource && wantSource === src) wantSource = null;
@@ -471,9 +454,6 @@
   function homeSlots() {
     if (LAND) return homeLand();
     var deck = load('deck', function () { return get('/api/plex/ondeck?size=12'); }).v;
-    var recent = load('recent', function () { return get('/api/plex/recent?size=24'); }).v;
-    var seen = {};
-    var added = recent ? recent.filter(function (m) { var k = m.showTitle || m.id; if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 14) : recent;
     var d = new Date();
     var part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
     var k = kids();
@@ -482,9 +462,7 @@
       ['h-np', nowPlaying(false)],
       ['h-apps', appsRow()],
       ['h-deck', shelf('Continue', '', kidsFilter(deck).list, k ? 'Nothing for kids mode here.' : 'Nothing in progress.')],
-      ['h-new', shelf('Just added', '<button type="button" class="l-link" data-a="tab" data-v="watch">Browse</button>', kidsFilter(added).list, 'Nothing new.')],
       ['h-scenes', scenes()],
-      ['h-dev', k ? '' : devices()],
       ['h-blind', k ? '' : blind()],
     ];
   }
@@ -907,13 +885,13 @@
       (it.viewOffset > 0 ? '<button type="button" class="gh" data-a="cwplay" data-v="0" aria-label="Start over">' + icon('back', 24, 2.2) + '</button>' : '') + '</div></div></section>';
   }
 
-  // Scenes in landscape: three across, Sleep beside them, All off as the last tile.
+  // Scenes in landscape: two by two, Intermission and Lights up, Sleep and All off.
   function scenesLand() {
     var tracked = st('input_select.theater_scene');
     var hasActive = roomOn() ? SCENE_OF[tracked && tracked.state] : undefined;
     if (picked && (picked.name === hasActive || Date.now() - picked.at > 60000)) picked = null;
     var active = picked ? picked.name : hasActive;
-    var list = SCENES.filter(function (sc) { return !kids() || ['pre_show', 'movie_time'].indexOf(sc.name) < 0; });
+    var list = SCENES;
     var tiles = list.map(function (sc) {
       return '<button type="button" class="l-tile' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 24) + '<b>' + sc.label + '</b><s>' + sc.desc + '</s></button>';
     });
@@ -924,9 +902,6 @@
 
   function homeLand() {
     var deck = load('deck', function () { return get('/api/plex/ondeck?size=12'); }).v;
-    var recent = load('recent', function () { return get('/api/plex/recent?size=24'); }).v;
-    var seen = {};
-    var added = recent ? recent.filter(function (m) { var k = m.showTitle || m.id; if (seen[k]) return false; seen[k] = 1; return true; }).slice(0, 14) : recent;
     var d = new Date();
     var part = d.getHours() < 12 ? 'morning' : d.getHours() < 17 ? 'afternoon' : 'evening';
     var k = kids();
@@ -934,11 +909,9 @@
       ['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)],
       ['h-np', nowPlaying(false), 'L'],
       ['h-apps', appsRow(), 'L'],
-      ['h-new', shelf('Just added', '<button type="button" class="l-link" data-a="tab" data-v="watch">Browse</button>', kidsFilter(added).list, 'Nothing new.'), 'L'],
-      ['h-dev', k ? '' : devices(), 'L'],
+      ['h-blind', k ? '' : blind(), 'L'],
       ['h-deck', continueCard(kidsFilter(deck).list, k), 'R'],
       ['h-scenes', scenesLand(), 'R'],
-      ['h-blind', k ? '' : blind(), 'R'],
     ];
   }
 
@@ -1091,7 +1064,7 @@
   }
 
   function setTab(t) {
-    if (t === 'home' && U.tab !== 'home') { forget('deck'); forget('recent'); CW = 0; }
+    if (t === 'home' && U.tab !== 'home') { forget('deck'); CW = 0; }
     if (t === 'games') forget('xbox');
     if (t === U.tab) window.scrollTo(0, 0);
     U.tab = t;
