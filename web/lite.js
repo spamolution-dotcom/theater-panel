@@ -154,7 +154,7 @@
   var bootBuild = null;
   var staleBuild = false;
   function loadSettings() {
-    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
+    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.albumStatus = (s.albumColours && s.albumColours.status) || ''; S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
   }
   function startLive() {
     loadSettings();
@@ -174,7 +174,7 @@
       });
       es.addEventListener('seat', function (e) { S.seat = JSON.parse(e.data); paint(); });
       es.addEventListener('sleep', function (e) { var d = JSON.parse(e.data); S.sleep = d.mode ? d : null; paint(); });
-      es.addEventListener('albumColours', function (e) { S.albumColours = Boolean(JSON.parse(e.data).on); paint(); });
+      es.addEventListener('albumColours', function (e) { var d = JSON.parse(e.data); S.albumColours = Boolean(d.on); S.albumStatus = d.status || ''; paint(); });
       es.addEventListener('sessions', function (e) { S.sessions = JSON.parse(e.data) || []; S.sessionsAt = Date.now(); paint(); });
       es.addEventListener('settings', loadSettings);
       es.onerror = function () {
@@ -764,8 +764,19 @@
     // A light's slider: 0 turns it off, except in kids mode, where it stops at 1 %.
     var min = vsDrag.indexOf('light:') === 0 && kids() ? 1 : 0;
     VS = { kind: vsDrag, pct: Math.round(Math.max(min, Math.min(max, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
-    paint();
+    // Move the thumb straight away; a full redraw on every finger move was slow on the old iPad.
+    var fill = tr.querySelector('i'), knob = tr.querySelector('b');
+    if (fill) fill.style.width = VS.pct + '%';
+    if (knob) knob.style.left = VS.pct + '%';
+    var label = tr.parentNode.querySelector('.v');
+    if (label && vsDrag === 'avr') label.textContent = String(VS.pct);
+    // A light follows the finger (a few times a second), not just when it lets go.
+    if (vsDrag.indexOf('light:') === 0 && VS.pct > 0 && Date.now() - vsSent > 350) {
+      vsSent = Date.now();
+      act({ action: 'light', entity_id: vsDrag.slice(6), brightness_pct: VS.pct });
+    }
   }
+  var vsSent = 0;
   function vsStart(ev, x) {
     var el = ev.target.closest && ev.target.closest('[data-vs]');
     if (!el) return false;
@@ -781,6 +792,7 @@
     if (kind === 'music') act({ action: 'music', cmd: 'volume', level: VS.pct / 100, entity_id: musicPlayer() });
     else if (kind.indexOf('light:') === 0) act(VS.pct ? { action: 'light', entity_id: kind.slice(6), brightness_pct: VS.pct } : { action: 'light', entity_id: kind.slice(6), on: false });
     else act({ action: 'cinema', cmd: 'volume', value: VS.pct });
+    paint();
     setTimeout(paint, 4100);
   }
 
@@ -1140,7 +1152,7 @@
     }).join('');
     return '<div class="l-back" data-a="ltclose" data-self="1"><div class="l-sheet l-lights"><div class="grab"></div>' +
       '<div class="hd"><h3>Lights</h3><button type="button" class="ag" data-a="aisle">' + icon('bulb', 20) + 'Aisle glow</button></div>' + rows +
-      '<button type="button" class="l-acol card" data-a="acol"><span class="tx"><b>Album colours</b><s>While music plays, the lights take the colours of the album cover</s></span>' + toggle(S.albumColours) + '</button>' +
+      '<button type="button" class="l-acol card" data-a="acol"><span class="tx"><b>Album colours</b><s>' + esc(S.albumColours && S.albumStatus ? S.albumStatus : 'While music plays, the lights take the colours of the album cover') + '</s></span>' + toggle(S.albumColours) + '</button>' +
       '</div></div>';
   }
   function moodsSheet(id) {
