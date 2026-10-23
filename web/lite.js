@@ -15,7 +15,7 @@
 
   var SEAT = new URLSearchParams(location.search).get('seat') !== '0';
   var IDLE_MS = 3 * 60e3;    // untouched this long: back to the tab that fits what's on
-  var SWITCH_MS = 60e3;      // a change (Xbox on, a film playing) moves the page if untouched this long
+  var SWITCH_MS = 60e3;      // a change (Xbox on, a film playing) moves the page within this long
   var PAGE = 36;
   var MAX_ITEMS = 360;
   var XBOX_INPUT = 'Xbox One';
@@ -1216,12 +1216,26 @@
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
   }
+  // A change (a film starting or stopping, the Xbox, music) moves the page straight away if the
+  // iPad has been left alone a minute; if someone was using it, a minute after the change at the
+  // latest, as soon as no finger is on it and nobody is typing.
+  var changedAt = 0;
   function follow() {
     if (!SEAT) return;
     var mode = gaming() ? 'xbox' : media().active ? 'playing' : musicOn() ? 'music' : roomOn() ? 'on' : 'off';
-    if (prevMode !== null && mode !== prevMode && mode !== 'off' && Date.now() - touched >= SWITCH_MS) setTimeout(goHome, 0);
+    if (prevMode !== null && mode !== prevMode) {
+      if (mode === 'off') changedAt = 0;
+      else if (Date.now() - touched >= SWITCH_MS) { changedAt = 0; setTimeout(goHome, 0); }
+      else changedAt = Date.now();
+    }
     prevMode = mode;
   }
+  function typing() { var a = document.activeElement; return Boolean(a && a.tagName === 'INPUT'); }
+  setInterval(function () {
+    if (!SEAT || !changedAt || Date.now() - changedAt < SWITCH_MS || Date.now() - touched < 3000 || typing()) return;
+    changedAt = 0;
+    if (U.tab !== target()) goHome();
+  }, 2000);
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
     if (U.sheet || U.pin || U.sleepPick || U.tab !== target() || window.pageYOffset > 0) goHome();
