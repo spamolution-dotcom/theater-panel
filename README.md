@@ -313,7 +313,11 @@ back to the tabs); the Xbox gets the same with its game poster. A **Music** tab 
 hallway board's Music screen (Music Assistant: what's playing, search, Albums / Playlists /
 Artists / Radio, the queue and which player), and the iPad turns to it when music starts. With music playing and the iPad left alone a minute, a
 screensaver shows what's playing full screen (cover, title, artist, progress, Previous /
-Play-Pause / Next, up next); a tap anywhere else goes to the Music tab. Held upright it is the portrait
+Play-Pause / Next, up next); a tap anywhere else goes to the Music tab. A **Lights** tile on Home (and a
+Lights button on Now Showing) opens the lights: on / off, brightness, Moods for the accents and
+the strip, Aisle glow, and **Album colours**, which has the lights take the colours of each album
+cover while music plays (the server does it, so it works however the music was started). Kids
+mode can dim and pick moods but not turn a light off. Held upright it is the portrait
 layout. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
 Home Screen opens it without the address bar; Guided Access (Settings > Accessibility) keeps it
 there, and Auto-Lock set to Never keeps the screen on. With no reload button, tap the **Home Theater** title on Home

@@ -92,6 +92,7 @@
     blindOpen: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 6.5h14M12 6.5v2.5',
     blindMovie: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M12 13v2.5',
     blindClose: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M5 16h14M5 19h14',
+    bulb: 'M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z',
     shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
     repeat: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
     prev: 'M19 20L9 12l10-8zM5 19V5',
@@ -153,7 +154,7 @@
   var bootBuild = null;
   var staleBuild = false;
   function loadSettings() {
-    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; paint(); }).catch(function () {});
+    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
   }
   function startLive() {
     loadSettings();
@@ -173,6 +174,7 @@
       });
       es.addEventListener('seat', function (e) { S.seat = JSON.parse(e.data); paint(); });
       es.addEventListener('sleep', function (e) { var d = JSON.parse(e.data); S.sleep = d.mode ? d : null; paint(); });
+      es.addEventListener('albumColours', function (e) { S.albumColours = Boolean(JSON.parse(e.data).on); paint(); });
       es.addEventListener('sessions', function (e) { S.sessions = JSON.parse(e.data) || []; S.sessionsAt = Date.now(); paint(); });
       es.addEventListener('settings', loadSettings);
       es.onerror = function () {
@@ -401,10 +403,12 @@
     var active = picked ? picked.name : hasActive;
     var list = SCENES.filter(function (sc) { return !kids() || sc.name !== 'pre_show'; });
     var off = roomOn() || gaming();
-    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid' + (list.length === 3 ? ' n3' : '') + '">' + list.map(function (sc) {
+    var n = list.length + (hasLights() ? 1 : 0);
+    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid' + (n === 3 ? ' n3' : '') + '">' + list.map(function (sc) {
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
         '<span><b>' + sc.label + '</b><s>' + sc.desc + '</s></span></button>';
     }).join('') +
+      (hasLights() ? '<button type="button" class="l-scn" data-a="lights">' + icon('bulb', 26) + '<span><b>Lights</b><s>' + esc(lightsNote()) + '</s></span></button>' : '') +
       '</div>' +
       (off ? '<button type="button" class="l-alloff' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 22) + (isArmed('alloff') ? 'Tap again to turn everything off' : 'All off') + '</button>' : '') +
       '</section>';
@@ -757,7 +761,9 @@
     var r = tr.getBoundingClientRect();
     if (!r.width) return;
     var max = vsDrag === 'avr' ? VOL_MAX : 100;
-    VS = { kind: vsDrag, pct: Math.round(Math.max(0, Math.min(max, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
+    // A light's slider: 0 turns it off, except in kids mode, where it stops at 1 %.
+    var min = vsDrag.indexOf('light:') === 0 && kids() ? 1 : 0;
+    VS = { kind: vsDrag, pct: Math.round(Math.max(min, Math.min(max, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
     paint();
   }
   function vsStart(ev, x) {
@@ -773,6 +779,7 @@
     if (!VS) return;
     VS.until = Date.now() + 4000;
     if (kind === 'music') act({ action: 'music', cmd: 'volume', level: VS.pct / 100, entity_id: musicPlayer() });
+    else if (kind.indexOf('light:') === 0) act(VS.pct ? { action: 'light', entity_id: kind.slice(6), brightness_pct: VS.pct } : { action: 'light', entity_id: kind.slice(6), on: false });
     else act({ action: 'cinema', cmd: 'volume', value: VS.pct });
     setTimeout(paint, 4100);
   }
@@ -845,7 +852,8 @@
       return '<div class="p"><div class="ph"><span>' + esc(ini) + '</span>' + (c.photo ? '<img src="' + esc(imgSrc(c.photo)) + '" alt="">' : '') + '</div><span class="nm"><b>' + esc(c.name) + '</b>' + (c.character ? '<s>' + esc(c.character) + '</s>' : '') + '</span></div>';
     }).join('') + '</div>' : '';
     return [
-      ['n-poster', '<div class="l-npost">' + art + '<button type="button" class="l-phome" data-a="tab" data-v="home">' + icon('home', 20) + 'Panel home</button></div>'],
+      ['n-poster', '<div class="l-npost">' + art + '<button type="button" class="l-phome" data-a="tab" data-v="home">' + icon('home', 20) + 'Panel home</button>' +
+        (hasLights() ? '<button type="button" class="l-phome lt" data-a="lights">' + icon('bulb', 20) + 'Lights</button>' : '') + '</div>'],
       ['n-head', head],
       ['n-tp', tp],
       ['n-eps', nav],
@@ -921,6 +929,7 @@
     });
     if (roomOn()) tiles.push('<button type="button" class="l-tile' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 24) + '<b>Sleep</b><s>' + sleepText() + '</s></button>');
     if (roomOn() || gaming()) tiles.push('<button type="button" class="l-tile off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 24) + '<b>' + (isArmed('alloff') ? 'Tap again' : 'All off') + '</b><s>' + (isArmed('alloff') ? 'to turn off' : 'Ends the night') + '</s></button>');
+    if (hasLights()) tiles.push('<button type="button" class="l-tile" data-a="lights">' + icon('bulb', 24) + '<b>Lights</b><s>' + esc(lightsNote()) + '</s></button>');
     return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-tiles">' + tiles.join('') + '</div></section>';
   }
 
@@ -1019,6 +1028,7 @@
         '<button type="button" class="pn" data-a="mcmd" data-v="next" aria-label="Next"' + dis + '>' + icon('next', 24) + '</button>' +
         '<button type="button" class="sm' + (rep ? ' on' : '') + '" data-a="mrep" aria-label="Repeat"' + dis + '>' + icon('repeat', 22) + (a.repeat === 'one' ? '<i>1</i>' : '') + '</button></div>' +
       '<div class="l-mvol">' + icon('volm', 22) + '<div class="l-vs" data-vs="music"><div class="tr"><i style="width:' + p + '%"></i><b style="left:' + p + '%"></b></div></div>' + icon('volp', 22) + '</div>' +
+      (hasLights() ? '<button type="button" class="l-acol" data-a="acol">' + icon('bulb', 20) + '<span>Album colours</span>' + toggle(S.albumColours) + '</button>' : '') +
       '</div></section>';
   }
   function musicGrid() {
@@ -1068,6 +1078,86 @@
     return [['m-top', head], ['m-now', musicNow(id)], ['m-search', M_SEARCH], ['m-seg', seg], ['m-grid', musicGrid()], ['m-bot', bot]];
   }
 
+  // ---------- Lights ----------
+  // The hallway board's Lights card for the seat: each light on or off, its brightness (a slider:
+  // tap or drag), and for the accents and the strip their Moods (effects), favourites first then
+  // by mood; Aisle glow; and Album colours (server/albumcolours.mjs). Kids mode can dim and pick
+  // moods but not turn a light off (the server says no too).
+
+  var LIGHT_NAMES = { 'light.media_room_downlights': 'Downlights', 'light.home_theater_accent_lights': 'Accent lights', 'light.home_theater_wled': 'LED strip' };
+  var LIGHT_FILL = { 'light.media_room_downlights': '#B8792F', 'light.home_theater_accent_lights': '#C9772F', 'light.home_theater_wled': '#9C4A1E' };
+  var FX_FAVS = ['Candle Flicker', '2D Hearth', '2D Pacifica', '2D Aurora (Solar Storm)', 'Rolling Fog', '2D Clouds', 'Heartbeat Pulse', 'TwinkleFox'];
+  // name -> family -> a colour preview (web/lib/effects.mjs has the animated ones).
+  var FX_FAMILIES = [
+    [/rainbow|colorloop/i, 'rainbow'], [/hearth|ember|fire(?!fly)|flame|candle|lava|torch/i, 'fire'], [/radial flicker/i, 'fire'],
+    [/pacifica|ocean|wave|water|lagoon|current|rain|drip|ripple|bubble/i, 'water'], [/aurora|noise drift|nebula|galaxy|sky|plasma/i, 'aurora'],
+    [/twinkle|star|fairy|glitter|sparkle|snow|firefly|orbit|flock|chunchun/i, 'stars'], [/fog|cloud|smoke|mist|breathe|glow|soft|weather/i, 'fog'],
+    [/disco|party|dance|strobe|blink|colorful|random|dynamic|dissolve|confetti|firework|halloween|eyes|police|traffic/i, 'party'],
+    [/heartbeat|pulse|beat|flicker|blend|android|metronome/i, 'pulse'],
+    [/chase|sweep|runner|running|wipe|saw|juggle|tetrix|comet|meteor|sinelon|scan|marquee|radar|lighthouse|pinwheel|shockwave|pac-?man/i, 'motion'],
+  ];
+  var FX_LOOK = { rainbow: '#ff4d4d,#ffd24d,#4dff88,#4db8ff,#b84dff', fire: '#ffb347,#e2541c,#7a1e0a', water: '#1f6fb0,#3fd0c8', aurora: '#2fd08a,#6a3fd0',
+    stars: '#f0d070,#3a2a8a', fog: '#8a9aa8,#3a4450', party: '#ff4fa0,#ffd24d,#4fd0ff', pulse: '#e0304a,#5a0a18', motion: '#e0a030,#3a2a1a', glow: '#e3a865,#7a4a20' };
+  var FX_MOODS = [['Calm', ['fog', 'glow', 'water']], ['Fire', ['fire']], ['Sky', ['aurora']], ['Stars', ['stars']], ['Motion', ['motion', 'pulse']], ['Party', ['party', 'rainbow']]];
+  function fxFamily(name) { for (var i = 0; i < FX_FAMILIES.length; i++) if (FX_FAMILIES[i][0].test(name || '')) return FX_FAMILIES[i][1]; return 'glow'; }
+  function fxLook(name) { return 'linear-gradient(90deg,' + FX_LOOK[fxFamily(name)] + ')'; }
+  function lightIds() { return (S.entities.lights || []).filter(function (id) { return st(id); }); }
+  function hasLights() { return lightIds().length > 0; }
+  function lightName(id) { return LIGHT_NAMES[id] || String(attrs(st(id)).friendly_name || id); }
+  function lightPct(id) {
+    if (VS && VS.kind === 'light:' + id && VS.until > Date.now()) return VS.pct;
+    var x = st(id);
+    return x && x.state === 'on' ? Math.round(((attrs(x).brightness || 0) / 255) * 100) : 0;
+  }
+  // The effects a light offers: the accents' named moods; the strip keeps to those too when it has
+  // them (WLED ships a couple of hundred of its own).
+  function lightEffects(id) {
+    var all = (attrs(st(id)).effect_list || []).filter(function (e) { return e !== 'None' && !/^Calibrate/i.test(e); });
+    var accent = lightIds().filter(function (x) { return /accent/.test(x); })[0];
+    var named = accent && accent !== id ? attrs(st(accent)).effect_list || [] : [];
+    var kept = named.length ? all.filter(function (e) { return named.indexOf(e) >= 0; }) : [];
+    return kept.length ? kept : all;
+  }
+  function lightEffect(id) { var a = attrs(st(id)); return st(id) && st(id).state === 'on' && a.effect && a.effect !== 'Solid' && a.effect !== 'None' ? a.effect : null; }
+  function lightsNote() {
+    var on = lightIds().filter(function (id) { return st(id).state === 'on'; });
+    if (!on.length) return 'All off';
+    var first = on[0];
+    return lightName(first) + ' ' + lightPct(first) + '%';
+  }
+  function toggle(on) { return '<span class="l-sw' + (on ? ' on' : '') + '"><i></i></span>'; }
+  function lightsSheet() {
+    var rows = lightIds().map(function (id) {
+      var x = st(id), a = attrs(x);
+      var on = x.state === 'on';
+      var pct = lightPct(id);
+      var fx = lightEffect(id);
+      var detail = x.state === 'unavailable' ? 'Unavailable' : !on ? 'Off' : fx ? pct + '% · ' + fx : a.color_mode === 'color_temp' && a.color_temp_kelvin ? pct + '% · ' + a.color_temp_kelvin + 'K' : pct + '%';
+      var effects = lightEffects(id);
+      return '<div class="l-lrow"><div class="t"><button type="button" class="nm" data-a="lton" data-v="' + esc(id) + '" data-on="' + (on ? 1 : 0) + '">' + toggle(on) + esc(lightName(id)) + '</button><span class="dt">' + esc(detail) + '</span></div>' +
+        '<div class="l-vs" data-vs="light:' + esc(id) + '"><div class="tr"><i style="width:' + pct + '%;background:' + (LIGHT_FILL[id] || '#B8792F') + '"></i><b style="left:' + pct + '%"></b></div></div>' +
+        (effects.length > 1 ? '<button type="button" class="md" data-a="moodopen" data-v="' + esc(id) + '"><span><i class="pv" style="background:' + fxLook(fx || 'Solid') + '"></i>' + esc(fx || 'Solid') + '</span><small>Moods ›</small></button>' : '') + '</div>';
+    }).join('');
+    return '<div class="l-back" data-a="ltclose" data-self="1"><div class="l-sheet l-lights"><div class="grab"></div>' +
+      '<div class="hd"><h3>Lights</h3><button type="button" class="ag" data-a="aisle">' + icon('bulb', 20) + 'Aisle glow</button></div>' + rows +
+      '<button type="button" class="l-acol card" data-a="acol"><span class="tx"><b>Album colours</b><s>While music plays, the lights take the colours of the album cover</s></span>' + toggle(S.albumColours) + '</button>' +
+      '</div></div>';
+  }
+  function moodsSheet(id) {
+    var effects = lightEffects(id);
+    var cur = lightEffect(id);
+    var favs = (S.favs && S.favs.length ? S.favs : FX_FAVS).filter(function (f) { return effects.indexOf(f) >= 0; }).slice(0, 8);
+    var groups = [['Favourites', favs]].concat(FX_MOODS.map(function (m) { return [m[0], effects.filter(function (e) { return m[1].indexOf(fxFamily(e)) >= 0; })]; }))
+      .filter(function (g) { return g[1].length; });
+    return '<div class="l-back" data-a="ltclose" data-self="1"><div class="l-sheet l-lights moods"><div class="grab"></div>' +
+      '<div class="hd"><div><div class="l-kick">' + esc(lightName(id)) + '</div><h3>Moods</h3></div><button type="button" class="ag" data-a="moodclose">Done</button></div>' +
+      groups.map(function (g) {
+        return '<div class="l-msec">' + g[0] + '<small>' + g[1].length + '</small></div><div class="l-mood-grid">' + g[1].map(function (e) {
+          return '<button type="button" class="' + (e === cur ? 'on' : '') + '" data-a="mood" data-v="' + esc(e) + '" data-id="' + esc(id) + '"><i style="background:' + fxLook(e) + '"></i>' + esc(e) + '</button>';
+        }).join('') + '</div>';
+      }).join('') + '</div></div>';
+  }
+
   // ---------- the music screensaver ----------
   // Music playing and the iPad left alone a minute (any tab): what's playing fills the screen,
   // the cover over a blurred copy of itself, with Previous / Play-Pause / Next. A tap anywhere
@@ -1078,7 +1168,7 @@
     var id = musicPlayer();
     var x = st(id);
     var state = x && x.state;
-    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || typing();
+    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || vsDrag || typing();
     if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
     var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
     var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
@@ -1116,6 +1206,8 @@
 
   function sheetHtml() {
     if (U.sleepPick) return sleepSheet();
+    if (U.moods) return moodsSheet(U.moods);
+    if (U.lights) return lightsSheet();
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -1260,7 +1352,7 @@
     setHtml($ss, 'ss', ssHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [U.sheet || U.pin || U.sleepPick ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1287,7 +1379,7 @@
   function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : musicOn() ? 'music' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
-    U.sleepPick = false;
+    U.sleepPick = false; U.lights = false; U.moods = null;
     if (U.sheet) { U.sheet = null; U.season = null; }
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
@@ -1315,7 +1407,7 @@
   }, 2000);
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
-    if (U.sheet || U.pin || U.sleepPick || U.tab !== target() || window.pageYOffset > 0) goHome();
+    if (U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.tab !== target() || window.pageYOffset > 0) goHome();
     // A new panel build was installed: reload while nobody's using it.
     if (staleBuild) location.reload();
   }, 10e3);
@@ -1506,6 +1598,19 @@
     mrep: function () { var id = musicPlayer(); var r = attrs(st(id)).repeat; act({ action: 'music', cmd: 'repeat', mode: r === 'off' || !r ? 'all' : r === 'all' ? 'one' : 'off', entity_id: id }); },
     mplayer: function (v) { M.player = v; paint(); },
     cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
+    lights: function () { U.lights = true; U.moods = null; paint(); },
+    ltclose: function () { U.lights = false; U.moods = null; paint(); },
+    lton: function (v, el) { act({ action: 'light', entity_id: v, on: el.getAttribute('data-on') !== '1' }); },
+    moodopen: function (v) { U.moods = v; paint(); },
+    moodclose: function () { U.moods = null; paint(); },
+    mood: function (v, el) { var id = el.getAttribute('data-id'); act({ action: 'light_effect', entity_id: id, effect: v }).then(function (r) { if (r) toast(v + ' · ' + lightName(id)); }); },
+    aisle: function () { act({ action: 'aisle_glow' }).then(function (r) { if (r) toast('Aisle glow'); }); },
+    acol: function () {
+      var on = !S.albumColours;
+      S.albumColours = on; paint();
+      post('/api/album-colours', { on: on }).then(function () { toast(on ? 'Album colours on · the lights follow the music' : 'Album colours off'); })
+        .catch(function (e) { S.albumColours = !on; paint(); toast(e.message, true); });
+    },
     ssclose: function () { SS.on = false; touched = Date.now(); setTab('music'); },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
