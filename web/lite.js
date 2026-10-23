@@ -367,8 +367,8 @@
       '<div class="l-np-body">' +
         '<div class="l-kick">' + label + '</div>' +
         '<div class="l-np-title">' + esc(title) + '</div>' +
-        '<div class="l-np-sub">' + esc(info) + '</div>' +
-        (dur && pos != null ? '<div class="l-bar"><i style="width:' + Math.min(100, (pos / dur) * 100) + '%"></i></div>' : '') +
+        '<div class="l-np-sub"' + live('npinfo', info) + '></div>' +
+        (dur && pos != null ? '<div class="l-bar"><i' + live('npprog', Math.min(100, (pos / dur) * 100) + '%') + '></i></div>' : '') +
         '<div class="l-ctl">' +
           '<button type="button" data-a="t" data-v="back10">−10</button>' +
           '<button type="button" class="pp" data-a="t" data-v="play_pause">' + (playing ? pauseIcon(26) : playIcon(26)) + '</button>' +
@@ -1010,8 +1010,8 @@
       '<div class="rt"><div class="l-kick">' + (playing ? 'Now playing' : x && x.state === 'paused' ? 'Paused' : 'Music') + '</div>' +
       '<div class="tt">' + esc(a.media_title || (gone ? 'Player unavailable' : 'Nothing playing')) + '</div>' +
       '<div class="ar">' + esc([a.media_artist, a.media_album_name].filter(Boolean).join(' · ') || playerName(id)) + '</div>' +
-      '<div class="l-bar"><i style="width:' + (dur && pos ? Math.min(100, (pos / dur) * 100) : 0) + '%"></i></div>' +
-      '<div class="l-times"><span>' + mmss(pos) + '</span><span>' + (dur && pos != null ? '-' + mmss(dur - pos) : '') + '</span></div>' +
+      '<div class="l-bar"><i' + live('mprog', (dur && pos ? Math.min(100, (pos / dur) * 100) : 0) + '%') + '></i></div>' +
+      '<div class="l-times"><span' + live('mpos', mmss(pos)) + '></span><span' + live('mleft', dur && pos != null ? '-' + mmss(dur - pos) : '') + '></span></div>' +
       '<div class="l-mctl">' +
         '<button type="button" class="sm' + (a.shuffle ? ' on' : '') + '" data-a="mshuf" aria-label="Shuffle"' + dis + '>' + icon('shuffle', 22) + '</button>' +
         '<button type="button" class="pn" data-a="mcmd" data-v="previous" aria-label="Previous"' + dis + '>' + icon('prev', 24) + '</button>' +
@@ -1135,10 +1135,37 @@
   var $offline = document.getElementById('offline');
   var built = { tab: null, shape: null, slots: {} };
   var last = {};
+  // Redrawing a slot keeps the pictures it already shows: a card that ticks every second (the
+  // music's progress, a film's time left) would otherwise rebuild its cover each time, and Safari
+  // blanks it while it fetches it again (the album art flickered on the Music tab).
   function setHtml(el, key, html) {
     if (last[key] === html) return;
     last[key] = html;
+    var keep = {};
+    Array.prototype.forEach.call(el.querySelectorAll('img'), function (im) {
+      if (im.complete && im.naturalWidth) keep[im.getAttribute('src')] = im;
+    });
     el.innerHTML = html;
+    Array.prototype.forEach.call(el.querySelectorAll('img'), function (im) {
+      var src = im.getAttribute('src');
+      var o = keep[src];
+      if (!o) return;
+      delete keep[src];
+      o.className = im.className;
+      o.style.cssText = im.style.cssText;
+      im.parentNode.replaceChild(o, im);
+    });
+  }
+  // The parts that tick every second (progress bars, times) are filled in after drawing, so the
+  // cards around them, covers and all, are only redrawn when something else changes.
+  var LIVE = {};
+  function live(k, v) { LIVE[k] = v; return ' data-live="' + k + '"'; }
+  function fillLive() {
+    Array.prototype.forEach.call(document.querySelectorAll('[data-live]'), function (el) {
+      var v = LIVE[el.getAttribute('data-live')];
+      if (v == null) return;
+      if (el.tagName === 'I') { if (el.style.width !== v) el.style.width = v; } else if (el.textContent !== v) el.textContent = v;
+    });
   }
   var queued = false;
   function paint() {
@@ -1184,6 +1211,7 @@
     tabs.push(['remote', LAND && media().active ? 'Now' : 'Remote', 'remote']);
     setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join('') +
       (LAND ? '<div class="l-railb">' + badge() + '</div>' : ''));
+    fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
     document.body.className = [U.sheet || U.pin || U.sleepPick ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
