@@ -469,3 +469,71 @@ svg { display: block; flex-shrink: 0; }
 .land .l-bot .l-apps img { width: 84px; height: 84px; border-radius: 18px; }
 .l-bot .l-seg { grid-auto-flow: row; grid-auto-columns: auto; grid-gap: 8px; gap: 8px; }
 .land .l-bot .l-seg button { height: 52px; }
+
+/* ---------- Music ---------- */
+.l-mnow { display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 18px; }
+.l-mnow .cv { position: relative; width: 200px; height: 200px; flex-shrink: 0; margin-right: 20px; border-radius: 16px; overflow: hidden; background: linear-gradient(160deg, #3A2A1F, #1A120D); color: var(--muted); display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 30px rgba(0,0,0,.45); }
+.l-mnow .cv img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.l-mnow .rt { flex: 1; min-width: 0; }
+.l-mnow .tt { font: 700 26px/1.2 var(--sans); margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-mnow .ar { font: 500 16px var(--sans); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-mnow .l-bar { margin: 14px 0 6px; }
+.l-mctl { display: flex; align-items: center; justify-content: space-between; margin-top: 12px; }
+.l-mctl button { position: relative; display: flex; align-items: center; justify-content: center; border-radius: 50%; }
+.l-mctl .sm { width: 48px; height: 48px; color: var(--muted); }
+.l-mctl .sm.on { color: var(--acc); }
+.l-mctl .sm i { position: absolute; right: 6px; bottom: 6px; font: 700 10px var(--sans); font-style: normal; }
+.l-mctl .pn { width: 58px; height: 58px; background: var(--btn); }
+.l-mctl .pp { width: 78px; height: 78px; background: var(--acc); color: #1A0F08; }
+.l-mctl .pn:active { background: var(--on); } .l-mctl .pp:active { background: #F0BE84; }
+.l-mvol { display: flex; align-items: center; margin-top: 14px; color: var(--muted); }
+.l-mvol .l-vs { margin: 0 12px; }
+.l-mvol .l-vs .tr { margin-top: 0; }
+.l-search.m { margin: 18px 0 12px; }
+.l-seg.m button { height: 50px; font-size: 16px; }
+.l-mgrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-gap: 18px 14px; gap: 18px 14px; margin-top: 16px; }
+.l-album { display: block; text-align: left; min-width: 0; }
+.l-album .sq { position: relative; width: 100%; padding-top: 100%; border-radius: 12px; overflow: hidden; background: linear-gradient(160deg, #3A2A1F, #1A120D); color: var(--muted); }
+.l-album .sq svg { position: absolute; top: 50%; left: 50%; margin: -17px 0 0 -17px; }
+.l-album .sq img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.l-album b { display: block; font: 600 15px var(--sans); margin-top: 7px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-album s { display: block; text-decoration: none; font: 500 13px var(--sans); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-mbot { display: grid; grid-template-columns: 1.3fr 1fr; grid-gap: 16px; gap: 16px; margin-top: 18px; }
+.l-mcard { background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 12px 14px; min-width: 0; }
+.l-mcard .hd { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.l-mcard h4 { font: 800 20px var(--disp); text-transform: uppercase; margin: 0; }
+.l-mcard .hd span { font: 600 12px var(--mono); color: var(--muted); }
+.l-mcard .l-empty { padding: 8px 0; font-size: 15px; }
+.l-qrow { display: flex; align-items: center; padding: 5px 0; }
+.l-qrow .ci { width: 38px; height: 38px; flex-shrink: 0; margin-right: 10px; border-radius: 6px; overflow: hidden; background: var(--card2); }
+.l-qrow .ci img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.l-qrow .tx { flex: 1; min-width: 0; }
+.l-qrow b { display: block; font: 600 14px var(--sans); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-qrow s { display: block; text-decoration: none; font: 500 12px var(--sans); color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-qrow em { font: 600 11px var(--mono); font-style: normal; padding: 3px 8px; margin-left: 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+.l-qrow em.ok { border-color: var(--ok-line); color: var(--ok); }
+.l-mpl { display: flex; align-items: center; width: 100%; height: 44px; margin-top: 6px; padding: 0 12px; border-radius: 12px; border: 1px solid var(--line); font: 600 15px var(--sans); color: var(--muted); text-align: left; }
+.l-mpl svg { margin-right: 10px; }
+.l-mpl span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-mpl small { font: 500 12px var(--sans); margin-left: 8px; }
+.l-mpl.on { border-color: var(--acc); background: var(--acc-soft); color: var(--acc); }
+/* Music in landscape: what's playing down the left, the library on the right */
+.l-cols.l-mu { grid-template-columns: 300px minmax(0, 1fr); grid-gap: 0 22px; }
+.land .l-mnow { flex-direction: column; align-items: center; height: 100%; padding: 18px; }
+.land .l-mnow .cv { width: 236px; height: 236px; margin: 0 0 14px; }
+.land .l-mnow .rt { width: 100%; text-align: center; }
+.land .l-mnow .l-kick { display: none; }
+.land .l-mnow .tt { font-size: 22px; }
+.land .l-mnow .ar { font-size: 15px; }
+.land .l-mnow .l-times { text-align: left; }
+.land .l-mctl .sm { width: 40px; height: 40px; }
+.land .l-mctl .pn { width: 52px; height: 52px; }
+.land .l-mctl .pp { width: 72px; height: 72px; }
+.land .l-search.m { height: 50px; margin: 0 0 10px; }
+.land .l-seg.m button { height: 44px; }
+.land .l-mgrid { grid-template-columns: repeat(5, minmax(0, 1fr)); grid-gap: 12px; gap: 12px; margin-top: 12px; height: 292px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.land .l-album b { font-size: 14px; margin-top: 6px; }
+.land .l-album s { font-size: 12px; }
+.land .l-mbot { margin-top: 12px; }
+.land #m-now { height: 100%; }
+.land .l-mu .l-col:first-child { display: flex; flex-direction: column; }

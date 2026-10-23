@@ -8,13 +8,14 @@
 // Held sideways (landscape) it lays out like the hallway board: tabs down a rail on the left, Home
 // in two columns, and while a film plays a Now Showing screen (poster, synopsis, transport,
 // D-pad); the Xbox gets the same with its game poster. Held upright it is the portrait layout.
+// Music (Music Assistant) is a tab of its own, as on the hallway board's Music screen.
 // Same server, same actions as /remote; see web/remote.mjs for the behaviour this mirrors.
 (function () {
   'use strict';
 
   var SEAT = new URLSearchParams(location.search).get('seat') !== '0';
   var IDLE_MS = 3 * 60e3;    // untouched this long: back to the tab that fits what's on
-  var SWITCH_MS = 60e3;      // a change (Xbox on, a film playing) moves the page if untouched this long
+  var SWITCH_MS = 60e3;      // a change (Xbox on, a film playing) moves the page within this long
   var PAGE = 36;
   var MAX_ITEMS = 360;
   var XBOX_INPUT = 'Xbox One';
@@ -90,6 +91,11 @@
     blindOpen: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 6.5h14M12 6.5v2.5',
     blindMovie: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M12 13v2.5',
     blindClose: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 7h14M5 10h14M5 13h14M5 16h14M5 19h14',
+    shuffle: 'M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5',
+    repeat: 'M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3',
+    prev: 'M19 20L9 12l10-8zM5 19V5',
+    next: 'M5 4l10 8-10 8zM19 5v14',
+    spk: 'M6 3h12v18H6zM12 7h.01M12 12a3 3 0 1 0 0 6 3 3 0 0 0 0-6z',
     back: 'M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5',
     cast: 'M3 17a4 4 0 0 1 4 4M3 13a8 8 0 0 1 8 8M3 9.5V6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4',
   };
@@ -244,7 +250,9 @@
     var now = streamerNow(tv, st(e.streamerCast));
     var state = session ? playbackState() : now.state || playbackState();
     var shown = roomOn() && Boolean(session || isUp(tv));
-    var active = shown && (state === 'playing' || state === 'paused') && (Boolean(session) || !now.home);
+    // Music cast to the Streamer is the Music tab's, not a film.
+    var music = !session && now.cast && !castVideo(now.cast);
+    var active = shown && !music && (state === 'playing' || state === 'paused') && (Boolean(session) || !now.home);
     return { e: e, tv: tv, session: session, now: now, state: state, shown: shown, active: active };
   }
 
@@ -724,7 +732,7 @@
   // step, and Mute. While dragging, and for a few seconds after, it shows where the finger left it.
   var VOL_MAX = 75;
   function volNow(avr) {
-    if (VS && VS.until > Date.now()) return VS.pct;
+    if (VS && VS.kind === 'avr' && VS.until > Date.now()) return VS.pct;
     var v = attrs(avr).volume_level;
     return v == null ? null : v * 100;
   }
@@ -735,31 +743,36 @@
     var w = p == null ? 0 : Math.min(100, p);
     return '<div class="l-vrow">' +
       '<button type="button" data-a="t" data-v="vol_down" aria-label="Volume down">−</button>' +
-      '<div class="l-vs" data-vs="1"><div class="k"><span>Volume</span><span class="v">' + (muted ? 'Muted' : p == null ? '–' : Math.round(p * 2) / 2) + '</span></div>' +
+      '<div class="l-vs" data-vs="avr"><div class="k"><span>Volume</span><span class="v">' + (muted ? 'Muted' : p == null ? '–' : Math.round(p * 2) / 2) + '</span></div>' +
         '<div class="tr"><i style="width:' + w + '%"></i><b style="left:' + w + '%"></b></div></div>' +
       '<button type="button" data-a="t" data-v="vol_up" aria-label="Volume up">+</button>' +
       '<button type="button" class="mu' + (muted ? ' on' : '') + '" data-a="mute" data-v="' + (muted ? 0 : 1) + '" aria-label="Mute">' + icon('mute', 24) + '</button></div>';
   }
-  var vsDrag = false;
+  // Two sliders use this: the Denon's ('avr', capped at 75 %) and the music player's ('music').
+  var vsDrag = null;
   function vsMove(x) {
-    var tr = document.querySelector('[data-vs] .tr');
+    var tr = vsDrag && document.querySelector('[data-vs="' + vsDrag + '"] .tr');
     if (!tr) return;
     var r = tr.getBoundingClientRect();
     if (!r.width) return;
-    VS = { pct: Math.round(Math.max(0, Math.min(VOL_MAX, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
+    var max = vsDrag === 'avr' ? VOL_MAX : 100;
+    VS = { kind: vsDrag, pct: Math.round(Math.max(0, Math.min(max, ((x - r.left) / r.width) * 100))), until: Date.now() + 4000 };
     paint();
   }
   function vsStart(ev, x) {
-    if (!(ev.target.closest && ev.target.closest('[data-vs]'))) return false;
-    vsDrag = true; vsMove(x);
+    var el = ev.target.closest && ev.target.closest('[data-vs]');
+    if (!el) return false;
+    vsDrag = el.getAttribute('data-vs'); vsMove(x);
     return true;
   }
   function vsEnd() {
     if (!vsDrag) return;
-    vsDrag = false;
+    var kind = vsDrag;
+    vsDrag = null;
     if (!VS) return;
     VS.until = Date.now() + 4000;
-    act({ action: 'cinema', cmd: 'volume', value: VS.pct });
+    if (kind === 'music') act({ action: 'music', cmd: 'volume', level: VS.pct / 100, entity_id: musicPlayer() });
+    else act({ action: 'cinema', cmd: 'volume', value: VS.pct });
     setTimeout(paint, 4100);
   }
 
@@ -964,6 +977,96 @@
     ];
   }
 
+  // ---------- Music (Music Assistant) ----------
+  // As on the hallway board's Music screen: what's playing with Shuffle, Previous, Play / Pause,
+  // Next, Repeat and the player's volume; search; Albums, Playlists, Artists, Radio (a tap plays
+  // it); the queue; and which player it plays on.
+
+  var M = { tab: 'album', query: '', q: '', player: null };
+  var M_TABS = [['album', 'Albums'], ['playlist', 'Playlists'], ['artist', 'Artists'], ['radio', 'Radio']];
+  function musicPlayers() { return (S.entities.musicPlayers && S.entities.musicPlayers.length ? S.entities.musicPlayers : [S.entities.musicPlayer]).filter(Boolean); }
+  function hasMusic() { return musicPlayers().some(function (id) { return st(id); }); }
+  function musicOn() { return musicPlayers().some(function (id) { var x = st(id); return Boolean(x && x.state === 'playing'); }); }
+  // The player picked, else one that's playing, else the first.
+  function musicPlayer() {
+    var list = musicPlayers();
+    if (M.player && list.indexOf(M.player) >= 0) return M.player;
+    return list.filter(function (id) { var x = st(id); return x && x.state === 'playing'; })[0] || list[0];
+  }
+  function playerName(id) { return String(attrs(st(id)).friendly_name || id).replace(/ player$/i, ''); }
+  function musicNow(id) {
+    var x = st(id);
+    var a = attrs(x);
+    var gone = !x || x.state === 'unavailable';
+    var playing = Boolean(x && x.state === 'playing');
+    var pos = livePosition(x), dur = a.media_duration;
+    var art = a.entity_picture ? '/api/ha-image?e=' + encodeURIComponent(id) + '&v=' + encodeURIComponent(a.entity_picture) : null;
+    var p = VS && VS.kind === 'music' && VS.until > Date.now() ? VS.pct : Math.round((a.volume_level || 0) * 100);
+    var dis = gone ? ' disabled' : '';
+    var rep = a.repeat && a.repeat !== 'off';
+    return '<section class="l-mnow">' +
+      '<div class="cv">' + icon('music', 56, 1.4) + (art ? '<img src="' + esc(art) + '" alt="">' : '') + '</div>' +
+      '<div class="rt"><div class="l-kick">' + (playing ? 'Now playing' : x && x.state === 'paused' ? 'Paused' : 'Music') + '</div>' +
+      '<div class="tt">' + esc(a.media_title || (gone ? 'Player unavailable' : 'Nothing playing')) + '</div>' +
+      '<div class="ar">' + esc([a.media_artist, a.media_album_name].filter(Boolean).join(' · ') || playerName(id)) + '</div>' +
+      '<div class="l-bar"><i style="width:' + (dur && pos ? Math.min(100, (pos / dur) * 100) : 0) + '%"></i></div>' +
+      '<div class="l-times"><span>' + mmss(pos) + '</span><span>' + (dur && pos != null ? '-' + mmss(dur - pos) : '') + '</span></div>' +
+      '<div class="l-mctl">' +
+        '<button type="button" class="sm' + (a.shuffle ? ' on' : '') + '" data-a="mshuf" aria-label="Shuffle"' + dis + '>' + icon('shuffle', 22) + '</button>' +
+        '<button type="button" class="pn" data-a="mcmd" data-v="previous" aria-label="Previous"' + dis + '>' + icon('prev', 24) + '</button>' +
+        '<button type="button" class="pp" data-a="mcmd" data-v="play_pause" aria-label="' + (playing ? 'Pause' : 'Play') + '"' + dis + '>' + (playing ? pauseIcon(30) : playIcon(30)) + '</button>' +
+        '<button type="button" class="pn" data-a="mcmd" data-v="next" aria-label="Next"' + dis + '>' + icon('next', 24) + '</button>' +
+        '<button type="button" class="sm' + (rep ? ' on' : '') + '" data-a="mrep" aria-label="Repeat"' + dis + '>' + icon('repeat', 22) + (a.repeat === 'one' ? '<i>1</i>' : '') + '</button></div>' +
+      '<div class="l-mvol">' + icon('volm', 22) + '<div class="l-vs" data-vs="music"><div class="tr"><i style="width:' + p + '%"></i><b style="left:' + p + '%"></b></div></div>' + icon('volp', 22) + '</div>' +
+      '</div></section>';
+  }
+  function musicGrid() {
+    var c = M.q ? load('ms:' + M.q, function () { return get('/api/music/search?q=' + encodeURIComponent(M.q)).then(function (r) { return [].concat(r.albums || [], r.playlists || [], r.artists || [], r.tracks || [], r.radio || []).slice(0, 30); }); })
+      : load('ml:' + M.tab, function () { return get('/api/music/library?type=' + M.tab + '&limit=30'); });
+    var list = c.v;
+    var body;
+    if (c.err && !list) body = '<div class="l-empty wide">' + esc(c.err.message) + '</div>';
+    else if (!list) body = '<div class="l-empty wide">Loading…</div>';
+    else if (!list.length) body = '<div class="l-empty wide">' + (M.q ? 'Nothing found.' : 'Nothing here.') + '</div>';
+    else body = list.map(function (m, i) {
+      var k = 'm:' + i + ':' + m.uri;
+      REG[k] = m;
+      return '<button type="button" class="l-album" data-a="mplay" data-id="' + esc(k) + '"><div class="sq">' + icon('music', 34, 1.4) + (m.image ? '<img src="' + esc(imgSrc(m.image)) + '" alt="">' : '') + '</div>' +
+        '<b>' + esc(m.name) + '</b><s>' + esc(m.artist || m.type || '') + '</s></button>';
+    }).join('');
+    return '<div class="l-mgrid">' + body + '</div>';
+  }
+  function musicQueueHtml(id) {
+    var title = attrs(st(id)).media_title || '';
+    var q = load('mq:' + id + ':' + title, function () { return get('/api/music/queue?entity_id=' + encodeURIComponent(id)).catch(function () { return null; }); }).v;
+    var rows = [q && q.current && { r: q.current, now: true }, q && q.next && { r: q.next, now: false }].filter(Boolean);
+    return '<section class="l-mcard"><div class="hd"><h4>Queue</h4><span>' + (q && q.count ? q.count + ' tracks' : '') + '</span></div>' +
+      (q && q.unavailable ? '<div class="l-empty">This player is unavailable in Home Assistant.</div>'
+        : !rows.length ? '<div class="l-empty">Queue is empty</div>'
+        : rows.map(function (x) {
+          return '<div class="l-qrow"><div class="ci">' + (x.r.image ? '<img src="' + esc(imgSrc(x.r.image)) + '" alt="">' : '') + '</div><div class="tx"><b>' + esc(x.r.name) + '</b><s>' + esc(x.r.artist || '') + '</s></div>' +
+            '<em class="' + (x.now ? 'ok' : '') + '">' + (x.now ? 'Now' : 'Next') + '</em></div>';
+        }).join('')) + '</section>';
+  }
+  function musicPlayersHtml(id) {
+    return '<section class="l-mcard"><div class="hd"><h4>Play on</h4></div>' + musicPlayers().map(function (p) {
+      var x = st(p);
+      return '<button type="button" class="l-mpl' + (p === id ? ' on' : '') + '" data-a="mplayer" data-v="' + esc(p) + '">' + icon('spk', 20) + '<span>' + esc(playerName(p)) + '</span><small>' + esc(x ? x.state : 'unknown') + '</small></button>';
+    }).join('') + '</section>';
+  }
+  var M_SEARCH = '<label class="l-search m">' + icon('search', 22) + '<input type="search" placeholder="Search albums, artists, songs" autocomplete="off" autocorrect="off" data-c="msearch">' +
+    '<button type="button" class="clear" data-a="mclear" aria-label="Clear search">' + icon('x', 20) + '</button></label>';
+  function musicSlots() {
+    var id = musicPlayer();
+    var seg = '<div class="l-seg kind m">' + M_TABS.map(function (t) { return '<button type="button" class="' + (!M.q && M.tab === t[0] ? 'on' : '') + '" data-a="mtab" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    var bot = '<div class="l-mbot">' + musicQueueHtml(id) + musicPlayersHtml(id) + '</div>';
+    var head = top('Music', 'Music Assistant · ' + playerName(id), statusChip());
+    if (LAND) {
+      return [['m-top', head], ['m-now', musicNow(id), 'mu:L'], ['m-search', M_SEARCH, 'mu:R'], ['m-seg', seg, 'mu:R'], ['m-grid', musicGrid(), 'mu:R'], ['m-bot', bot, 'mu:R']];
+    }
+    return [['m-top', head], ['m-now', musicNow(id)], ['m-search', M_SEARCH], ['m-seg', seg], ['m-grid', musicGrid()], ['m-bot', bot]];
+  }
+
   // ---------- the title sheet and the PIN pad ----------
 
   function sheetHtml() {
@@ -1046,7 +1149,8 @@
     follow();
     var tab = U.tab === 'games' && !hasXbox() ? 'home' : U.tab;
     MODE = '';
-    var slots = tab === 'watch' ? watchSlots() : tab === 'remote' ? remoteSlots() : tab === 'games' ? gamesSlots() : homeSlots();
+    if (tab === 'music' && !hasMusic()) tab = 'home';
+    var slots = tab === 'watch' ? watchSlots() : tab === 'remote' ? remoteSlots() : tab === 'games' ? gamesSlots() : tab === 'music' ? musicSlots() : homeSlots();
     // The page is rebuilt when the set of slots changes (another tab, turning the iPad, a film
     // starting); otherwise only the slots whose markup changed are redrawn.
     var shape = tab + '|' + slots.map(function (s) { return s[0] + (s[2] || ''); }).join(',');
@@ -1073,6 +1177,7 @@
     }
     slots.forEach(function (s) { setHtml(built.slots[s[0]], s[0], s[1]); });
     var tabs = [['home', 'Home', 'home'], ['watch', 'Watch', 'film']];
+    if (hasMusic()) tabs.push(['music', 'Music', 'music']);
     if (hasXbox()) tabs.push(['games', 'Games', 'pad']);
     // In landscape the Remote tab is Now Showing while something plays.
     tabs.push(['remote', LAND && media().active ? 'Now' : 'Remote', 'remote']);
@@ -1087,6 +1192,7 @@
   function setTab(t) {
     if (t === 'home' && U.tab !== 'home') { forget('deck'); CW = 0; }
     if (t === 'games') forget('xbox');
+    if (t === 'music') forget('ml:' + M.tab);
     if (t === U.tab) window.scrollTo(0, 0);
     U.tab = t;
     try { history.replaceState(null, '', '#' + t); } catch (e) { /* not allowed: fine */ }
@@ -1098,11 +1204,11 @@
   }
 
   // The seat remote follows the room: Games when the Xbox comes on, Remote while a film or show
-  // plays, Home otherwise. It moves when that changes, and after a few minutes untouched it goes
+  // plays, Music while music plays, Home otherwise. It moves when that changes, and after a few minutes untouched it goes
   // back there. It never moves while someone is using it.
   var touched = Date.now();
   var prevMode = null;
-  function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : 'home'; }
+  function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : musicOn() ? 'music' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
     U.sleepPick = false;
@@ -1110,12 +1216,26 @@
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
   }
+  // A change (a film starting or stopping, the Xbox, music) moves the page straight away if the
+  // iPad has been left alone a minute; if someone was using it, a minute after the change at the
+  // latest, as soon as no finger is on it and nobody is typing.
+  var changedAt = 0;
   function follow() {
     if (!SEAT) return;
-    var mode = gaming() ? 'xbox' : media().active ? 'playing' : roomOn() ? 'on' : 'off';
-    if (prevMode !== null && mode !== prevMode && mode !== 'off' && Date.now() - touched >= SWITCH_MS) setTimeout(goHome, 0);
+    var mode = gaming() ? 'xbox' : media().active ? 'playing' : musicOn() ? 'music' : roomOn() ? 'on' : 'off';
+    if (prevMode !== null && mode !== prevMode) {
+      if (mode === 'off') changedAt = 0;
+      else if (Date.now() - touched >= SWITCH_MS) { changedAt = 0; setTimeout(goHome, 0); }
+      else changedAt = Date.now();
+    }
     prevMode = mode;
   }
+  function typing() { var a = document.activeElement; return Boolean(a && a.tagName === 'INPUT'); }
+  setInterval(function () {
+    if (!SEAT || !changedAt || Date.now() - changedAt < SWITCH_MS || Date.now() - touched < 3000 || typing()) return;
+    changedAt = 0;
+    if (U.tab !== target()) goHome();
+  }, 2000);
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
     if (U.sheet || U.pin || U.sleepPick || U.tab !== target() || window.pageYOffset > 0) goHome();
@@ -1123,7 +1243,7 @@
     if (staleBuild) location.reload();
   }, 10e3);
   // Ticking clocks (time left, grown-up minutes).
-  setInterval(function () { if (media().state === 'playing' || (S.seat && S.seat.enabled && !S.seat.locked)) paint(); }, 1000);
+  setInterval(function () { if (media().state === 'playing' || (U.tab === 'music' && musicOn()) || (S.seat && S.seat.enabled && !S.seat.locked)) paint(); }, 1000);
 
   // ---------- taps ----------
 
@@ -1296,6 +1416,18 @@
       }).catch(function (e) { toast(e.message, true); });
     },
     cw: function (v) { CW += Number(v); paint(); },
+    mtab: function (v) { M.tab = v; M.query = ''; M.q = ''; var i = document.querySelector('[data-c="msearch"]'); if (i) i.value = ''; paint(); },
+    mclear: function () { var i = document.querySelector('[data-c="msearch"]'); if (i) i.value = ''; M.query = ''; M.q = ''; paint(); },
+    mplay: function (v, el) {
+      var m = REG[el.getAttribute('data-id')];
+      if (!m) return;
+      var id = musicPlayer();
+      act({ action: 'music', cmd: 'play_media', uri: m.uri, media_type: m.type, entity_id: id }).then(function (r) { if (r) toast('Playing ' + m.name + ' on ' + playerName(id)); });
+    },
+    mcmd: function (v) { act({ action: 'music', cmd: v, entity_id: musicPlayer() }); },
+    mshuf: function () { var id = musicPlayer(); act({ action: 'music', cmd: 'shuffle', on: !attrs(st(id)).shuffle, entity_id: id }); },
+    mrep: function () { var id = musicPlayer(); var r = attrs(st(id)).repeat; act({ action: 'music', cmd: 'repeat', mode: r === 'off' || !r ? 'all' : r === 'all' ? 'one' : 'off', entity_id: id }); },
+    mplayer: function (v) { M.player = v; paint(); },
     cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
@@ -1317,6 +1449,13 @@
   });
 
   var searchTimer;
+  var mSearchTimer;
+  document.addEventListener('input', function (ev) {
+    if (ev.target.getAttribute('data-c') !== 'msearch') return;
+    M.query = ev.target.value;
+    clearTimeout(mSearchTimer);
+    mSearchTimer = setTimeout(function () { M.q = M.query.trim(); paint(); }, 450);
+  });
   document.addEventListener('input', function (ev) {
     if (ev.target.getAttribute('data-c') !== 'search') return;
     W.query = ev.target.value;
@@ -1330,14 +1469,14 @@
     paint();
   });
   // Close the keyboard on Search (Enter) so the results are visible.
-  document.addEventListener('keyup', function (ev) { if (ev.keyCode === 13 && ev.target.getAttribute('data-c') === 'search') ev.target.blur(); });
+  document.addEventListener('keyup', function (ev) { if (ev.keyCode === 13 && /^m?search$/.test(ev.target.getAttribute('data-c') || '')) ev.target.blur(); });
   // Watch loads more as the grid nears the bottom.
   window.addEventListener('scroll', function () {
     if (U.tab === 'watch' && window.innerHeight + window.pageYOffset > document.body.scrollHeight - 900) more();
   });
 
   var h = location.hash.slice(1);
-  if (['watch', 'remote', 'games'].indexOf(h) >= 0) U.tab = h;
+  if (['watch', 'remote', 'games', 'music'].indexOf(h) >= 0) U.tab = h;
   startLive();
   paint();
 })();
