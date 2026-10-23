@@ -15,6 +15,7 @@ import * as plex from './media.mjs';
 import * as seerr from './seerr.mjs';
 import * as taste from './taste.mjs';
 import * as sleep from './sleep.mjs';
+import * as albumColours from './albumcolours.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
@@ -347,6 +348,7 @@ get(/^\/api\/state$/, () => ({
   idleMinutes: config.idleMinutes,
   hallway: { dashboardUrl: config.dashboardUrl, returnMinutes: config.hallwayReturnMinutes },
   sleep: sleep.get(),
+  albumColours: albumColours.get(),
   preroll: { enabled: Boolean(config.preroll.url) && config.preroll.enabled, seconds: config.preroll.seconds, moviesOnly: config.preroll.moviesOnly },
   intermission: { minutes: config.intermission.minutes, sound: Boolean(config.intermission.url) },
   projectorHotC: config.projectorHotC,
@@ -491,6 +493,9 @@ post(/^\/api\/rate$/, async (m, q, body) => {
 // The sleep timer lives on the server so it outlives the panel's own screen.
 get(/^\/api\/sleep$/, () => sleep.get() || { mode: null });
 post(/^\/api\/sleep$/, (m, q, body) => sleep.set(body || {}) || { mode: null });
+// Album colours: the lights follow the music's covers (server/albumcolours.mjs).
+get(/^\/api\/album-colours$/, () => albumColours.get());
+post(/^\/api\/album-colours$/, (m, q, body) => albumColours.set(Boolean(body && body.on)));
 
 post(/^\/api\/vote\/start$/, (m, q, body) => {
   const items = (body.items || []).slice(0, 6).map((i) => ({
@@ -842,6 +847,7 @@ const server = createServer(async (req, res) => {
 
 await initImageCache();
 sleep.init({ ha, broadcast, run: (body) => runAction(ha, body), script: (name, vars) => script(ha, name, vars) });
+albumColours.init({ ha, broadcast });
 hass.init({ ha, broadcast, run: (body) => runAction(ha, body), save: async (body) => admin.save(body), applySettings, panels: () => clients.size, voice: (body) => voiceIntent(body) });
 hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });

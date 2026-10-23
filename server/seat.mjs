@@ -140,5 +140,7 @@ export async function guard(body) {
   if (body.action === 'scene' && ['pre_show', 'movie_time'].includes(body.name)) no('That scene');
   // Kids mode keeps Netflix (its profiles have their own PINs); the other apps wait for a grown-up.
   if (body.action === 'app' && body.id !== 'netflix') no('That app');
+  // Kids can dim the lights and pick moods, not plunge the room into darkness.
+  if (body.action === 'light' && body.on === false) no('Turning the lights off');
   if (body.action === 'play' && !(await kidsOk(String(body.ratingKey || ''), body.type))) no('That title');
 }
