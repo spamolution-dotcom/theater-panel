@@ -19,8 +19,16 @@ try { on = Boolean(JSON.parse(readFileSync(FILE, 'utf8')).on); } catch { /* off 
 let ctx = null;
 let lastPic = '';
 let busy = false;
+// What it last did, shown under the switch: so "nothing happened" says why.
+let status = '';
 
-export const get = () => ({ on });
+export const get = () => ({ on, status });
+function say(text) {
+  if (text === status) return;
+  status = text;
+  console.log('[album colours]', text);
+  ctx?.broadcast('albumColours', get());
+}
 
 export function set(value) {
   on = Boolean(value);
@@ -29,7 +37,7 @@ export function set(value) {
     writeFileSync(FILE, JSON.stringify({ on }));
   } catch (err) { console.warn('[album colours] could not save the setting:', err.message); }
   ctx?.broadcast('albumColours', get());
-  if (on) { lastPic = ''; check(); }
+  if (on) { lastPic = ''; status = ''; check(); }
   return get();
 }
 
@@ -41,17 +49,19 @@ export function init(context) {
 function check() {
   if (!on || !ctx || busy) return;
   const id = config.entities.musicPlayers.find((p) => ctx.ha.states[p]?.state === 'playing');
-  if (!id) return;
-  const pic = ctx.ha.states[id].attributes?.entity_picture;
-  if (!pic || pic === lastPic) return;
+  if (!id) { if (!lastPic) say('Waiting for music on one of the music players in the settings'); return; }
+  const a = ctx.ha.states[id].attributes || {};
+  const pic = a.entity_picture;
+  if (!pic) { say('This track has no cover'); return; }
+  if (pic === lastPic) return;
   lastPic = pic;
   busy = true;
-  apply(pic)
-    .catch((err) => console.warn('[album colours]', err.message))
+  apply(pic, a.media_title)
+    .catch((err) => say(`Couldn't read the cover: ${err.message}`))
     .finally(() => { busy = false; check(); });
 }
 
-async function apply(pic) {
+async function apply(pic, title) {
   const url = /^https?:\/\//.test(pic) ? new URL(pic) : new URL(pic, `${config.ha.url}/`);
   // Music Assistant's proxy: a small PNG is all the colours need.
   if (/\/imageproxy\b/.test(url.pathname)) { url.searchParams.set('size', '80'); url.searchParams.set('fmt', 'png'); }
@@ -59,12 +69,14 @@ async function apply(pic) {
   if (!res.ok) throw new Error(`cover: HTTP ${res.status}`);
   const buf = Buffer.from(await res.arrayBuffer());
   const img = decodePng(buf);
-  if (!img) return; // not a PNG: leave the lights as they are
+  if (!img) { say("This cover isn't from Music Assistant, so its colours can't be read"); return; }
   const colours = palette(img);
-  if (!colours.length) return; // a grey or black-and-white cover: nothing to take
+  if (!colours.length) { say('Black-and-white cover: the lights stay as they are'); return; }
   const lights = config.entities.lights.filter((id) => ctx.ha.states[id]?.state === 'on');
+  if (!lights.length) { say('No lights are on'); return; }
   await Promise.all(lights.map((id, i) => ctx.ha.callService('light', 'turn_on',
     { rgb_color: colours[i % colours.length], transition: 2 }, { target: { entity_id: id } })));
+  say(`${colours.length} colour${colours.length > 1 ? 's' : ''} from ${title ? `“${title}”` : 'the cover'} on ${lights.length} light${lights.length > 1 ? 's' : ''}`);
 }
 
 // ---------- PNG (8-bit grey, RGB or RGBA, not interlaced) ----------
