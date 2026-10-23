@@ -20,9 +20,10 @@
   var MAX_ITEMS = 360;
   var XBOX_INPUT = 'Xbox One';
 
-  // From a seat only these two: the lights go down by themselves when a film starts, and Pre-show
-  // is started from the hallway or a phone.
+  // From a seat: Pre-show (grown-ups only, as the server says), Intermission and Lights up. Movie
+  // time isn't here: the lights go down by themselves when a film starts.
   var SCENES = [
+    { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
     { name: 'intermission', label: 'Intermission', desc: 'Pause · lights 30%', icon: 'cup' },
     { name: 'lights_up', label: 'Lights up', desc: 'Lights 100%', icon: 'sun' },
   ];
@@ -398,9 +399,9 @@
     var hasActive = roomOn() ? SCENE_OF[tracked && tracked.state] : undefined;
     if (picked && (picked.name === hasActive || Date.now() - picked.at > 60000)) picked = null;
     var active = picked ? picked.name : hasActive;
-    var list = SCENES;
+    var list = SCENES.filter(function (sc) { return !kids() || sc.name !== 'pre_show'; });
     var off = roomOn() || gaming();
-    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid">' + list.map(function (sc) {
+    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid' + (list.length === 3 ? ' n3' : '') + '">' + list.map(function (sc) {
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
         '<span><b>' + sc.label + '</b><s>' + sc.desc + '</s></span></button>';
     }).join('') +
@@ -908,13 +909,13 @@
       (it.viewOffset > 0 ? '<button type="button" class="gh" data-a="cwplay" data-v="0" aria-label="Start over">' + icon('back', 24, 2.2) + '</button>' : '') + '</div></div></section>';
   }
 
-  // Scenes in landscape: two by two, Intermission and Lights up, Sleep and All off.
+  // Scenes in landscape: Pre-show, Intermission, Lights up, then Sleep and All off, three across.
   function scenesLand() {
     var tracked = st('input_select.theater_scene');
     var hasActive = roomOn() ? SCENE_OF[tracked && tracked.state] : undefined;
     if (picked && (picked.name === hasActive || Date.now() - picked.at > 60000)) picked = null;
     var active = picked ? picked.name : hasActive;
-    var list = SCENES;
+    var list = SCENES.filter(function (sc) { return !kids() || sc.name !== 'pre_show'; });
     var tiles = list.map(function (sc) {
       return '<button type="button" class="l-tile' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 24) + '<b>' + sc.label + '</b><s>' + sc.desc + '</s></button>';
     });
