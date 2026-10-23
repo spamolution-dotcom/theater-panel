@@ -132,6 +132,9 @@ left switches between **Home**, **Watch**, **Music** and **Games**, with **Myste
 
 Music Assistant on the panel: what's playing, albums, playlists, artists and radio, search, the
 queue, and which speaker to play on. The first music player in the settings is the cinema's.
+For music without the projector, put the receiver's own Music Assistant player (a Denon over
+HEOS, say) first: it wakes the receiver and plays straight through it. Starting a film, a show, a
+Streamer app or the Xbox from the panel pauses whatever music is playing first.
 
 ### Games (Xbox)
 
