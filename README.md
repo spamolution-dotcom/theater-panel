@@ -311,7 +311,9 @@ and Devices stay on the hallway board and the phone), and while a film plays a N
 poster, synopsis, transport, a volume slider, D-pad, Intermission and All off; **Panel home** goes
 back to the tabs); the Xbox gets the same with its game poster. A **Music** tab mirrors the
 hallway board's Music screen (Music Assistant: what's playing, search, Albums / Playlists /
-Artists / Radio, the queue and which player), and the iPad turns to it when music starts. Held upright it is the portrait
+Artists / Radio, the queue and which player), and the iPad turns to it when music starts. With music playing and the iPad left alone a minute, a
+screensaver shows what's playing full screen (cover, title, artist, progress, Previous /
+Play-Pause / Next, up next); a tap anywhere else goes to the Music tab. Held upright it is the portrait
 layout. It is always the seat remote (`/lite?seat=0` turns that off). In Safari, Share > Add to
 Home Screen opens it without the address bar; Guided Access (Settings > Accessibility) keeps it
 there, and Auto-Lock set to Never keeps the screen on. With no reload button, tap the **Home Theater** title on Home
