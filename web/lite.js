@@ -1068,6 +1068,50 @@
     return [['m-top', head], ['m-now', musicNow(id)], ['m-search', M_SEARCH], ['m-seg', seg], ['m-grid', musicGrid()], ['m-bot', bot]];
   }
 
+  // ---------- the music screensaver ----------
+  // Music playing and the iPad left alone a minute (any tab): what's playing fills the screen,
+  // the cover over a blurred copy of itself, with Previous / Play-Pause / Next. A tap anywhere
+  // else goes to the Music tab. It goes when the music has stopped (or been paused a minute), or
+  // a film or the Xbox starts.
+  var SS = { on: false, pausedAt: 0 };
+  function ssCheck() {
+    var id = musicPlayer();
+    var x = st(id);
+    var state = x && x.state;
+    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || typing();
+    if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
+    var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
+    var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
+    if (want !== SS.on) { SS.on = want; paint(); }
+  }
+  function ssHtml() {
+    if (!SS.on) return '';
+    var id = musicPlayer();
+    var x = st(id), a = attrs(x);
+    var playing = Boolean(x && x.state === 'playing');
+    var pos = livePosition(x), dur = a.media_duration;
+    var art = a.entity_picture ? '/api/ha-image?e=' + encodeURIComponent(id) + '&v=' + encodeURIComponent(a.entity_picture) : null;
+    var q = load('mq:' + id + ':' + (a.media_title || ''), function () { return get('/api/music/queue?entity_id=' + encodeURIComponent(id)).catch(function () { return null; }); }).v;
+    var next = q && q.next;
+    var d = new Date();
+    var h = d.getHours() % 12 || 12;
+    return '<div class="l-ss" data-a="ssclose">' +
+      (art ? '<div class="bg" style="background-image:url(\'' + esc(art) + '\')"></div>' : '') +
+      '<div class="ck"><b' + live('ssclock', h + ':' + String(d.getMinutes()).padStart(2, '0')) + '></b><small' + live('ssday', d.toLocaleDateString('en-AU', { weekday: 'long' })) + '></small></div>' +
+      '<div class="in"><div class="cv">' + icon('music', 90, 1.2) + (art ? '<img src="' + esc(art) + '" alt="">' : '') + '</div>' +
+      '<div class="tx"><div class="k">' + icon('music', 18) + (playing ? 'Now playing' : 'Paused') + '</div>' +
+      '<h1>' + esc(a.media_title || 'Music') + '</h1>' +
+      '<div class="ar">' + esc(a.media_artist || '') + '</div><div class="al">' + esc(a.media_album_name || '') + '</div>' +
+      '<div class="bar"><i' + live('ssprog', (dur && pos ? Math.min(100, (pos / dur) * 100) : 0) + '%') + '></i></div>' +
+      '<div class="tm"><span' + live('sspos', mmss(pos)) + '></span><span' + live('ssleft', dur && pos != null ? '-' + mmss(dur - pos) : '') + '></span></div>' +
+      '<div class="ctl"><button type="button" data-a="mcmd" data-v="previous" aria-label="Previous">' + icon('prev', 26) + '</button>' +
+        '<button type="button" class="pp" data-a="mcmd" data-v="play_pause" aria-label="' + (playing ? 'Pause' : 'Play') + '">' + (playing ? pauseIcon(34) : playIcon(34)) + '</button>' +
+        '<button type="button" data-a="mcmd" data-v="next" aria-label="Next">' + icon('next', 26) + '</button></div>' +
+      (next ? '<div class="nx">Up next<b>' + esc(next.name + (next.artist ? ' · ' + next.artist : '')) + '</b></div>' : '') +
+      '</div></div>' +
+      '<div class="pl">' + icon('spk', 18) + esc(playerName(id)) + '</div><div class="hint">Tap anywhere to go back</div></div>';
+  }
+
   // ---------- the title sheet and the PIN pad ----------
 
   function sheetHtml() {
@@ -1133,6 +1177,8 @@
   var $sheet = document.getElementById('sheet');
   var $toast = document.getElementById('toast');
   var $offline = document.getElementById('offline');
+  var $ss = document.createElement('div');
+  document.body.appendChild($ss);
   var built = { tab: null, shape: null, slots: {} };
   var last = {};
   // Redrawing a slot keeps the pictures it already shows: a card that ticks every second (the
@@ -1211,6 +1257,7 @@
     tabs.push(['remote', LAND && media().active ? 'Now' : 'Remote', 'remote']);
     setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join('') +
       (LAND ? '<div class="l-railb">' + badge() + '</div>' : ''));
+    setHtml($ss, 'ss', ssHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
     document.body.className = [U.sheet || U.pin || U.sleepPick ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
@@ -1260,6 +1307,7 @@
     prevMode = mode;
   }
   function typing() { var a = document.activeElement; return Boolean(a && a.tagName === 'INPUT'); }
+  setInterval(function () { if (SEAT) ssCheck(); }, 2000);
   setInterval(function () {
     if (!SEAT || !changedAt || Date.now() - changedAt < SWITCH_MS || Date.now() - touched < 3000 || typing()) return;
     changedAt = 0;
@@ -1272,7 +1320,7 @@
     if (staleBuild) location.reload();
   }, 10e3);
   // Ticking clocks (time left, grown-up minutes).
-  setInterval(function () { if (media().state === 'playing' || (U.tab === 'music' && musicOn()) || (S.seat && S.seat.enabled && !S.seat.locked)) paint(); }, 1000);
+  setInterval(function () { if (media().state === 'playing' || ((U.tab === 'music' || SS.on) && musicOn()) || (S.seat && S.seat.enabled && !S.seat.locked)) paint(); }, 1000);
 
   // ---------- taps ----------
 
@@ -1458,6 +1506,7 @@
     mrep: function () { var id = musicPlayer(); var r = attrs(st(id)).repeat; act({ action: 'music', cmd: 'repeat', mode: r === 'off' || !r ? 'all' : r === 'all' ? 'one' : 'off', entity_id: id }); },
     mplayer: function (v) { M.player = v; paint(); },
     cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
+    ssclose: function () { SS.on = false; touched = Date.now(); setTab('music'); },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },
     pindel: function () { if (U.pin) { U.pin.pin = U.pin.pin.slice(0, -1); paint(); } },
