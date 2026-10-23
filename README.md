@@ -303,7 +303,7 @@ the TV's apps; Netflix profile PINs and the Streamer's own kids profile cover th
 following the room, written in plain script that Safari 12 runs, laid out for a 7.9" screen.
 Held sideways it looks like the hallway board: the tabs down a rail on the left, Home with
 Continue watching across the top (beside Now playing while a film is on; Home keeps only what a seat needs: Now playing, Apps,
-Continue, Intermission, Lights up, Sleep, All off and the Blind; Pre-show, Movie time, Just added
+Continue, Pre-show, Intermission, Lights up, Sleep, All off and the Blind; Movie time, Just added
 and Devices stay on the hallway board and the phone), and while a film plays a Now Showing screen (the whole
 poster, synopsis, transport, a volume slider, D-pad, Intermission and All off; **Panel home** goes
 back to the tabs); the Xbox gets the same with its game poster. A **Music** tab mirrors the

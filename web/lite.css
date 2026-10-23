@@ -325,7 +325,7 @@ svg { display: block; flex-shrink: 0; }
 .l-cw .gh { width: 56px; height: 56px; margin-left: 10px; border-radius: 16px; border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
 
 /* scene tiles: icon, name, a line under it */
-.l-tiles { display: grid; grid-template-columns: 1fr 1fr; grid-gap: 10px; gap: 10px; }
+.l-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-gap: 10px; gap: 10px; }
 .l-tile { display: flex; flex-direction: column; align-items: flex-start; text-align: left; min-width: 0; min-height: 80px; padding: 11px 14px; border-radius: 18px; background: var(--card); border: 1px solid var(--line); }
 .l-tile svg { color: var(--acc); margin-bottom: 8px; }
 .l-tile b { display: block; font: 700 17px var(--sans); }
@@ -463,7 +463,7 @@ svg { display: block; flex-shrink: 0; }
 .land .l-cw.wide .go, .land .l-cw.wide .gh { height: 52px; }
 .land .l-cw.wide .rs { padding-top: 8px; }
 /* Home in landscape: the row of three underneath */
-.l-cols.n3 { grid-template-columns: 1fr 1.25fr 1fr; grid-gap: 0 22px; }
+.l-cols.n3 { grid-template-columns: 196px minmax(0, 1fr) 200px; grid-gap: 0 22px; }
 .l-cols.l-bot { margin-top: 18px; }
 .l-bot .l-apps { grid-template-columns: 1fr 1fr; grid-gap: 12px; gap: 12px; }
 .land .l-bot .l-apps img { width: 84px; height: 84px; border-radius: 18px; }
@@ -537,3 +537,10 @@ svg { display: block; flex-shrink: 0; }
 .land .l-mbot { margin-top: 12px; }
 .land #m-now { height: 100%; }
 .land .l-mu .l-col:first-child { display: flex; flex-direction: column; }
+/* portrait scenes: three across when Pre-show is there */
+.l-scn-grid.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.l-scn-grid.n3 .l-scn { flex-direction: column; align-items: flex-start; padding: 16px 18px; }
+.l-scn-grid.n3 .l-scn svg { margin: 0 0 8px; }
+.l-scn-grid.n3 .l-scn b { font-size: 19px; }
+.land .l-tile s { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.land .l-tiles .l-tile { padding-left: 11px; padding-right: 9px; }
