@@ -46,8 +46,19 @@ async function toStreamer(ha) {
 
 export const script = (ha, name, variables = {}) => ha.callService('script', 'turn_on', { variables }, { target: { entity_id: `script.theater_${name}` } });
 
+// Music playing through Music Assistant (the Denon over HEOS, or the Streamer) pauses before a
+// film, a show, a Streamer app or the Xbox starts, so the two never play over each other.
+const STARTS = (body) => body.action === 'play' || body.action === 'app' || (body.action === 'xbox' && ['start', 'launch'].includes(body.cmd));
+async function pauseMusic(ha) {
+  const playing = config.entities.musicPlayers.filter((id) => ha.states[id]?.state === 'playing');
+  if (!playing.length) return;
+  await ha.callService('media_player', 'media_pause', {}, { target: { entity_id: playing } })
+    .catch((err) => console.warn('[music] could not pause before the film:', err.message));
+}
+
 export async function runAction(ha, body) {
   const e = config.entities;
+  if (STARTS(body)) await pauseMusic(ha);
   switch (body.action) {
     case 'scene': {
       if (!SCENES.includes(body.name)) throw new Error('Unknown scene');
