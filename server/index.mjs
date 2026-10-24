@@ -19,6 +19,7 @@ import * as albumColours from './albumcolours.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
+import { musicHome } from './ma.mjs';
 import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition, lightMembers } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
 import * as admin from './admin.mjs';
@@ -626,6 +627,7 @@ post(/^\/api\/seerr\/request$/, (m, q, body) => seerr.request(body));
 get(/^\/api\/music\/library$/, (m, q) => musicLibrary(ha, { type: q.get('type') || 'album', order: q.get('order') || 'timestamp_added_desc', limit: Math.min(Number(q.get('limit') || 24), 60) }));
 get(/^\/api\/music\/search$/, (m, q) => musicSearch(ha, q.get('q') || ''));
 get(/^\/api\/music\/queue$/, (m, q) => musicQueue(ha, q.get('entity_id')));
+get(/^\/api\/music\/home$/, (m, q) => musicHome({ fresh: q.get('fresh') === '1' }));
 
 get(/^\/api\/games$/, () => gamesState());
 get(/^\/api\/steam\/library$/, () => steamLibrary());

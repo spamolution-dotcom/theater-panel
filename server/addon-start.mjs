@@ -34,6 +34,9 @@ set('IMAGE_CACHE_MB', options.image_cache_mb);
 set('TMDB_API_KEY', options.tmdb_api_key);
 set('STREMIO_EMAIL', options.stremio_email);
 set('STREMIO_PASSWORD', options.stremio_password);
+// Music Assistant's own API, for the Music tab's For you rows (a long-lived token made in MA).
+set('MA_TOKEN', options.music_assistant_token);
+set('MA_URL', options.music_assistant_url);
 // The panel's own address as the room's speaker can reach it: the pre-roll swell and the
 // intermission march are served from it (/assets/*.mp3, no key needed).
 if (options.public_url) {

@@ -344,7 +344,8 @@ export async function runAction(ha, body) {
       if (body.cmd === 'repeat') return ha.callService('media_player', 'repeat_set', { repeat: ['off', 'all', 'one'].includes(body.mode) ? body.mode : 'off' }, { target });
       if (body.cmd === 'play_media') {
         return ha.callService('music_assistant', 'play_media', {
-          media_id: String(body.uri), media_type: body.media_type, enqueue: body.enqueue || 'replace',
+          // A genre (from For you) goes by its uri alone: Music Assistant works out what it is.
+          media_id: String(body.uri), ...(body.media_type && body.media_type !== 'genre' ? { media_type: body.media_type } : {}), enqueue: body.enqueue || 'replace',
         }, { target });
       }
       if (body.cmd === 'transfer') {

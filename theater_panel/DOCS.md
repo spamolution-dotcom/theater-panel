@@ -31,6 +31,8 @@ The full guide, with screenshots of every screen, is in the
 | `dashboard_url`, `hallway_return_minutes` | Where the hallway screen's Dashboard button goes, and after how many idle minutes (cinema off) it goes back there by itself. |
 | `image_cache_mb` | Poster cache limit (default 300). |
 | `tmdb_api_key` | Optional; recommendations and holiday shelves. |
+| `music_assistant_token` | Optional. A long-lived token made in Music Assistant (Settings → Profile). Gives the iPad's Music tab its For you page: Top picks, Recently played, Recently added albums and genres. |
+| `music_assistant_url` | Optional. Where Music Assistant is, if not the Music Assistant app on this Home Assistant (e.g. `http://192.168.1.10:8095`). |
 
 With neither `allow_open` nor a matching `trust_networks`, the panel makes a key on first start and
 shows it on `/admin`; open the panel once with `?key=<key>` and the browser keeps a cookie.
