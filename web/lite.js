@@ -80,6 +80,7 @@
     cup: 'M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2',
     x: 'M6 6l12 12M18 6L6 18',
     chev: 'M9 6l6 6-6 6',
+    list: 'M8 6h13M8 12h13M8 18h9M3 6h.01M3 12h.01M3 18h.01',
     lock: 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11',
     unlock: 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 6.6-1.6',
     down: 'M6 9l6 6 6-6',
@@ -1040,9 +1041,9 @@
         '<button type="button" class="pp" data-a="mcmd" data-v="play_pause" aria-label="' + (playing ? 'Pause' : 'Play') + '"' + dis + '>' + (playing ? pauseIcon(30) : playIcon(30)) + '</button>' +
         '<button type="button" class="pn" data-a="mcmd" data-v="next" aria-label="Next"' + dis + '>' + icon('next', 24) + '</button>' +
         '<button type="button" class="sm' + (rep ? ' on' : '') + '" data-a="mrep" aria-label="Repeat"' + dis + '>' + icon('repeat', 22) + (a.repeat === 'one' ? '<i>1</i>' : '') + '</button></div>' +
-      '<div class="l-mvol">' + icon('volm', 22) + '<div class="l-vs" data-vs="music"><div class="tr"><i style="width:' + p + '%"></i><b style="left:' + p + '%"></b></div></div>' + icon('volp', 22) + '</div>' +
-      (hasLights() ? '<button type="button" class="l-acol" data-a="acol">' + icon('bulb', 20) + '<span>Album colours</span>' + toggle(S.albumColours) + '</button>' : '') +
-      '</div></section>';
+      '<div class="l-mvol">' + icon('volm', 22) + '<div class="l-vs" data-vs="music"><div class="tr"><i style="width:' + p + '%"></i><b style="left:' + p + '%"></b></div></div>' + icon('volp', 22) +
+        (hasLights() ? '<button type="button" class="l-mbulb' + (S.albumColours ? ' on' : '') + '" data-a="acol" aria-label="Album colours">' + icon('bulb', 20) + '</button>' : '') + '</div>' +
+      '</div>' + (LAND ? musicRows(id) : '') + '</section>';
   }
   function musicGrid() {
     var c = M.q ? load('ms:' + M.q, function () { return get('/api/music/search?q=' + encodeURIComponent(M.q)).then(function (r) { return [].concat(r.albums || [], r.playlists || [], r.artists || [], r.tracks || [], r.radio || []).slice(0, 30); }); })
@@ -1060,35 +1061,39 @@
     }).join('');
     return '<div class="l-mgrid">' + body + '</div>';
   }
-  function musicQueueHtml(id) {
+  // Under the player: what's up next (Music Assistant tells HA the current and next track only,
+  // and how many are queued) and which player it's on (a tap picks another, when there are more).
+  function musicRows(id) {
     var title = attrs(st(id)).media_title || '';
     var q = load('mq:' + id + ':' + title, function () { return get('/api/music/queue?entity_id=' + encodeURIComponent(id)).catch(function () { return null; }); }).v;
-    var rows = [q && q.current && { r: q.current, now: true }, q && q.next && { r: q.next, now: false }].filter(Boolean);
-    return '<section class="l-mcard"><div class="hd"><h4>Queue</h4><span>' + (q && q.count ? q.count + ' tracks' : '') + '</span></div>' +
-      (q && q.unavailable ? '<div class="l-empty">This player is unavailable in Home Assistant.</div>'
-        : !rows.length ? '<div class="l-empty">Queue is empty</div>'
-        : rows.map(function (x) {
-          return '<div class="l-qrow"><div class="ci">' + (x.r.image ? '<img src="' + esc(imgSrc(x.r.image)) + '" alt="">' : '') + '</div><div class="tx"><b>' + esc(x.r.name) + '</b><s>' + esc(x.r.artist || '') + '</s></div>' +
-            '<em class="' + (x.now ? 'ok' : '') + '">' + (x.now ? 'Now' : 'Next') + '</em></div>';
-        }).join('')) + '</section>';
+    var next = q && q.next;
+    var kick = 'Up next' + (q && q.count ? ' · ' + q.count + ' tracks' : '');
+    var nextTx = q && q.unavailable ? 'Player unavailable' : next ? next.name : q ? 'Nothing queued' : '…';
+    var many = musicPlayers().length > 1;
+    return '<div class="l-mrows">' +
+      '<div class="l-mrow">' + icon('list', 20) + '<span class="tx"><small>' + esc(kick) + '</small><b>' + esc(nextTx) + '</b></span></div>' +
+      (many ? '<button type="button" class="l-mrow" data-a="mpick">' : '<div class="l-mrow">') + icon('spk', 20) +
+        '<span class="tx"><small>Playing on</small><b>' + esc(playerName(id)) + '</b></span>' + (many ? icon('down', 20) + '</button>' : '</div>') +
+      '</div>';
   }
-  function musicPlayersHtml(id) {
-    return '<section class="l-mcard"><div class="hd"><h4>Play on</h4></div>' + musicPlayers().map(function (p) {
-      var x = st(p);
-      return '<button type="button" class="l-mpl' + (p === id ? ' on' : '') + '" data-a="mplayer" data-v="' + esc(p) + '">' + icon('spk', 20) + '<span>' + esc(playerName(p)) + '</span><small>' + esc(x ? x.state : 'unknown') + '</small></button>';
-    }).join('') + '</section>';
+  function musicPickSheet() {
+    var id = musicPlayer();
+    return '<div class="l-back" data-a="mpickclose" data-self="1"><div class="l-sheet l-lights l-mpick"><div class="grab"></div><div class="hd"><h3>Play on</h3><button type="button" class="ag" data-a="mpickclose">Done</button></div>' +
+      musicPlayers().map(function (p) {
+        var x = st(p);
+        return '<button type="button" class="l-mpl' + (p === id ? ' on' : '') + '" data-a="mplayer" data-v="' + esc(p) + '">' + icon('spk', 20) + '<span>' + esc(playerName(p)) + '</span><small>' + esc(x ? x.state : 'unknown') + '</small></button>';
+      }).join('') + '</div></div>';
   }
   var M_SEARCH = '<label class="l-search m">' + icon('search', 22) + '<input type="search" placeholder="Search albums, artists, songs" autocomplete="off" autocorrect="off" data-c="msearch">' +
     '<button type="button" class="clear" data-a="mclear" aria-label="Clear search">' + icon('x', 20) + '</button></label>';
   function musicSlots() {
     var id = musicPlayer();
     var seg = '<div class="l-seg kind m">' + M_TABS.map(function (t) { return '<button type="button" class="' + (!M.q && M.tab === t[0] ? 'on' : '') + '" data-a="mtab" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
-    var bot = '<div class="l-mbot">' + musicQueueHtml(id) + musicPlayersHtml(id) + '</div>';
     var head = top('Music', 'Music Assistant · ' + playerName(id), statusChip());
     if (LAND) {
-      return [['m-top', head], ['m-now', musicNow(id), 'mu:L'], ['m-search', M_SEARCH, 'mu:R'], ['m-seg', seg, 'mu:R'], ['m-grid', musicGrid(), 'mu:R'], ['m-bot', bot, 'mu:R']];
+      return [['m-top', head], ['m-now', musicNow(id), 'mu:L'], ['m-search', M_SEARCH, 'mu:R'], ['m-seg', seg, 'mu:R'], ['m-grid', musicGrid(), 'mu:R']];
     }
-    return [['m-top', head], ['m-now', musicNow(id)], ['m-search', M_SEARCH], ['m-seg', seg], ['m-grid', musicGrid()], ['m-bot', bot]];
+    return [['m-top', head], ['m-now', musicNow(id)], ['m-rows', musicRows(id)], ['m-search', M_SEARCH], ['m-seg', seg], ['m-grid', musicGrid()]];
   }
 
   // ---------- Lights ----------
@@ -1231,6 +1236,7 @@
     if (U.sleepPick) return sleepSheet();
     if (U.moods) return moodsSheet(U.moods);
     if (U.lights) return lightsSheet();
+    if (U.mpick) return musicPickSheet();
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -1375,7 +1381,7 @@
     setHtml($ss, 'ss', ssHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods ? 'locked' : '', LAND ? 'land' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1507,8 +1513,10 @@
   // Turning the iPad switches between the portrait and landscape layouts.
   function orient() {
     var l = window.innerWidth > window.innerHeight;
+    document.documentElement.style.setProperty('--vh', window.innerHeight + 'px');
     if (l !== LAND) { LAND = l; paint(); }
   }
+  document.documentElement.style.setProperty('--vh', window.innerHeight + 'px');
   window.addEventListener('resize', orient);
   window.addEventListener('orientationchange', function () { setTimeout(orient, 300); });
   document.addEventListener('keydown', function () { touched = Date.now(); }, true);
@@ -1619,7 +1627,9 @@
     mcmd: function (v) { act({ action: 'music', cmd: v, entity_id: musicPlayer() }); },
     mshuf: function () { var id = musicPlayer(); act({ action: 'music', cmd: 'shuffle', on: !attrs(st(id)).shuffle, entity_id: id }); },
     mrep: function () { var id = musicPlayer(); var r = attrs(st(id)).repeat; act({ action: 'music', cmd: 'repeat', mode: r === 'off' || !r ? 'all' : r === 'all' ? 'one' : 'off', entity_id: id }); },
-    mplayer: function (v) { M.player = v; paint(); },
+    mplayer: function (v) { M.player = v; U.mpick = false; paint(); },
+    mpick: function () { U.mpick = true; paint(); },
+    mpickclose: function () { U.mpick = false; paint(); },
     cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
     lights: function () { U.lights = true; U.moods = null; paint(); },
     ltclose: function () { U.lights = false; U.moods = null; paint(); },
