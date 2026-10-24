@@ -19,7 +19,7 @@ import * as albumColours from './albumcolours.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
-import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition } from './actions.mjs';
+import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition, lightMembers } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
 import * as admin from './admin.mjs';
 import * as icons from './icons.mjs';
@@ -848,6 +848,14 @@ const server = createServer(async (req, res) => {
 await initImageCache();
 sleep.init({ ha, broadcast, run: (body) => runAction(ha, body), script: (name, vars) => script(ha, name, vars) });
 albumColours.init({ ha, broadcast });
+// A light in the settings that is a group (light.media: the four downlights) brings its bulbs into
+// the subscription, so the panels can offer their effects and Album colours can colour each one.
+ha.on('states', () => {
+  const extra = config.entities.lights.flatMap((id) => lightMembers(ha, id)).filter((id) => !entities.includes(id));
+  if (!extra.length) return;
+  entities = [...entities, ...extra];
+  ha.reconfigure({ url: config.ha.url, token: config.ha.token, entities });
+});
 hass.init({ ha, broadcast, run: (body) => runAction(ha, body), save: async (body) => admin.save(body), applySettings, panels: () => clients.size, voice: (body) => voiceIntent(body) });
 hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });

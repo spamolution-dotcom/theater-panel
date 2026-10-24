@@ -770,8 +770,9 @@
     if (knob) knob.style.left = VS.pct + '%';
     var label = tr.parentNode.querySelector('.v');
     if (label && vsDrag === 'avr') label.textContent = String(VS.pct);
-    // A light follows the finger (a few times a second), not just when it lets go.
-    if (vsDrag.indexOf('light:') === 0 && VS.pct > 0 && Date.now() - vsSent > 350) {
+    // A light follows the finger about once a second (a Hue bridge takes only a few commands a
+    // second; the server also keeps just one in flight per light), and the last value on release.
+    if (vsDrag.indexOf('light:') === 0 && VS.pct > 0 && Date.now() - vsSent > 900) {
       vsSent = Date.now();
       act({ action: 'light', entity_id: vsDrag.slice(6), brightness_pct: VS.pct });
     }
@@ -1101,7 +1102,7 @@
   var FX_FAVS = ['Candle Flicker', '2D Hearth', '2D Pacifica', '2D Aurora (Solar Storm)', 'Rolling Fog', '2D Clouds', 'Heartbeat Pulse', 'TwinkleFox'];
   // name -> family -> a colour preview (web/lib/effects.mjs has the animated ones).
   var FX_FAMILIES = [
-    [/rainbow|colorloop/i, 'rainbow'], [/hearth|ember|fire(?!fly)|flame|candle|lava|torch/i, 'fire'], [/radial flicker/i, 'fire'],
+    [/rainbow|colorloop|prism/i, 'rainbow'], [/sunrise|sunset|sunbeam/i, 'sun'], [/opal/i, 'fog'], [/cosmos|enchant/i, 'aurora'], [/glisten/i, 'stars'], [/underwater/i, 'water'], [/hearth|ember|fire(?!fly)|flame|candle|lava|torch/i, 'fire'], [/radial flicker/i, 'fire'],
     [/pacifica|ocean|wave|water|lagoon|current|rain|drip|ripple|bubble/i, 'water'], [/aurora|noise drift|nebula|galaxy|sky|plasma/i, 'aurora'],
     [/twinkle|star|fairy|glitter|sparkle|snow|firefly|orbit|flock|chunchun/i, 'stars'], [/fog|cloud|smoke|mist|breathe|glow|soft|weather/i, 'fog'],
     [/disco|party|dance|strobe|blink|colorful|random|dynamic|dissolve|confetti|firework|halloween|eyes|police|traffic/i, 'party'],
@@ -1109,8 +1110,8 @@
     [/chase|sweep|runner|running|wipe|saw|juggle|tetrix|comet|meteor|sinelon|scan|marquee|radar|lighthouse|pinwheel|shockwave|pac-?man/i, 'motion'],
   ];
   var FX_LOOK = { rainbow: '#ff4d4d,#ffd24d,#4dff88,#4db8ff,#b84dff', fire: '#ffb347,#e2541c,#7a1e0a', water: '#1f6fb0,#3fd0c8', aurora: '#2fd08a,#6a3fd0',
-    stars: '#f0d070,#3a2a8a', fog: '#8a9aa8,#3a4450', party: '#ff4fa0,#ffd24d,#4fd0ff', pulse: '#e0304a,#5a0a18', motion: '#e0a030,#3a2a1a', glow: '#e3a865,#7a4a20' };
-  var FX_MOODS = [['Calm', ['fog', 'glow', 'water']], ['Fire', ['fire']], ['Sky', ['aurora']], ['Stars', ['stars']], ['Motion', ['motion', 'pulse']], ['Party', ['party', 'rainbow']]];
+    stars: '#f0d070,#3a2a8a', sun: '#ffd27a,#ff8a3d,#c2412a', fog: '#8a9aa8,#3a4450', party: '#ff4fa0,#ffd24d,#4fd0ff', pulse: '#e0304a,#5a0a18', motion: '#e0a030,#3a2a1a', glow: '#e3a865,#7a4a20' };
+  var FX_MOODS = [['Calm', ['fog', 'glow', 'water']], ['Fire', ['fire']], ['Sky', ['aurora', 'sun']], ['Stars', ['stars']], ['Motion', ['motion', 'pulse']], ['Party', ['party', 'rainbow']]];
   function fxFamily(name) { for (var i = 0; i < FX_FAMILIES.length; i++) if (FX_FAMILIES[i][0].test(name || '')) return FX_FAMILIES[i][1]; return 'glow'; }
   function fxLook(name) { return 'linear-gradient(90deg,' + FX_LOOK[fxFamily(name)] + ')'; }
   function lightIds() { return (S.entities.lights || []).filter(function (id) { return st(id); }); }
@@ -1123,14 +1124,24 @@
   }
   // The effects a light offers: the accents' named moods; the strip keeps to those too when it has
   // them (WLED ships a couple of hundred of its own).
+  // A group (light.media: four Hue downlights) has no effects of its own: its bulbs' are offered,
+  // and the server applies a mood to all of them.
+  function fxSource(id) {
+    var own = attrs(st(id)).effect_list;
+    if (own && own.length > 1) return id;
+    var m = (attrs(st(id)).entity_id || []).filter(function (x) { var a = attrs(st(x)); return a.effect_list && a.effect_list.length > 1; });
+    return m[0] || id;
+  }
+  function fxOff(id) { var l = attrs(st(fxSource(id))).effect_list || []; return l.indexOf('off') >= 0 ? 'off' : l.indexOf('None') >= 0 ? 'None' : l.indexOf('Solid') >= 0 ? 'Solid' : null; }
   function lightEffects(id) {
-    var all = (attrs(st(id)).effect_list || []).filter(function (e) { return e !== 'None' && !/^Calibrate/i.test(e); });
+    var all = (attrs(st(fxSource(id))).effect_list || []).filter(function (e) { return e !== 'None' && e !== 'off' && !/^Calibrate/i.test(e); });
     var accent = lightIds().filter(function (x) { return /accent/.test(x); })[0];
     var named = accent && accent !== id ? attrs(st(accent)).effect_list || [] : [];
     var kept = named.length ? all.filter(function (e) { return named.indexOf(e) >= 0; }) : [];
     return kept.length ? kept : all;
   }
-  function lightEffect(id) { var a = attrs(st(id)); return st(id) && st(id).state === 'on' && a.effect && a.effect !== 'Solid' && a.effect !== 'None' ? a.effect : null; }
+  function lightEffect(id) { var a = attrs(st(fxSource(id))); return st(id) && st(id).state === 'on' && a.effect && ['Solid', 'None', 'off'].indexOf(a.effect) < 0 ? a.effect : null; }
+  function fxLabel(e) { return /^[a-z]/.test(e) ? e.charAt(0).toUpperCase() + e.slice(1) : e; }
   function lightsNote() {
     var on = lightIds().filter(function (id) { return st(id).state === 'on'; });
     if (!on.length) return 'All off';
@@ -1144,11 +1155,11 @@
       var on = x.state === 'on';
       var pct = lightPct(id);
       var fx = lightEffect(id);
-      var detail = x.state === 'unavailable' ? 'Unavailable' : !on ? 'Off' : fx ? pct + '% · ' + fx : a.color_mode === 'color_temp' && a.color_temp_kelvin ? pct + '% · ' + a.color_temp_kelvin + 'K' : pct + '%';
+      var detail = x.state === 'unavailable' ? 'Unavailable' : !on ? 'Off' : fx ? pct + '% · ' + fxLabel(fx) : a.color_mode === 'color_temp' && a.color_temp_kelvin ? pct + '% · ' + a.color_temp_kelvin + 'K' : pct + '%';
       var effects = lightEffects(id);
       return '<div class="l-lrow"><div class="t"><button type="button" class="nm" data-a="lton" data-v="' + esc(id) + '" data-on="' + (on ? 1 : 0) + '">' + toggle(on) + esc(lightName(id)) + '</button><span class="dt">' + esc(detail) + '</span></div>' +
         '<div class="l-vs" data-vs="light:' + esc(id) + '"><div class="tr"><i style="width:' + pct + '%;background:' + (LIGHT_FILL[id] || '#B8792F') + '"></i><b style="left:' + pct + '%"></b></div></div>' +
-        (effects.length > 1 ? '<button type="button" class="md" data-a="moodopen" data-v="' + esc(id) + '"><span><i class="pv" style="background:' + fxLook(fx || 'Solid') + '"></i>' + esc(fx || 'Solid') + '</span><small>Moods ›</small></button>' : '') + '</div>';
+        (effects.length > 1 ? '<button type="button" class="md" data-a="moodopen" data-v="' + esc(id) + '"><span><i class="pv" style="background:' + fxLook(fx || 'Solid') + '"></i>' + esc(fx ? fxLabel(fx) : 'No mood') + '</span><small>Moods ›</small></button>' : '') + '</div>';
     }).join('');
     return '<div class="l-back" data-a="ltclose" data-self="1"><div class="l-sheet l-lights"><div class="grab"></div>' +
       '<div class="hd"><h3>Lights</h3><button type="button" class="ag" data-a="aisle">' + icon('bulb', 20) + 'Aisle glow</button></div>' + rows +
@@ -1165,9 +1176,9 @@
       '<div class="hd"><div><div class="l-kick">' + esc(lightName(id)) + '</div><h3>Moods</h3></div><button type="button" class="ag" data-a="moodclose">Done</button></div>' +
       groups.map(function (g) {
         return '<div class="l-msec">' + g[0] + '<small>' + g[1].length + '</small></div><div class="l-mood-grid">' + g[1].map(function (e) {
-          return '<button type="button" class="' + (e === cur ? 'on' : '') + '" data-a="mood" data-v="' + esc(e) + '" data-id="' + esc(id) + '"><i style="background:' + fxLook(e) + '"></i>' + esc(e) + '</button>';
+          return '<button type="button" class="' + (e === cur ? 'on' : '') + '" data-a="mood" data-v="' + esc(e) + '" data-id="' + esc(id) + '"><i style="background:' + fxLook(e) + '"></i>' + esc(fxLabel(e)) + '</button>';
         }).join('') + '</div>';
-      }).join('') + '</div></div>';
+      }).join('') + (fxOff(id) ? '<button type="button" class="l-nomood' + (!cur ? ' on' : '') + '" data-a="mood" data-v="' + esc(fxOff(id)) + '" data-id="' + esc(id) + '">No mood · plain light</button>' : '') + '</div></div>';
   }
 
   // ---------- the music screensaver ----------
@@ -1615,7 +1626,7 @@
     lton: function (v, el) { act({ action: 'light', entity_id: v, on: el.getAttribute('data-on') !== '1' }); },
     moodopen: function (v) { U.moods = v; paint(); },
     moodclose: function () { U.moods = null; paint(); },
-    mood: function (v, el) { var id = el.getAttribute('data-id'); act({ action: 'light_effect', entity_id: id, effect: v }).then(function (r) { if (r) toast(v + ' · ' + lightName(id)); }); },
+    mood: function (v, el) { var id = el.getAttribute('data-id'); act({ action: 'light_effect', entity_id: id, effect: v }).then(function (r) { if (r) toast((['off', 'None', 'Solid'].indexOf(v) >= 0 ? 'No mood' : fxLabel(v)) + ' · ' + lightName(id)); }); },
     aisle: function () { act({ action: 'aisle_glow' }).then(function (r) { if (r) toast('Aisle glow'); }); },
     acol: function () {
       var on = !S.albumColours;
