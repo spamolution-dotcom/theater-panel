@@ -1144,9 +1144,9 @@
   function fxLabel(e) { return /^[a-z]/.test(e) ? e.charAt(0).toUpperCase() + e.slice(1) : e; }
   function lightsNote() {
     var on = lightIds().filter(function (id) { return st(id).state === 'on'; });
-    if (!on.length) return 'All off';
-    var first = on[0];
-    return lightName(first) + ' ' + lightPct(first) + '%';
+    // Says what it opens, so it doesn't read like a scene ("Lights · All off" looked like one).
+    if (!on.length) return 'Off · moods ›';
+    return lightPct(on[0]) + '% · moods ›';
   }
   function toggle(on) { return '<span class="l-sw' + (on ? ' on' : '') + '"><i></i></span>'; }
   function lightsSheet() {
