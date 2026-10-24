@@ -46,6 +46,38 @@ async function toStreamer(ha) {
 
 export const script = (ha, name, variables = {}) => ha.callService('script', 'turn_on', { variables }, { target: { entity_id: `script.theater_${name}` } });
 
+// A light in the settings may be a group (light.media: four Hue downlights). Its members are
+// what effects and Album colours act on, as the group itself has neither.
+export function lightMembers(ha, id) {
+  const m = ha.states[id]?.attributes?.entity_id;
+  return Array.isArray(m) ? m.filter((x) => /^light\./.test(x)) : [];
+}
+const lightAllowed = (ha, id) => config.entities.lights.includes(id) || config.entities.lights.some((g) => lightMembers(ha, g).includes(id));
+
+// One light command at a time per light. A slider sends as the finger moves, and a Hue bridge
+// takes only a few commands a second: without this they queued in HA until requests timed out.
+// While one is in flight only the newest waits; the ones it replaces answer { superseded }.
+const lightQueue = new Map();
+export function lightCall(ha, id, data, service = 'turn_on') {
+  const key = Array.isArray(id) ? id.join(',') : id;
+  let q = lightQueue.get(key);
+  if (!q) lightQueue.set(key, (q = { busy: false, next: null }));
+  return new Promise((resolve, reject) => {
+    if (q.next) q.next.resolve({ superseded: true });
+    q.next = { service, data, resolve, reject };
+    pumpLights(ha, id, q);
+  });
+}
+async function pumpLights(ha, id, q) {
+  if (q.busy || !q.next) return;
+  const job = q.next;
+  q.next = null;
+  q.busy = true;
+  try { job.resolve(await ha.callService('light', job.service, job.data, { target: { entity_id: id } })); }
+  catch (err) { job.reject(err); }
+  finally { q.busy = false; pumpLights(ha, id, q); }
+}
+
 // Music playing through Music Assistant (the Denon over HEOS, or the Streamer) pauses before a
 // film, a show, a Streamer app or the Xbox starts, so the two never play over each other.
 const STARTS = (body) => body.action === 'play' || body.action === 'app' || (body.action === 'xbox' && ['start', 'launch'].includes(body.cmd));
@@ -135,10 +167,14 @@ export async function runAction(ha, body) {
 
     // Light effects and their speed / intensity helpers (the picker on the Lights card).
     case 'light_effect': {
-      if (!e.lights.includes(body.entity_id)) throw new Error('Unknown light');
+      if (!lightAllowed(ha, body.entity_id)) throw new Error('Unknown light');
       const effect = String(body.effect || '').slice(0, 64);
       if (!effect) throw new Error('No effect');
-      return ha.callService('light', 'turn_on', { effect }, { target: { entity_id: body.entity_id } });
+      // A group without effects of its own: its bulbs' effects, on all of them.
+      const own = ha.states[body.entity_id]?.attributes?.effect_list;
+      const members = lightMembers(ha, body.entity_id);
+      const target = !(own && own.length > 1) && members.length ? members : body.entity_id;
+      return lightCall(ha, target, { effect });
     }
 
     case 'light_number': {
@@ -189,14 +225,13 @@ export async function runAction(ha, body) {
     }
 
     case 'light': {
-      if (!e.lights.includes(body.entity_id)) throw new Error('Unknown light');
-      const target = { entity_id: body.entity_id };
-      if (body.on === false) return ha.callService('light', 'turn_off', {}, { target });
+      if (!lightAllowed(ha, body.entity_id)) throw new Error('Unknown light');
+      if (body.on === false) return lightCall(ha, body.entity_id, {}, 'turn_off');
       const data = {};
       if (body.brightness_pct != null) data.brightness_pct = clamp(body.brightness_pct, 1, 100);
       if (body.rgb_color) data.rgb_color = body.rgb_color.slice(0, 3).map((n) => clamp(n, 0, 255));
       if (body.color_temp_kelvin) data.color_temp_kelvin = clamp(body.color_temp_kelvin, 2000, 6500);
-      return ha.callService('light', 'turn_on', data, { target });
+      return lightCall(ha, body.entity_id, data);
     }
 
     case 'aisle_glow': return script(ha, 'aisle_glow');

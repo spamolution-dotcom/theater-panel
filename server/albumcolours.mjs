@@ -11,6 +11,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { inflateSync } from 'node:zlib';
 import { config, SETTINGS_FILE } from './config.mjs';
+import { lightMembers, lightCall } from './actions.mjs';
 
 const FILE = join(dirname(SETTINGS_FILE), 'album-colours.json');
 let on = false;
@@ -57,7 +58,7 @@ function check() {
   lastPic = pic;
   busy = true;
   apply(pic, a.media_title)
-    .catch((err) => say(`Couldn't read the cover: ${err.message}`))
+    .catch((err) => say(err.lights ? `The lights didn't respond (${err.message})` : `Couldn't read the cover: ${err.message}`))
     .finally(() => { busy = false; check(); });
 }
 
@@ -72,10 +73,18 @@ async function apply(pic, title) {
   if (!img) { say("This cover isn't from Music Assistant, so its colours can't be read"); return; }
   const colours = palette(img);
   if (!colours.length) { say('Black-and-white cover: the lights stay as they are'); return; }
-  const lights = config.entities.lights.filter((id) => ctx.ha.states[id]?.state === 'on');
+  // A group (the four downlights) is coloured bulb by bulb, so the colours spread round the room.
+  const on = config.entities.lights.filter((id) => ctx.ha.states[id]?.state === 'on');
+  const lights = on.flatMap((id) => { const m = lightMembers(ctx.ha, id); return m.length ? m : [id]; });
   if (!lights.length) { say('No lights are on'); return; }
-  await Promise.all(lights.map((id, i) => ctx.ha.callService('light', 'turn_on',
-    { rgb_color: colours[i % colours.length], transition: 2 }, { target: { entity_id: id } })));
+  try {
+    await Promise.all(lights.map((id, i) => {
+      // A bulb running an effect (Candle, Prism) would ignore the colour: the colour wins.
+      const la = ctx.ha.states[id]?.attributes || {};
+      const fx = la.effect && !['off', 'None', 'Solid'].includes(la.effect) && (la.effect_list || []).includes('off') ? { effect: 'off' } : {};
+      return lightCall(ctx.ha, id, { rgb_color: colours[i % colours.length], transition: 2, ...fx });
+    }));
+  } catch (err) { err.lights = true; throw err; }
   say(`${colours.length} colour${colours.length > 1 ? 's' : ''} from ${title ? `“${title}”` : 'the cover'} on ${lights.length} light${lights.length > 1 ? 's' : ''}`);
 }
 
