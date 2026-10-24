@@ -36,10 +36,12 @@ const panelPath = (url) => {
 // input. Before anything opens on the Streamer, put the Denon back on it when it is on something
 // else. Only when the Denon is already on: from cold, HA's start sequence sets the input itself.
 const STREAMER_INPUT = 'GoogleTVStreamer';
+// The Denon on its HEOS / NET input reports 'playing' or 'paused', not 'on', so anything but off
+// or unreachable counts as on: else a film or app opened after music stayed on the music input.
 async function toStreamer(ha) {
   const avr = config.entities.avr;
   const s = ha.states[avr];
-  if (!avr || s?.state !== 'on' || !s.attributes?.source || s.attributes.source === STREAMER_INPUT) return;
+  if (!avr || !s || ['off', 'standby', 'unavailable', 'unknown'].includes(s.state) || !s.attributes?.source || s.attributes.source === STREAMER_INPUT) return;
   await ha.callService('media_player', 'select_source', { source: STREAMER_INPUT }, { target: { entity_id: avr } })
     .catch((err) => console.warn('[input] could not switch the Denon to the Streamer:', err.message));
 }
