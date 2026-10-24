@@ -81,6 +81,12 @@ function build(env) {
     password: env.STREMIO_PASSWORD || '',
     authKey: env.STREMIO_AUTH_KEY || '',
   },
+  // Music Assistant's own API (server/ma.mjs), for its Discover rows and genres, which HA's
+  // integration doesn't offer. The token is a long-lived one made in Music Assistant.
+  ma: {
+    url: (env.MA_URL || '').replace(/\/$/, ''),
+    token: env.MA_TOKEN || '',
+  },
   // True when there is a library to show at all (Stremio here; Plex upstream).
   media: { on: Boolean((env.STREMIO_EMAIL && env.STREMIO_PASSWORD) || env.STREMIO_AUTH_KEY) },
   plex: {
@@ -329,6 +335,8 @@ function build(env) {
     // Sessions belong to this room: Plex with PLEX_PLAYER_NAME, or always with Stremio (the panel
     // builds them from the Streamer).
     theaterSessions: Boolean(env.PLEX_PLAYER_NAME) || Boolean((env.STREMIO_EMAIL && env.STREMIO_PASSWORD) || env.STREMIO_AUTH_KEY),
+    // The iPad's Music tab gets For you (Music Assistant's home rows) when the panel can reach MA.
+    musicHome: Boolean(env.MA_TOKEN),
   },
   // Extra origins allowed to embed the panel (the HA dashboard), space- or comma-separated.
   frameAncestors: (env.FRAME_ANCESTORS || '').split(/[\s,]+/).filter((o) => /^https?:\/\/[\w.-]+(:\d+)?$/.test(o)),

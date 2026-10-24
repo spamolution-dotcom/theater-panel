@@ -634,3 +634,24 @@ svg { display: block; flex-shrink: 0; }
 .l-nomood.on { border-color: var(--acc); color: var(--acc); }
 .l-nomood { display: block; width: 100%; height: 50px; margin-top: 16px; border-radius: 14px; border: 1px solid var(--line); font: 600 15px var(--sans); color: var(--muted); }
 .l-nomood.on { border-color: var(--acc); color: var(--acc); }
+/* Music: For you, Music Assistant's home page (Top picks, its rows, genres) */
+.l-seg.m5 button { font-size: 15px; }
+.l-mgrid.l-mhome { display: block; }
+.l-mrh { font: 700 19px var(--sans); margin: 20px 0 10px; }
+.l-mrh.first { margin-top: 4px; }
+.l-picks { display: grid; grid-template-columns: 1.5fr 1fr 1fr; grid-template-rows: 124px 124px; grid-gap: 10px; gap: 10px; }
+.l-pick { position: relative; display: block; overflow: hidden; border-radius: 14px; background: linear-gradient(160deg, #3A2A1F, #1A120D); text-align: left; min-width: 0; }
+.l-pick.lead { grid-row: 1 / span 2; }
+.l-pick img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.l-pick .sh { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(rgba(0,0,0,0) 30%, rgba(0,0,0,.8)); }
+.l-pick em { position: absolute; top: 9px; left: 10px; max-width: calc(100% - 20px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 10px var(--mono); letter-spacing: 1px; text-transform: uppercase; font-style: normal; color: #fff; background: rgba(0,0,0,.55); padding: 3px 7px; border-radius: 6px; }
+.l-pick .tx { position: absolute; left: 11px; right: 10px; bottom: 9px; }
+.l-pick small { display: block; font: 500 12px var(--sans); color: #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-pick b { display: block; font: 700 15px/1.2 var(--sans); color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.l-pick.lead b { font-size: 21px; white-space: normal; max-height: 2.4em; }
+.l-mstrip { display: flex; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
+.l-mstrip .l-album { width: 132px; flex-shrink: 0; margin-right: 14px; }
+.l-mgenres { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-gap: 10px; gap: 10px; }
+.l-mgenres button { height: 56px; padding: 0 12px; border-radius: 12px; background: linear-gradient(120deg, #2C5A6C, #16303D); color: #fff; font: 700 15px var(--sans); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.land .l-mgenres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.land .l-mstrip .l-album { width: 120px; }

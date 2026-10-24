@@ -139,9 +139,11 @@
   // Data loaded once per key and kept: cache[key] = { v, err, at }. A failed load is tried again
   // after 15 s. Anything waiting on it repaints when it lands.
   var cache = {};
-  function load(key, fn) {
+  // ttl (optional): after that long the value is fetched again, the old one shown meanwhile.
+  function load(key, fn, ttl) {
     var c = cache[key];
-    if (c && (c.v !== undefined || c.busy || (c.err && Date.now() - c.at < 15000))) return c;
+    var old = c && ttl && c.v !== undefined && !c.busy && Date.now() - c.at > ttl;
+    if (c && !old && (c.v !== undefined || c.busy || (c.err && Date.now() - c.at < 15000))) return c;
     c = cache[key] = { v: c ? c.v : undefined, err: null, busy: true, at: Date.now() };
     fn().then(function (v) { c.v = v; c.err = null; }, function (e) { c.err = e; })
       .then(function () { c.busy = false; c.at = Date.now(); paint(); });
@@ -1006,8 +1008,11 @@
   // Next, Repeat and the player's volume; search; Albums, Playlists, Artists, Radio (a tap plays
   // it); the queue; and which player it plays on.
 
-  var M = { tab: 'album', query: '', q: '', player: null };
+  var M = { tab: null, query: '', q: '', player: null };
   var M_TABS = [['album', 'Albums'], ['playlist', 'Playlists'], ['artist', 'Artists'], ['radio', 'Radio']];
+  // For you (Music Assistant's home page) comes first when the panel can reach Music Assistant.
+  function mTabs() { return S.ui && S.ui.musicHome ? [['home', 'For you']].concat(M_TABS) : M_TABS; }
+  function mTab() { var t = M.tab || mTabs()[0][0]; return t === 'home' && !(S.ui && S.ui.musicHome) ? 'album' : t; }
   function musicPlayers() { return (S.entities.musicPlayers && S.entities.musicPlayers.length ? S.entities.musicPlayers : [S.entities.musicPlayer]).filter(Boolean); }
   function hasMusic() { return musicPlayers().some(function (id) { return st(id); }); }
   function musicOn() { return musicPlayers().some(function (id) { var x = st(id); return Boolean(x && x.state === 'playing'); }); }
@@ -1046,8 +1051,9 @@
       '</div>' + (LAND ? musicRows(id) : '') + '</section>';
   }
   function musicGrid() {
+    if (!M.q && mTab() === 'home') return musicHomeHtml();
     var c = M.q ? load('ms:' + M.q, function () { return get('/api/music/search?q=' + encodeURIComponent(M.q)).then(function (r) { return [].concat(r.albums || [], r.playlists || [], r.artists || [], r.tracks || [], r.radio || []).slice(0, 30); }); })
-      : load('ml:' + M.tab, function () { return get('/api/music/library?type=' + M.tab + '&limit=30'); });
+      : load('ml:' + mTab(), function () { return get('/api/music/library?type=' + mTab() + '&limit=30'); });
     var list = c.v;
     var body;
     if (c.err && !list) body = '<div class="l-empty wide">' + esc(c.err.message) + '</div>';
@@ -1060,6 +1066,30 @@
         '<b>' + esc(m.name) + '</b><s>' + esc(m.artist || m.type || '') + '</s></button>';
     }).join('');
     return '<div class="l-mgrid">' + body + '</div>';
+  }
+  // For you: Music Assistant's home page (server/ma.mjs). Top picks (a big tile and four small,
+  // each tagged with the row it came from), then the rows themselves, then genres. A tap plays it.
+  function mItem(m, k) { REG[k] = m; return 'data-a="mplay" data-id="' + esc(k) + '"'; }
+  function mKind(m) { return { album: 'Album', playlist: 'Playlist', track: 'Song', artist: 'Artist', radio: 'Radio', genre: 'Genre' }[m.type] || ''; }
+  function musicHomeHtml() {
+    var c = load('mh', function () { return get('/api/music/home'); }, 60000);
+    var h = c.v;
+    if (!h) return '<div class="l-mgrid l-mhome"><div class="l-empty wide">' + (c.err ? esc(c.err.message) : 'Loading…') + '</div></div>';
+    var top = (h.top || []).map(function (m, i) {
+      return '<button type="button" class="l-pick' + (i === 0 ? ' lead' : '') + '" ' + mItem(m, 'mh:t' + i) + '>' + (m.image ? '<img src="' + esc(imgSrc(m.image)) + '" alt="">' : '') +
+        '<i class="sh"></i><em>' + esc(String(m.tag || '').replace(/^(Recently added) .*/i, '$1')) + '</em><span class="tx"><small>' + esc([mKind(m), i ? m.artist : ''].filter(Boolean).join(' · ')) + '</small><b>' + esc(m.name) + '</b></span></button>';
+    }).join('');
+    var rows = (h.rows || []).map(function (r, ri) {
+      return '<div class="l-mrh">' + esc(r.title) + '</div><div class="l-mstrip">' + r.items.map(function (m, i) {
+        return '<button type="button" class="l-album" ' + mItem(m, 'mh:r' + ri + ':' + i) + '><div class="sq">' + icon('music', 34, 1.4) + (m.image ? '<img src="' + esc(imgSrc(m.image)) + '" alt="">' : '') + '</div>' +
+          '<b>' + esc(m.name) + '</b><s>' + esc(m.artist || mKind(m)) + '</s></button>';
+      }).join('') + '</div>';
+    }).join('');
+    var genres = (h.genres || []).length ? '<div class="l-mrh">Browse by genre</div><div class="l-mgenres">' + h.genres.map(function (g, i) {
+      return '<button type="button" ' + mItem(g, 'mh:g' + i) + '>' + esc(g.name) + '</button>';
+    }).join('') + '</div>' : '';
+    if (!top && !rows && !genres) return '<div class="l-mgrid l-mhome"><div class="l-empty wide">Nothing played yet.</div></div>';
+    return '<div class="l-mgrid l-mhome">' + (top ? '<div class="l-mrh first">Top picks for you</div><div class="l-picks">' + top + '</div>' : '') + rows + genres + '</div>';
   }
   // Under the player: what's up next (Music Assistant tells HA the current and next track only,
   // and how many are queued) and which player it's on (a tap picks another, when there are more).
@@ -1088,7 +1118,7 @@
     '<button type="button" class="clear" data-a="mclear" aria-label="Clear search">' + icon('x', 20) + '</button></label>';
   function musicSlots() {
     var id = musicPlayer();
-    var seg = '<div class="l-seg kind m">' + M_TABS.map(function (t) { return '<button type="button" class="' + (!M.q && M.tab === t[0] ? 'on' : '') + '" data-a="mtab" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
+    var seg = '<div class="l-seg kind m' + (mTabs().length > 4 ? ' m5' : '') + '">' + mTabs().map(function (t) { return '<button type="button" class="' + (!M.q && mTab() === t[0] ? 'on' : '') + '" data-a="mtab" data-v="' + t[0] + '">' + t[1] + '</button>'; }).join('') + '</div>';
     var head = top('Music', 'Music Assistant · ' + playerName(id), statusChip());
     if (LAND) {
       return [['m-top', head], ['m-now', musicNow(id), 'mu:L'], ['m-search', M_SEARCH, 'mu:R'], ['m-seg', seg, 'mu:R'], ['m-grid', musicGrid(), 'mu:R']];
@@ -1389,7 +1419,7 @@
   function setTab(t) {
     if (t === 'home' && U.tab !== 'home') { forget('deck'); CW = 0; }
     if (t === 'games') forget('xbox');
-    if (t === 'music') forget('ml:' + M.tab);
+    if (t === 'music' && mTab() !== 'home') forget('ml:' + mTab());
     if (t === U.tab) window.scrollTo(0, 0);
     U.tab = t;
     try { history.replaceState(null, '', '#' + t); } catch (e) { /* not allowed: fine */ }
