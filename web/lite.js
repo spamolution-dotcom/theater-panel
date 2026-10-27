@@ -406,13 +406,13 @@
     var active = picked ? picked.name : hasActive;
     var list = SCENES.filter(function (sc) { return !kids() || sc.name !== 'pre_show'; });
     var off = roomOn() || gaming();
-    var n = list.length + (hasLights() ? 1 : 0);
-    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid' + (n === 3 ? ' n3' : '') + '">' + list.map(function (sc) {
+    var room = (hasLights() ? '<button type="button" class="l-scn" data-a="lights">' + icon('bulb', 26) + '<span><b>Lights</b><s>' + esc(lightsNote()) + '</s></span></button>' : '') +
+      (kids() ? '' : '<button type="button" class="l-scn" data-a="devs">' + icon('power', 26) + '<span><b>Devices</b><s>' + esc(devicesNote()) + ' ›</s></span></button>');
+    return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-scn-grid' + (list.length === 3 ? ' n3' : '') + '">' + list.map(function (sc) {
       return '<button type="button" class="l-scn' + (sc.name === active ? ' on' : '') + '" data-a="scene" data-v="' + sc.name + '">' + icon(sc.icon, 26) +
         '<span><b>' + sc.label + '</b><s>' + sc.desc + '</s></span></button>';
-    }).join('') +
-      (hasLights() ? '<button type="button" class="l-scn" data-a="lights">' + icon('bulb', 26) + '<span><b>Lights</b><s>' + esc(lightsNote()) + '</s></span></button>' : '') +
-      '</div>' +
+    }).join('') + '</div>' +
+      (room ? '<div class="l-scn-grid l-room">' + room + '</div>' : '') +
       (off ? '<button type="button" class="l-alloff' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 22) + (isArmed('alloff') ? 'Tap again to turn everything off' : 'All off') + '</button>' : '') +
       '</section>';
   }
@@ -434,6 +434,35 @@
       (sl ? '<button type="button" class="l-play2" data-a="sleeppick" data-v="off">Cancel the timer</button>' : '') + '</div></div>';
   }
 
+  // Devices: a tile on Home opens a sheet with the projector, the Denon and the Streamer (on or off;
+  // turning one off asks for a second tap) and the Denon's input. Not in kids mode: the server
+  // refuses device power and input from the seat while it's locked.
+  function deviceList() {
+    var e = S.entities;
+    var avr = st(e.avr), proj = st(e.projectorPower), tv = st(e.appleTv);
+    var vol = Math.round((attrs(avr).volume_level || 0) * 100);
+    return [
+      { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
+      { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? 'On · ' + vol : 'Off' },
+      { id: 'chromecast', name: 'Streamer', icon: 'cast', ok: isUp(tv), note: isUp(tv) ? streamerNow(tv, st(e.streamerCast)).name || 'On' : 'Off' },
+    ];
+  }
+  function devicesNote() {
+    var l = deviceList();
+    var off = l.filter(function (d) { return !d.ok; });
+    if (!off.length) return 'All on';
+    if (off.length === l.length) return 'All off';
+    return off.map(function (d) { return d.name; }).join(' & ') + ' off';
+  }
+  function devicesSheet() {
+    var avr = st(S.entities.avr);
+    return '<div class="l-back" data-a="devclose" data-self="1"><div class="l-sheet l-lights l-devsheet"><div class="grab"></div>' +
+      '<div class="hd"><h3>Devices</h3><button type="button" class="ag" data-a="devclose">Done</button></div><div class="l-devs">' + deviceList().map(function (d) {
+        var k = 'dev:' + d.id;
+        return '<button type="button" class="l-dev' + (d.ok ? ' ok' : '') + (isArmed(k) ? ' armed' : '') + '" data-a="dev" data-v="' + d.id + '" data-on="' + (d.ok ? 1 : 0) + '" data-name="' + d.name + '">' +
+          icon(d.icon, 28) + '<b>' + d.name + '</b><span>' + esc(isArmed(k) ? 'Tap again to turn off' : d.note) + '</span></button>';
+      }).join('') + '</div>' + (isUp(avr) ? source(avr) : '') + '</div></div>';
+  }
   function source(avr) {
     var src = attrs(avr).source;
     if (wantSource && wantSource === src) wantSource = null;
@@ -946,6 +975,8 @@
     if (roomOn()) tiles.push('<button type="button" class="l-tile' + (S.sleep ? ' on' : '') + '" data-a="sleepopen">' + icon('moon', 24) + '<b>Sleep</b><s>' + sleepText() + '</s></button>');
     if (roomOn() || gaming()) tiles.push('<button type="button" class="l-tile off' + (isArmed('alloff') ? ' armed' : '') + '" data-a="alloff">' + icon('power', 24) + '<b>' + (isArmed('alloff') ? 'Tap again' : 'All off') + '</b><s>' + (isArmed('alloff') ? 'to turn off' : 'Ends the night') + '</s></button>');
     if (hasLights()) tiles.push('<button type="button" class="l-tile" data-a="lights">' + icon('bulb', 24) + '<b>Lights</b><s>' + esc(lightsNote()) + '</s></button>');
+    // Devices: a slim row under the tiles, so Home still fits the screen.
+    if (!kids()) tiles.push('<button type="button" class="l-tile wide" data-a="devs">' + icon('power', 20) + '<b>Devices</b><s>' + esc(devicesNote()) + ' ›</s></button>');
     return '<section><div class="l-h2"><h2>Scenes</h2></div><div class="l-tiles">' + tiles.join('') + '</div></section>';
   }
 
@@ -1179,9 +1210,9 @@
   function fxLabel(e) { return /^[a-z]/.test(e) ? e.charAt(0).toUpperCase() + e.slice(1) : e; }
   function lightsNote() {
     var on = lightIds().filter(function (id) { return st(id).state === 'on'; });
-    if (!on.length) return 'All off';
-    var first = on[0];
-    return lightName(first) + ' ' + lightPct(first) + '%';
+    // Says what it opens, so it doesn't read like a scene ("Lights · All off" looked like one).
+    if (!on.length) return 'Off · moods ›';
+    return lightPct(on[0]) + '% · moods ›';
   }
   function toggle(on) { return '<span class="l-sw' + (on ? ' on' : '') + '"><i></i></span>'; }
   function lightsSheet() {
@@ -1226,7 +1257,7 @@
     var id = musicPlayer();
     var x = st(id);
     var state = x && x.state;
-    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || vsDrag || typing();
+    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || vsDrag || typing();
     if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
     var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
     var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
@@ -1267,6 +1298,7 @@
     if (U.moods) return moodsSheet(U.moods);
     if (U.lights) return lightsSheet();
     if (U.mpick) return musicPickSheet();
+    if (U.devs) return devicesSheet();
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -1411,7 +1443,7 @@
     setHtml($ss, 'ss', ssHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1438,7 +1470,7 @@
   function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : musicOn() ? 'music' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
-    U.sleepPick = false; U.lights = false; U.moods = null;
+    U.sleepPick = false; U.lights = false; U.moods = null; U.devs = false; U.mpick = false;
     if (U.sheet) { U.sheet = null; U.season = null; }
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
@@ -1466,7 +1498,7 @@
   }, 2000);
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
-    if (U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.tab !== target() || window.pageYOffset > 0) goHome();
+    if (U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.tab !== target() || window.pageYOffset > 0) goHome();
     // A new panel build was installed: reload while nobody's using it.
     if (staleBuild) location.reload();
   }, 10e3);
@@ -1663,6 +1695,8 @@
     cwplay: function (v) { var it = REG.cw; if (it) playItem(it, v === '1'); },
     lights: function () { U.lights = true; U.moods = null; paint(); },
     ltclose: function () { U.lights = false; U.moods = null; paint(); },
+    devs: function () { U.devs = true; paint(); },
+    devclose: function () { U.devs = false; paint(); },
     lton: function (v, el) { act({ action: 'light', entity_id: v, on: el.getAttribute('data-on') !== '1' }); },
     moodopen: function (v) { U.moods = v; paint(); },
     moodclose: function () { U.moods = null; paint(); },

@@ -8,35 +8,16 @@ import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Prev, Next, Poster } from './lib/ui.mjs';
-import { get, post, act, setActExtra, getState, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
+import { get, post, act, getState, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
 import { streamerNow } from './lib/streamer.mjs';
 
-// The seat phone: a phone kept at the recliners, always on this page. Opened once with ?seat=1 it
-// remembers that (?seat=0 undoes it), so only that phone changes: a dark theme for a dark room, full
-// screen on a tap, and the page follows the room (Games when the Xbox comes on, Remote while a
-// film or show plays, Home otherwise; back there after a few minutes untouched). Every other
-// phone keeps the remote as it is.
-const SEAT_KEY = 'theaterSeat';
-const seat = (() => {
-  const q = new URLSearchParams(location.search).get('seat');
-  try {
-    if (q === '1') localStorage.setItem(SEAT_KEY, '1');
-    else if (q === '0') localStorage.removeItem(SEAT_KEY);
-    return q === '1' || (q !== '0' && localStorage.getItem(SEAT_KEY) === '1');
-  } catch { return q === '1'; }
-})();
-if (seat) {
-  setActExtra({ seat: true }); // the server applies kids mode to this phone's actions
-  document.documentElement.classList.add('seat');
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', '#0E0907');
-  document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', 'only dark');
-  // No address bar: Chrome allows full screen only from a tap, so every tap asks for it if it's off.
-  document.addEventListener('click', () => {
-    if (!document.fullscreenElement && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
-  }, true);
-}
+// Kids mode and the seat behaviours (dark theme, follow the room) belong to the iPad's /lite page
+// only. The phone remote used to become a "seat phone" once opened with ?seat=1 and remembered it,
+// which left phones stuck in kids mode; it no longer does, and forgets any phone it marked.
+try { localStorage.removeItem('theaterSeat'); } catch { /* storage blocked: nothing to forget */ }
+const seat = false;
 const SEAT_IDLE_MS = 3 * 60e3; // untouched this long: back to the tab that fits what's on
 const SEAT_SWITCH_MS = 60e3;   // a change (Xbox on, a film playing) moves the page if untouched this long
 
