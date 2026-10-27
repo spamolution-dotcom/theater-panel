@@ -655,3 +655,11 @@ svg { display: block; flex-shrink: 0; }
 .l-mgenres button { height: 56px; padding: 0 12px; border-radius: 12px; background: linear-gradient(120deg, #2C5A6C, #16303D); color: #fff; font: 700 15px var(--sans); text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .land .l-mgenres { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .land .l-mstrip .l-album { width: 120px; }
+/* Home: Lights and Devices under the scenes (portrait); the Devices sheet */
+.l-scn-grid.l-room { margin-top: 14px; }
+.l-room .l-scn { min-height: 84px; }
+.l-devsheet .l-devs { margin: 10px 0 6px; }
+.l-devsheet .l-h2 { margin-top: 18px; }
+.l-tile.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; min-height: 48px; padding: 8px 14px; }
+.l-tile.wide svg { margin: 0 10px 0 0; }
+.l-tile.wide s { margin: 0 0 0 auto; }
