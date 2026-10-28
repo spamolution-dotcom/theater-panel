@@ -19,6 +19,7 @@ import * as albumColours from './albumcolours.mjs';
 import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
+import * as youtube from './youtube.mjs';
 import { musicHome } from './ma.mjs';
 import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition, lightMembers } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
@@ -234,7 +235,13 @@ function streamerSessions() {
   if (/^(org\.smarttube|com\.teamsmart\.videomanager)/.test(app || '')) {
     const m = shieldMeta && shieldMeta.pkg === app && Date.now() - shieldMeta.at < 30e3 ? shieldMeta : null;
     if (!m || m.state === 'idle') return [];
-    return [{ id: 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: 0 }];
+    // The picture: the ADB entity's live screenshot of the TV, so a frame of the video (the Shield
+    // doesn't say which video it is, so there's no thumbnail to fetch).
+    // With a YouTube API key: the video's own thumbnail and length (server/youtube.mjs).
+    const yt = youtube.lookup(m.title, m.artist);
+    const adbPic = ha.states[e.shield?.cast]?.attributes?.entity_picture;
+    const poster = yt?.thumb || (adbPic ? `/api/ha-image?e=${encodeURIComponent(e.shield.cast)}&v=${encodeURIComponent(adbPic)}` : undefined);
+    return [{ id: yt?.id ? `yt:${yt.id}` : 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: yt?.duration || 0, poster, wide: Boolean(poster) }];
   }
   if (app !== STREMIO_APP) return [];
   const l = lastLaunched();

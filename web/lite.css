@@ -717,3 +717,6 @@ svg { display: block; flex-shrink: 0; }
   .l-su .art .blank { width: 160px; height: 240px; }
   .l-su .ft { left: 36px; right: 36px; }
 }
+
+/* A video's picture (a frame from the TV): landscape */
+.l-np-art.wide { width: 260px; height: 146px; -webkit-align-self: center; align-self: center; }

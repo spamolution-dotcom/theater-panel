@@ -31,6 +31,7 @@ The full guide, with screenshots of every screen, is in the
 | `dashboard_url`, `hallway_return_minutes` | Where the hallway screen's Dashboard button goes, and after how many idle minutes (cinema off) it goes back there by itself. |
 | `image_cache_mb` | Poster cache limit (default 300). |
 | `tmdb_api_key` | Optional; recommendations and holiday shelves. |
+| `youtube_api_key` | Optional; YouTube Data API v3 key. Thumbnail and length of a video playing in SmartTube on the Shield (otherwise a screenshot of the TV and no progress bar). |
 | `music_assistant_token` | Optional. A long-lived token made in Music Assistant (Settings → Profile). Gives the iPad's Music tab its For you page: Top picks, Recently played, Recently added albums and genres. |
 | `music_assistant_url` | Optional. Where Music Assistant is, if not the Music Assistant app on this Home Assistant (e.g. `http://192.168.1.10:8095`). |
 
