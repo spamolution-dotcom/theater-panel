@@ -127,6 +127,8 @@ function build(env) {
       input: env.STREAMER_INPUT || 'GoogleTVStreamer',
       room: env.ENTITY_ROOM_ON || 'input_boolean.movie_scene',
       script: env.ENTITY_WARMUP_SCRIPT || 'script.activate_movie_scene_sequence',
+      // Its Music Assistant player: the Music screen plays here while the Streamer is the player.
+      music: env.ENTITY_MUSIC_PLAYER || 'media_player.media_room_tv_2',
     },
     // Blank ENTITY_SHIELD: no Shield, the Streamer is the only player.
     shield: env.ENTITY_SHIELD === '' ? null : {
@@ -139,6 +141,8 @@ function build(env) {
       alsoCast: env.ENTITY_SHIELD_GCAST === '' ? null : env.ENTITY_SHIELD_GCAST || 'media_player.shield_3',
       input: env.SHIELD_INPUT || 'Blu-ray',
       room: env.ENTITY_SHIELD_ROOM_ON || 'input_boolean.shield_scene',
+      // Its Music Assistant player (the Shield as a Cast speaker).
+      music: env.ENTITY_SHIELD_MUSIC === '' ? null : env.ENTITY_SHIELD_MUSIC || 'media_player.shield_4',
       script: env.ENTITY_SHIELD_SCRIPT || 'script.turn_on_shield_sequence',
     },
     // The Denon receiver (volume, mute) and the HACS Stremio integration's player (what is on).
@@ -368,6 +372,11 @@ function build(env) {
   adminPassword: process.env.ADMIN_PASSWORD || '',
   };
   if (!c.entities.musicPlayers.length) c.entities.musicPlayers = [c.entities.musicPlayer];
+  // Both players' Music Assistant players are offered (and watched); the Music screen's own one
+  // follows the chosen player (server/player.mjs).
+  for (const b of [c.entities.streamer, c.entities.shield]) if (b?.music && !c.entities.musicPlayers.includes(b.music)) c.entities.musicPlayers.push(b.music);
+  // HA's copy of the player choice, so the Hue switch and HA's scripts know it (the panel keeps it in step).
+  c.entities.playerSelect = env.ENTITY_PLAYER_SELECT === '' ? null : env.ENTITY_PLAYER_SELECT || 'input_select.theater_player';
   return c;
 }
 
@@ -395,7 +404,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.alsoCast, b.room, b.script]),
+    ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.alsoCast, b.room, b.script]), e.playerSelect,
     e.seatUnlock, e.autoplay, e.xboxScript, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),

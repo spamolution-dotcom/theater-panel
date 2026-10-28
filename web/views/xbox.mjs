@@ -114,7 +114,7 @@ export function Xbox() {
         <div class="grow" style="display:flex;flex-direction:column;gap:14px;min-width:0">
           <div class="eyebrow">${playing ? 'Now playing on Xbox' : 'Xbox is on'}</div>
           <div class="xb-title ellipsis">${playing || (offInput ? 'Not on screen' : 'Xbox home')}</div>
-          <div class="xb-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, dev].filter(Boolean).join(' · ') : offInput ? `The Denon is on ${avr.attributes.source === 'GoogleTVStreamer' ? 'the Chromecast' : avr.attributes.source} · switch it to the Xbox below` : 'Pick a game below, or use the controller'}</div>
+          <div class="xb-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, dev].filter(Boolean).join(' · ') : offInput ? `The Denon is on ${({ GoogleTVStreamer: 'the Streamer', 'Blu-ray': 'the Shield' })[avr.attributes.source] || avr.attributes.source} · switch it to the Xbox below` : 'Pick a game below, or use the controller'}</div>
           ${playing && Number.isFinite(progress) && html`<div class="xb-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${ach != null ? `${ach} · ` : ''}${Math.round(progress)} %</span></div>`}
         </div>
         <div class="xb-actions">

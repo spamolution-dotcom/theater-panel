@@ -344,6 +344,8 @@
   // A chip beside the status; a tap opens Play on. Kids see it but can't change it.
   var PLAYER_NAMES = { shield: 'Shield', streamer: 'Google TV Streamer' };
   var PLAYER_SHORT = { shield: 'Shield', streamer: 'Streamer' };
+  // Which box the Denon's input is, in words (the Games screen when it isn't on the Xbox).
+  function denonOn() { var src = attrs(st(S.entities.avr)).source; return ({ GoogleTVStreamer: 'the Streamer', 'Blu-ray': 'the Shield' })[src] || src || 'another input'; }
   function players() { var e = S.entities; return (e.players || []).filter(function (p) { return e[p] && st(e[p].tv); }); }
   function playerChip() {
     if (players().length < 2) return '';
@@ -634,7 +636,7 @@
     var vol = attrs(avr).volume_level;
     var muted = Boolean(attrs(avr).is_volume_muted);
     var session = m.session;
-    var kicker = (m.active ? m.now.name + ' · ' : '') + 'Google TV Streamer' + (m.active ? '' : ' · ' + m.now.name);
+    var kicker = (m.active ? m.now.name + ' · ' : '') + (PLAYER_NAMES[S.entities.player] || 'Google TV Streamer') + (m.active ? '' : ' · ' + m.now.name);
     var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
     var offOk = roomOn() || gaming();
     var sleepOk = roomOn();
@@ -752,7 +754,7 @@
       body = '<section class="l-ghero playing">' +
         '<div class="l-gkick"><span class="l-gpill">' + icon('pad', 20) + 'Xbox</span><span class="eye">' + (playing ? 'Now playing' : 'On') + '</span></div>' +
         '<div class="big">' + esc(playing || (offInput ? 'Not on screen' : 'Xbox home')) + '</div>' +
-        '<div class="sub">' + esc(playing ? [Array.isArray(genres) ? genres.join(', ') : genres, attrs(nowSt).developer].filter(Boolean).join(' · ') : offInput ? (k ? 'The Denon is on the Chromecast · tap the game below to switch to it' : 'The Denon is on the Chromecast · switch Source to Xbox below') : 'Pick a game below, or use the controller') + '</div>' +
+        '<div class="sub">' + esc(playing ? [Array.isArray(genres) ? genres.join(', ') : genres, attrs(nowSt).developer].filter(Boolean).join(' · ') : offInput ? (k ? 'The Denon is on ' + denonOn() + ' · tap the game below to switch to it' : 'The Denon is on ' + denonOn() + ' · switch Source to Xbox below') : 'Pick a game below, or use the controller') + '</div>' +
         (playing && isFinite(progress) ? '<div class="l-gach"><span>Achievements</span><div class="l-bar thin"><i style="width:' + Math.min(100, progress) + '%"></i></div><span>' + Math.round(progress) + ' %</span></div>' : '') +
         (isUp(avr) ? '<div class="l-gvol"><button type="button" data-a="t" data-v="vol_down">' + icon('volm', 22) + '</button><span class="k">' + (muted ? 'Muted' : 'Denon · ' + (vol == null ? '–' : Math.round(vol * 200) / 2)) + '</span>' +
           '<button type="button" data-a="t" data-v="vol_up">' + icon('volp', 22) + '</button><button type="button" data-a="mute" data-v="' + (muted ? 0 : 1) + '">' + icon('mute', 22) + '</button></div>' : '') +
@@ -1042,7 +1044,7 @@
     var since = c.playing && c.nowSt && c.nowSt.last_changed ? Math.max(0, (Date.now() - Date.parse(c.nowSt.last_changed)) / 1000) : null;
     var played = since == null ? '' : since >= 3600 ? Math.floor(since / 3600) + 'h ' + Math.floor((since % 3600) / 60) + 'm' : Math.floor(since / 60) + 'm';
     var genres = Array.isArray(c.genres) ? c.genres.join(', ') : c.genres;
-    var sub = c.playing ? '' : c.offInput ? (c.k ? 'The Denon is on the Chromecast · tap a game below to switch to it' : 'The Denon is on the Chromecast · switch Source to Xbox below') : 'Pick a game below, or use the controller';
+    var sub = c.playing ? '' : c.offInput ? (c.k ? 'The Denon is on ' + denonOn() + ' · tap a game below to switch to it' : 'The Denon is on ' + denonOn() + ' · switch Source to Xbox below') : 'Pick a game below, or use the controller';
     var all = c.games.concat(c.apps);
     var head = '<div class="l-nh"><div class="tx"><div class="l-kick"><span class="l-gpill">' + icon('pad', 16) + 'Xbox</span>' + (c.playing ? 'Game' + (genres ? ' · ' + esc(genres) : '') : 'On') + '</div>' +
       '<h1>' + esc(c.playing || (c.offInput ? 'Not on screen' : 'Xbox home')) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
