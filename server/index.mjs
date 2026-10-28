@@ -172,6 +172,35 @@ function castTitleId(title, series) {
   return null;
 }
 
+// The Shield's own word on what Stremio is playing. Its play-state entity (ADB) has no title and
+// its Google Cast entity hears nothing from Stremio, so while Stremio is in front on the Shield
+// the panel asks Android's media session over ADB every 10 s: the title, playing or paused, and the
+// position. (Without it, a film started on the TV wore the poster of the last one the panel opened.)
+const MARK = '#tp-media';
+let shieldMeta = null;   // { title, state, pos, at }
+function shieldTitlePoll() {
+  const e = config.entities;
+  const adb = e.shield?.cast;
+  const onShield = e.player === 'shield' && /stremio/.test(ha.states[e.appleTv]?.attributes?.app_id || '');
+  readShieldMeta();   // the answer to the last ask (it arrives as the entity's adb_response)
+  if (!clients.size || !adb || !onShield || !ha.states[adb]) return;
+  ha.callService('androidtv', 'adb_command', { command: `echo ${MARK}; cat /proc/uptime; dumpsys media_session | grep -A3 'package=com.stremio.one'` }, { target: { entity_id: adb } })
+    .then(() => readShieldMeta()).catch(() => {});
+}
+function readShieldMeta() {
+  const out = String(ha.states[config.entities.shield?.cast]?.attributes?.adb_response || '');
+  if (!out.startsWith(MARK)) return;
+  const up = Number(out.split('\n')[1]?.split(' ')[0]) * 1000;
+  const st = /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(out);
+  const title = /description=([^,\n]+)/.exec(out)?.[1]?.trim();
+  if (!st || !title || title === 'null') { shieldMeta = null; return; }
+  const [, code, pos, speed, upd] = st.map(Number);
+  // Where it is now: the reported position plus the time since Android recorded it.
+  const now = Number(pos) + (up && code === 3 ? Number(speed) * Math.max(0, up - Number(upd)) : 0);
+  shieldMeta = { title, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
+}
+setInterval(shieldTitlePoll, 10e3).unref();
+
 function streamerSessions() {
   const e = config.entities;
   const tv = ha.states[e.appleTv];
@@ -184,7 +213,12 @@ function streamerSessions() {
   // Best source: Google Cast's view of the Streamer. Stremio's player publishes its title,
   // position and play/pause there the moment a stream starts (the Current Watching sensor below
   // only catches up when Stremio syncs, which can be much later).
-  const cast = castNow(ha);
+  let cast = castNow(ha);
+  // On the Shield the play-state entity has no title: add the media session's (shieldTitlePoll).
+  if (cast && !cast.attributes?.media_title && shieldMeta && Date.now() - shieldMeta.at < 30e3) {
+    cast = { ...cast, state: shieldMeta.state === 'paused' ? 'paused' : cast.state,
+      attributes: { ...cast.attributes, media_title: shieldMeta.title, media_position: shieldMeta.pos, media_position_updated_at: new Date(shieldMeta.at).toISOString() } };
+  }
   if (cast) {
     const a = cast.attributes;
     const pos = livePosition(a, cast.state);
