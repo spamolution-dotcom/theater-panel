@@ -28,7 +28,8 @@ export function streamerNow(tv, cast) {
   const name = hit && !/mediashell/.test(pkg) ? hit[2] : ca.app_name || (hit ? hit[2] : 'An app');
   const key = (hit && hit[1]) || CAST_KEYS[ca.app_name] || null;
   // Cast details only when they are about the same app (a stale Cast session can outlive it).
-  const same = c && (!hit || hit[2] === ca.app_name || /mediashell|launcher/.test(pkg) || ca.app_name === 'Music Assistant');
+  // (On the Shield this is the ADB entity, which names the app by its package, like the TV entity.)
+  const same = c && (!hit || hit[2] === ca.app_name || ca.app_name === pkg || /mediashell|launcher/.test(pkg) || ca.app_name === 'Music Assistant');
   return {
     on: true,
     name,
