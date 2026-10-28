@@ -132,7 +132,9 @@ function build(env) {
     shield: env.ENTITY_SHIELD === '' ? null : {
       tv: env.ENTITY_SHIELD || 'media_player.cinema_shield_pro',
       remote: env.ENTITY_SHIELD_REMOTE || 'remote.cinema_shield_pro',
-      cast: env.ENTITY_SHIELD_CAST || 'media_player.shield_3',
+      // What the Shield is playing. Its Google Cast entity (media_player.shield_3) never reports
+      // Stremio playing, so this is the Android Debug Bridge entity, which knows play/pause for any app.
+      cast: env.ENTITY_SHIELD_CAST || 'media_player.cinema_shield_adb',
       input: env.SHIELD_INPUT || 'Blu-ray',
       room: env.ENTITY_SHIELD_ROOM_ON || 'input_boolean.shield_scene',
       script: env.ENTITY_SHIELD_SCRIPT || 'script.turn_on_shield_sequence',

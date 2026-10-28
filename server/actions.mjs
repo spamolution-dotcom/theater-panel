@@ -581,7 +581,9 @@ async function playStremio(ha, body) {
     for (let i = 0; i < 20 && ha.states[e.appleTv]?.attributes?.app_id !== 'com.stremio.one'; i++) await wait(1000);
     if (ha.states[e.appleTv]?.attributes?.app_id !== 'com.stremio.one') return;
     await wait(6000);
-    if (castNow(ha)) return;
+    // Already playing (Stremio's own autoplay): leave it. Only "playing" counts here, since a
+    // previous film can leave the Shield reporting "paused" while the stream list is up.
+    if (castNow(ha)?.state === 'playing') return;
     const ok = () => ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
     await ok();
     for (let i = 0; i < 12 && !castNow(ha); i++) await wait(1000);

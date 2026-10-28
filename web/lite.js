@@ -230,7 +230,7 @@
     var ca = attrs(c);
     var name = hit && !/mediashell/.test(pkg) ? hit[2] : ca.app_name || (hit ? hit[2] : 'An app');
     var key = (hit && hit[1]) || CAST_KEYS[ca.app_name] || null;
-    var same = Boolean(c) && (!hit || hit[2] === ca.app_name || /mediashell|launcher/.test(pkg) || ca.app_name === 'Music Assistant');
+    var same = Boolean(c) && (!hit || hit[2] === ca.app_name || ca.app_name === pkg || /mediashell|launcher/.test(pkg) || ca.app_name === 'Music Assistant');
     return { on: true, name: name, key: key, home: name === 'Home screen' && !same,
       title: same ? ca.media_title || '' : '', artist: same ? ca.media_artist || ca.media_series_title || '' : '',
       state: same ? c.state : null, cast: same ? c : null };
