@@ -310,3 +310,6 @@ html.dark .r-offline, html.dark .r-toast.err { background: #8A3324; }
 .r-startsheet .steps li.now .ic, .r-startsheet .steps li.late .ic { border-color: currentColor; border-top-color: transparent; animation: r-spin 1s linear infinite; }
 .r-startsheet .steps li.late { color: #F2B28C; }
 @keyframes r-spin { to { transform: rotate(360deg); } }
+
+/* A video's picture (a frame from the TV): landscape */
+.r-np-art.wide { width: 130px; height: 73px; align-self: center; }

@@ -283,7 +283,7 @@ function NowPlaying({ onTab, inRemote }) {
   const t = (cmd, extra) => act({ action: 'transport', cmd, ...extra });
 
   return html`<section class="r-np">
-    <div class="r-np-art">${session?.poster ? html`<img src=${session.poster} alt="" />` : app ? html`<img class="app" src=${`/assets/apps/${app}.png`} alt="" />` : html`<${Icon} name="tv" size=${30} color="#C7B39E" />`}</div>
+    <div class=${`r-np-art${session?.wide ? ' wide' : ''}`}>${session?.poster ? html`<img src=${session.poster} alt="" />` : app ? html`<img class="app" src=${`/assets/apps/${app}.png`} alt="" />` : html`<${Icon} name="tv" size=${30} color="#C7B39E" />`}</div>
     <div class="r-np-body">
       <div class="r-kick light">${label}${playing && fmt ? html`<span class=${`r-fmt ${fmt.kind}`}>${fmt.label}</span>` : null}</div>
       <div class="r-np-title">${title}</div>

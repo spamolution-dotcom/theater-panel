@@ -399,7 +399,7 @@
     var info = [sub, left != null ? (runtime(left * 1000) || mmss(left)) + ' left · ends ' + endsAt(left * 1000) : ''].filter(Boolean).join(' · ');
     return '<section class="l-np' + (inRemote ? ' mini' : '') + '">' +
       // In landscape a tap on the artwork opens Now Showing.
-      '<div class="l-np-art"' + (LAND && !inRemote ? ' data-a="tab" data-v="remote"' : '') + '>' + art + '</div>' +
+      '<div class="l-np-art' + (session && session.wide ? ' wide' : '') + '"' + (LAND && !inRemote ? ' data-a="tab" data-v="remote"' : '') + '>' + art + '</div>' +
       '<div class="l-np-body">' +
         '<div class="l-kick">' + label + '</div>' +
         '<div class="l-np-title">' + esc(title) + '</div>' +

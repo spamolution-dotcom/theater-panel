@@ -234,7 +234,11 @@ function streamerSessions() {
   if (/^(org\.smarttube|com\.teamsmart\.videomanager)/.test(app || '')) {
     const m = shieldMeta && shieldMeta.pkg === app && Date.now() - shieldMeta.at < 30e3 ? shieldMeta : null;
     if (!m || m.state === 'idle') return [];
-    return [{ id: 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: 0 }];
+    // The picture: the ADB entity's live screenshot of the TV, so a frame of the video (the Shield
+    // doesn't say which video it is, so there's no thumbnail to fetch).
+    const adbPic = ha.states[e.shield?.cast]?.attributes?.entity_picture;
+    const poster = adbPic ? `/api/ha-image?e=${encodeURIComponent(e.shield.cast)}&v=${encodeURIComponent(adbPic)}` : undefined;
+    return [{ id: 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: 0, poster, wide: Boolean(poster) }];
   }
   if (app !== STREMIO_APP) return [];
   const l = lastLaunched();
