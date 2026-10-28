@@ -9,6 +9,7 @@ import { extImage } from './images.mjs';
 import * as games from './games.mjs';
 import { httpError } from './admin.mjs';
 import { xboxAction } from './xbox.mjs';
+import * as player from './player.mjs';
 
 // Launch links as documented for the Android TV Remote integration
 // (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
@@ -33,17 +34,18 @@ const panelPath = (url) => {
 };
 
 // The Denon keeps its last input, so after an Xbox session a film would start on the Xbox
-// input. Before anything opens on the Streamer, put the Denon back on it when it is on something
-// else. Only when the Denon is already on: from cold, HA's start sequence sets the input itself.
-const STREAMER_INPUT = 'GoogleTVStreamer';
+// input. Before anything opens on the player (the Streamer or the Shield), put the Denon back on
+// its input when it is on something else. Only when the Denon is already on: from cold, HA's
+// start sequence sets the input itself.
 // The Denon on its HEOS / NET input reports 'playing' or 'paused', not 'on', so anything but off
 // or unreachable counts as on: else a film or app opened after music stayed on the music input.
 async function toStreamer(ha) {
   const avr = config.entities.avr;
   const s = ha.states[avr];
-  if (!avr || !s || ['off', 'standby', 'unavailable', 'unknown'].includes(s.state) || !s.attributes?.source || s.attributes.source === STREAMER_INPUT) return;
-  await ha.callService('media_player', 'select_source', { source: STREAMER_INPUT }, { target: { entity_id: avr } })
-    .catch((err) => console.warn('[input] could not switch the Denon to the Streamer:', err.message));
+  const input = config.entities.playerInput;
+  if (!avr || !s || ['off', 'standby', 'unavailable', 'unknown'].includes(s.state) || !s.attributes?.source || s.attributes.source === input) return;
+  await ha.callService('media_player', 'select_source', { source: input }, { target: { entity_id: avr } })
+    .catch((err) => console.warn('[input] could not switch the Denon to the player:', err.message));
 }
 
 export const script = (ha, name, variables = {}) => ha.callService('script', 'turn_on', { variables }, { target: { entity_id: `script.theater_${name}` } });
@@ -97,6 +99,10 @@ export async function runAction(ha, body) {
     case 'scene': {
       if (!SCENES.includes(body.name)) throw new Error('Unknown scene');
       const run = await script(ha, body.name);
+      // HA's All off ends the movie and Xbox scenes; the Shield's scene ends here too.
+      if (body.name === 'all_off' && e.shield && ha.states[e.shield.room]?.state === 'on') {
+        await ha.callService('input_boolean', 'turn_off', {}, { target: { entity_id: e.shield.room } }).catch(() => {});
+      }
       // The bar follows the room: a film gets Smart mode and no Night mode, unless told otherwise.
       if (body.name === 'movie_time' && e.soundbar && config.soundbarMovieSmart) {
         soundbar(ha, { cmd: 'smart', on: true }).catch(() => {});
@@ -255,12 +261,14 @@ export async function runAction(ha, body) {
       // The projector now comes on last in the theatre sequence (it locks onto a settled HDMI
       // signal that way), so the app waits for it too, else a film could start on a blank screen.
       const projUp = () => !e.projectorPower || ha.states[e.projectorPower]?.state === 'on';
-      const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state) && projUp();
+      // And for the start script to finish: it restarts the projector at the end, and an app
+      // opened before that (Netflix) decides there's no Atmos.
+      const ready = () => ha.states[e.appleTv]?.state === 'on' && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state) && projUp() && !player.startRunning();
       // Pre-show music fades out (HA's script.theater_music_fade, ~2.5 s) before the app
       // opens, rather than being cut off by it. A missing script only costs the fade.
       const fadeMusic = () => ha.callService('script', 'theater_music_fade', {}).catch((err) => console.warn('[app] no music fade:', err.message));
       // Always bring the movie scene on (lights, blind), even when the kit is already up.
-      const sceneOff = ha.states[e.roomOn]?.state !== 'on';
+      const sceneOff = !player.roomOn();
       if (ready()) {
         await fadeMusic();
         await open();
@@ -297,8 +305,10 @@ export async function runAction(ha, body) {
         return ha.callService('media_player', 'volume_set', { volume_level: Math.round(level * 100) / 100 }, { target: { entity_id: e.avr } });
       }
       if (body.cmd === 'source') {
-        const allowed = [STREAMER_INPUT, 'Xbox One'];
-        if (!allowed.includes(body.source)) throw httpError(400, 'Unknown source');
+        // The Streamer's or the Shield's input is the same as choosing that player (the room moves over).
+        const box = ['streamer', 'shield'].find((b) => e[b] && e[b].input === body.source);
+        if (box) return player.set(box);
+        if (body.source !== 'Xbox One') throw httpError(400, 'Unknown source');
         return ha.callService('media_player', 'select_source', { source: body.source }, { target: { entity_id: e.avr } });
       }
       // The cinema's blind: open, closed, or a position (0 closed .. 100 open).
@@ -355,6 +365,9 @@ export async function runAction(ha, body) {
       }
       throw new Error('Unknown music command');
     }
+
+    // The cinema's player: the Streamer or the Shield (server/player.mjs).
+    case 'player': return player.set(String(body.to || ''));
 
     case 'game_source': return games.selectSource(ha, String(body.id));
     case 'xbox': return xboxAction(ha, body);
@@ -543,8 +556,37 @@ async function playStremio(ha, body) {
   launched = { id: String(body.ratingKey), type: body.type, title: body.title || null, at: Date.now() };
   plex.item(String(body.ratingKey)).then((it) => { if (launched?.id === String(body.ratingKey)) launched = { ...launched, ...it, at: launched.at }; }).catch(() => {});
   plex.staleMovies();
-  await toStreamer(ha);
-  return script(ha, 'play_stremio', { link, kind });
+  // Once HA's script.theater_play_stremio, which only knew the Streamer: now the panel does the
+  // same on whichever box is the player. Start the cinema if it's off, wait for it (and for the
+  // start script to finish), fade any pre-show music, open the title's stream list, and with
+  // auto-play on press OK for the first stream (again 12 s later if nothing plays).
+  const e = config.entities;
+  const wasOff = !player.roomOn();
+  if (wasOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
+  else if (ha.states[e.appleTv]?.state === 'off') await ha.callService('media_player', 'turn_on', {}, { target: { entity_id: e.appleTv } }).catch(() => {});
+  const isOn = (id) => !id || ha.states[id]?.state === 'on';
+  const ready = () => isOn(e.appleTv) && !['unavailable', 'unknown', 'off', undefined].includes(ha.states[e.avr]?.state) && isOn(e.projectorPower) && !player.startRunning();
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const run = async () => {
+    for (const end = Date.now() + 270e3; !ready() && Date.now() < end;) await wait(2000);
+    if (!ready()) return console.warn('[stremio] the cinema did not come up in time');
+    if (wasOff) await wait(5000);   // a box that has just woken ignores links for a moment
+    await ha.callService('script', 'theater_music_fade', {}).catch(() => {});
+    await toStreamer(ha);
+    await wakeStreamer(ha).catch(() => {});
+    await ha.callService('media_player', 'play_media', { media: { media_content_type: 'url', media_content_id: link } }, { target: { entity_id: e.appleTv } });
+    if (ha.states[e.autoplay]?.state !== 'on') return;
+    for (let i = 0; i < 20 && ha.states[e.appleTv]?.attributes?.app_id !== 'com.stremio.one'; i++) await wait(1000);
+    if (ha.states[e.appleTv]?.attributes?.app_id !== 'com.stremio.one') return;
+    await wait(6000);
+    if (castNow(ha)) return;
+    const ok = () => ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
+    await ok();
+    for (let i = 0; i < 12 && !castNow(ha); i++) await wait(1000);
+    if (!castNow(ha)) await ok();
+  };
+  run().catch((err) => console.warn(`[stremio] ${kind}:`, err.message));
+  return { ok: true, warming: !ready() };
 }
 
 // Pause and play are key presses on the Streamer's remote (Stremio's player takes them); volume and

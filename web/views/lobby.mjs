@@ -13,6 +13,35 @@ import { needsWarmup } from './warmup.mjs';
 import { usePicked } from '../lib/picked.mjs';
 import { streamerNow } from '../lib/streamer.mjs';
 
+// The player switch: which box the cinema plays on (server/player.mjs). Shown when both boxes exist.
+const PLAYER_NAMES = { shield: 'Shield', streamer: 'Google TV Streamer' };
+const PLAYER_SHORT = { shield: 'Shield', streamer: 'Streamer' };
+const PLAYER_WHY = { shield: 'Lossless Dolby Atmos (TrueHD) for Stremio films', streamer: 'Google TV home screen · Assistant' };
+const playerIcon = (p) => (p === 'shield' ? 'shield' : 'cast');
+const usePlayers = () => useStore((s) => (s.entities?.players || []).filter((p) => s.entities[p] && s.states[s.entities[p].tv]).join(',')).split(',').filter(Boolean);
+
+function PlayerChip() {
+  const players = usePlayers();
+  const e = useStore((s) => s.entities) || {};
+  const roomOn = useStore((s) => s.states[s.entities?.roomOn]?.state === 'on');
+  const [open, setOpen] = useState(false);
+  if (players.length < 2) return null;
+  const pick = (to) => {
+    setOpen(false);
+    if (to === e.player) return;
+    act({ action: 'player', to }).then((r) => { if (r) toast(roomOn ? `Moving the cinema to the ${PLAYER_NAMES[to]} · the projector restarts` : `Playing on the ${PLAYER_NAMES[to]}`); });
+  };
+  return html`<button type="button" class="chip player" onClick=${() => setOpen(true)}><${Play} size=${16} />
+      <span>Player: <b>${e.playerMoving ? `moving to ${PLAYER_SHORT[e.playerMoving]}…` : PLAYER_SHORT[e.player] || e.player}</b></span><${Icon} name="down" size=${20} /></button>
+    ${open && html`<div class="sheet-back" onClick=${() => setOpen(false)}>
+      <div class="card player-sheet" role="dialog" aria-label="Play on" onClick=${(ev) => ev.stopPropagation()}>
+        <h2>Play on</h2><p class="muted">Apps, films and the remote use this box</p>
+        <div class="pl-opts">${players.map((p) => html`<button type="button" class="pl-opt" key=${p} aria-pressed=${p === e.player ? 'true' : 'false'} onClick=${() => pick(p)}>
+          <${Icon} name=${playerIcon(p)} size=${30} /><span><b>${PLAYER_NAMES[p]}</b><s>${PLAYER_WHY[p]}</s></span>${p === e.player && html`<i>✓</i>`}</button>`)}</div>
+        ${roomOn && html`<p class="pl-note">Cinema is on: switching moves the Denon to the other box and restarts the projector (about 30 s of black screen).</p>`}
+      </div></div>`}`;
+}
+
 const SCENES = [
   { name: 'pre_show', label: 'Pre-show', desc: 'Warm lights · music', icon: 'music' },
   { name: 'movie_time', label: 'Movie time', desc: 'Lights down', icon: 'film' },
@@ -46,6 +75,7 @@ export function Lobby() {
 
   return html`<main class="view">
     <${Header} title="Home Theater" kicker=${countdown ? `${weekday} ${part} · ${countdown.text}` : `${weekday} ${part}`}>
+      <${PlayerChip} />
       ${arrivals.list.length > 0 && html`<button type="button" class="chip arrival" onClick=${() => go('watch', { item: arrivals.list[0].plexId })}>
         ${arrivals.list[0].poster && html`<img src=${arrivals.list[0].poster} alt="" />`}
         <span><b>New in your library</b> ${arrivals.list[0].title}</span>${arrivals.list.length > 1 && html`<span class="more">+${arrivals.list.length - 1}</span>`}
@@ -565,10 +595,13 @@ function Cinema() {
   const appName = isUp(tv) ? streamerNow(tv, cast).name : '';
   const vol = Math.round((avr?.attributes?.volume_level || 0) * 100);
   const src = avr?.attributes?.source;
+  const players = usePlayers();
+  // A player's input switches the player too (server/player.mjs); the Xbox is just an input.
+  const sources = (players.length ? players : ['streamer']).filter((p) => e[p]).map((p) => [e[p].input, PLAYER_SHORT[p], playerIcon(p)]).concat([[XBOX_INPUT, 'Xbox', 'pad']]);
   const devices = [
     { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}%` : 'Off' },
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
-    { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: appName || 'Off' },
+    { id: 'chromecast', name: PLAYER_SHORT[e.player] || 'Streamer', icon: playerIcon(e.player), ok: isUp(tv), note: appName || 'Off' },
   ];
   const status = warming ? 'Warming up…' : on ? 'On' : gaming ? 'Xbox' : 'Off';
   const live = on || gaming;
@@ -583,7 +616,7 @@ function Cinema() {
     <div class="label">Devices</div>
     <div class="devs">${devices.map((d) => html`<${DevButton} d=${d} key=${d.id} />`)}</div>
     ${isUp(avr) && html`<div class="label">Source</div>
-      <div class="tiles src">${[['GoogleTVStreamer', 'Chromecast', 'cast'], [XBOX_INPUT, 'Xbox', 'pad']].map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
+      <div class="tiles src">${sources.map(([id, name, icon]) => html`<button type="button" class="tile" aria-pressed=${src === id ? 'true' : 'false'} onClick=${() => act({ action: 'cinema', cmd: 'source', source: id })}><${Icon} name=${icon} size=${24} /><span>${name}</span></button>`)}</div>`}
   </section>`;
 }
 

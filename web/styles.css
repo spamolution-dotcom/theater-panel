@@ -895,6 +895,7 @@ html.cinema .search, html.cinema input.range { background: rgba(255,238,214,.07)
 .cinema-card .dev:active { transform: scale(.97); }
 .cinema-card .tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .cinema-card .tiles.apps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cinema-card .tiles.src { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .cinema-card .apps-label { margin-top: auto; padding-top: 14px; }
 .cinema-card .tile { height: 64px; border: 0; border-radius: 14px; background: var(--track); color: var(--ink); display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 15px; font-weight: 600; padding: 0 6px; min-width: 0; }
 .cinema-card .tiles.apps .tile { height: 84px; flex-direction: column; gap: 6px; font-size: 14px; }
@@ -1122,3 +1123,18 @@ html.cinema .kind-toggle button[aria-pressed="true"] { background: var(--acc-sof
 .showtime.hall .st-castrow span { min-width: 0; }
 .showtime.hall .st-castrow b { display: block; font: 600 15px/1.2 var(--sans); color: #EADFD1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .showtime.hall .st-castrow s { display: block; text-decoration: none; font: 500 13px/1.2 var(--sans); color: var(--d-dim); margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* the player switch (Shield / Streamer) */
+.chip.player { gap: 8px; }
+.chip.player b { font-weight: 800; }
+.player-sheet { width: 640px; padding: 30px; }
+.player-sheet h2 { margin: 0; font-family: var(--disp); font-weight: 800; font-size: 40px; text-transform: uppercase; }
+.player-sheet .muted { margin: 4px 0 0; font-size: 17px; }
+.pl-opts { display: grid; gap: 12px; margin-top: 20px; }
+.pl-opt { display: flex; align-items: center; gap: 16px; text-align: left; padding: 18px 20px; border-radius: 18px; border: 1px solid var(--line); background: var(--card); color: var(--muted); }
+.pl-opt b { display: block; font-size: 21px; font-weight: 700; color: var(--ink); }
+.pl-opt s { text-decoration: none; font-size: 16px; color: var(--muted); }
+.pl-opt i { margin-left: auto; font-style: normal; font-weight: 800; font-size: 22px; }
+.pl-opt[aria-pressed="true"] { background: var(--acc-soft); border-color: var(--acc); color: var(--acc); }
+.pl-opt[aria-pressed="true"] b { color: var(--acc); }
+.pl-note { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; background: var(--amb-soft); color: var(--amb); font-size: 16px; line-height: 1.4; }

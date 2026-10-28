@@ -170,12 +170,44 @@ function PinPad({ onClose }) {
   </div>`;
 }
 
+// The player switch: which box the cinema plays on (server/player.mjs). Shown when both boxes exist.
+const PLAYER_NAMES = { shield: 'Shield', streamer: 'Google TV Streamer' };
+const PLAYER_SHORT = { shield: 'Shield', streamer: 'Streamer' };
+const PLAYER_WHY = { shield: 'Lossless Dolby Atmos (TrueHD) for Stremio films', streamer: 'Google TV home screen · Assistant' };
+const playerIcon = (p) => (p === 'shield' ? 'shield' : 'cast');
+const usePlayers = () => useStore((s) => (s.entities?.players || []).filter((p) => s.entities[p] && s.states[s.entities[p].tv]).join(',')).split(',').filter(Boolean);
+
+function PlayerChip() {
+  const players = usePlayers();
+  const e = useStore((s) => s.entities) || {};
+  const roomOn = useRoomOn();
+  const kids = useKids();
+  const [open, setOpen] = useState(false);
+  if (players.length < 2) return null;
+  const pick = (to) => {
+    setOpen(false);
+    if (to === e.player) return;
+    act({ action: 'player', to }).then((r) => { if (r) toast(roomOn ? `Moving the cinema to the ${PLAYER_NAMES[to]} · the projector restarts` : `Playing on the ${PLAYER_NAMES[to]}`); });
+  };
+  const label = e.playerMoving ? `Moving to ${PLAYER_SHORT[e.playerMoving]}…` : PLAYER_SHORT[e.player] || e.player;
+  return html`<button type="button" class=${`r-chip pl${kids ? ' ro' : ''}`} disabled=${kids} aria-label=${`Player: ${PLAYER_NAMES[e.player]}`}
+      onClick=${() => !kids && setOpen(true)}><${Play} size=${12} />${label}${!kids && html`<${Icon} name="down" size=${14} />`}</button>
+    ${open && html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) setOpen(false); }}>
+      <div class="r-sheet" role="dialog" aria-label="Play on">
+        <div class="r-grab"></div>
+        <h3>Play on</h3><p class="r-plot" style="margin-top:4px">Apps, films and the remote use this box</p>
+        <div class="r-plopts">${players.map((p) => html`<button type="button" class="r-scn" key=${p} aria-pressed=${p === e.player ? 'true' : 'false'} onClick=${() => pick(p)}>
+          <${Icon} name=${playerIcon(p)} size=${22} /><span><b>${PLAYER_NAMES[p]}</b><s>${PLAYER_WHY[p]}</s></span>${p === e.player && html`<i>✓</i>`}</button>`)}</div>
+        ${roomOn && html`<p class="r-plnote">Cinema is on: switching moves the Denon to the other box and restarts the projector (about 30 s of black screen).</p>`}
+      </div></div>`}`;
+}
+
 function StatusChip() {
   const roomOn = useRoomOn();
   const gaming = useGaming();
   const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
   const cls = warming ? 'warm' : roomOn || gaming ? 'on' : '';
-  return html`<span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : gaming ? 'Xbox on' : 'Cinema off'}</span>`;
+  return html`<${PlayerChip} /><span class=${`r-chip ${cls}`}><span class="dot"></span>${warming ? 'Starting…' : roomOn ? 'Cinema on' : gaming ? 'Xbox on' : 'Cinema off'}</span>`;
 }
 
 // What the Streamer is showing: a Stremio session first; otherwise what Cast reports (YouTube,
@@ -342,7 +374,7 @@ function Devices() {
   const devices = [
     { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
     { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? `On · ${vol}` : 'Off' },
-    { id: 'chromecast', name: 'Chromecast', icon: 'cast', ok: isUp(tv), note: streamerNow(tv, cast).name },
+    { id: 'chromecast', name: PLAYER_SHORT[e.player] || 'Streamer', icon: playerIcon(e.player), ok: isUp(tv), note: streamerNow(tv, cast).name },
   ];
   return html`<section>
     <div class="r-h2"><h2>Devices</h2></div>
@@ -351,9 +383,11 @@ function Devices() {
   </section>`;
 }
 
-// The Denon's input (only while it is on): the Streamer or the Xbox, one tap.
-const SOURCES = [['GoogleTVStreamer', 'Chromecast', 'cast'], [XBOX_INPUT, 'Xbox', 'pad']];
+// The Denon's input (only while it is on): a player (which switches the player too) or the Xbox.
 function Source({ avr }) {
+  const e = useStore((st) => st.entities) || {};
+  const players = usePlayers();
+  const SOURCES = (players.length ? players : ['streamer']).filter((p) => e[p]).map((p) => [e[p].input, PLAYER_SHORT[p], playerIcon(p)]).concat([[XBOX_INPUT, 'Xbox', 'pad']]);
   const [want, setWant] = useState(null);
   const src = avr?.attributes?.source;
   useEffect(() => { setWant(null); }, [src]);
@@ -568,7 +602,7 @@ function TvRemote({ onTab }) {
   // While a film or show plays: Now playing first (pause and volume are what people reach for),
   // then the pad (menus, Next episode), then what it is and who's in it.
   return html`<div class="r-page">
-    <${Top} title=${active ? 'Now playing' : 'TV Remote'} kicker=${`${active ? `${appName} · ` : ''}Google TV Streamer${active ? '' : ` · ${appName}`}`}><${StatusChip} /><//>
+    <${Top} title=${active ? 'Now playing' : 'TV Remote'} kicker=${`${active ? `${appName} · ` : ''}${PLAYER_NAMES[e.player] || 'Google TV Streamer'}${active ? '' : ` · ${appName}`}`}><${StatusChip} /><//>
     ${!isUp(tv) && html`<div class="r-note" style="margin:0 0 6px">The Streamer is off. ${roomOn ? 'Turn it on under Devices on Home.' : 'Start the cinema first.'}</div>`}
     ${active && html`<${NowPlaying} onTab=${onTab} inRemote />`}
     ${active && session && /^tt\d+:\d+:\d+$/.test(session.id || '') && html`<${EpisodeNav} id=${session.id} key=${session.id} />`}

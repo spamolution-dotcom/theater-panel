@@ -663,3 +663,17 @@ svg { display: block; flex-shrink: 0; }
 .l-tile.wide { grid-column: 1 / -1; flex-direction: row; align-items: center; min-height: 48px; padding: 8px 14px; }
 .l-tile.wide svg { margin: 0 10px 0 0; }
 .l-tile.wide s { margin: 0 0 0 auto; }
+/* The player chip (Shield / Streamer) and the Play on sheet */
+.l-chip.pl { background: var(--acc-soft); border-color: #5A3D1C; color: var(--acc); margin-right: 10px; }
+.l-chip.pl svg { margin-right: 8px; }
+.l-chip.pl svg:last-child { margin: 0 0 0 6px; }
+.l-chip.pl.ro { opacity: .85; }
+.l-plopt { display: flex; align-items: center; width: 100%; margin-top: 12px; padding: 18px; border-radius: 18px; border: 1px solid var(--line); background: var(--card2); text-align: left; color: var(--ink); }
+.l-plopt svg { flex-shrink: 0; margin-right: 16px; color: var(--muted); }
+.l-plopt .tx { flex: 1; min-width: 0; }
+.l-plopt b { display: block; font: 700 20px var(--sans); }
+.l-plopt s { display: block; text-decoration: none; font: 500 14px var(--sans); color: var(--muted); margin-top: 2px; }
+.l-plopt i { font-style: normal; font-weight: 700; color: var(--acc); margin-left: 12px; }
+.l-plopt.on { border-color: var(--acc); background: var(--acc-soft); }
+.l-plopt.on svg { color: var(--acc); }
+.l-plnote { margin: 14px 2px 0; font: 500 14px var(--sans); color: var(--muted); }
