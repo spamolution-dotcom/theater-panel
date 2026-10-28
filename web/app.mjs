@@ -5,7 +5,7 @@
 import { render } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { html, Icon } from './lib/ui.mjs';
-import { startLive, useStore, useEntity, clock, getState, setTheater, subscribe, post, get, useLoad, toast, playbackState, openTweaks, closeTweaks, closeTonight, closeGuest, openSound, closeSound } from './lib/api.mjs';
+import { startLive, useStore, useEntity, clock, getState, setTheater, subscribe, post, get, useLoad, toast, playbackState, openTweaks, closeTweaks, closeTonight, closeGuest, openSound, closeSound, setActExtra } from './lib/api.mjs';
 import { Emblem } from './lib/emblems.mjs';
 import { Particles } from './lib/particles.mjs';
 import { RailGlow } from './lib/effects.mjs';
@@ -379,10 +379,11 @@ function App() {
     if ((['idle', 'off', 'standby'].includes(tvState) || nothingOn) && route.name === 'showtime') go('lobby', { auto: true });
   }, [tvState]);
   // The start-up sequence running (from the tablet, Play, voice, anywhere): show the warm-up screen.
-  const warming = useStore((s) => s.states[s.entities?.warmupScript]?.state === 'on');
+  // A start-up under way (server/startup.mjs: the cinema on either player, the Xbox, a player switch).
+  const starting = useStore((s) => (s.startup && !s.startup.done ? s.startup.id : null));
   useEffect(() => {
-    if (warming && !['warmup', 'showtime', 'intermission'].includes(route.name)) go('warmup', { auto: true });
-  }, [warming]);
+    if (starting && !['warmup', 'intermission'].includes(route.name)) go('warmup', { auto: true });
+  }, [starting]);
   // Intermission is a screen as well as a scene: whoever calls for the break - the panel, a Pico
   // remote, "hey Jarvis, intermission" - gets the snack bar on the wall, and leaving the scene
   // takes it away again.
@@ -501,6 +502,7 @@ setRender(route.params.render ?? '');
 setTheme(route.params.theme ?? '');
 setAccent(route.params.accent ?? '');
 setCinema(route.params.cinema ?? '');
+setActExtra({ from: 'wall' });   // the start-up status says where a start came from
 startLive({ navigate: goRoute });
 // Is Kiosk Satellite's theater mode reachable (directly, or relayed by the HA page around us)?
 if (!hallway) detectTheater().then((t) => {

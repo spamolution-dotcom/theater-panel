@@ -8,7 +8,8 @@ import { gamingOn, XBOX_INPUT } from './lib/gaming.mjs';
 import { render } from 'preact';
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { html, Icon, Play, Pause, Prev, Next, Poster } from './lib/ui.mjs';
-import { get, post, act, getState, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss } from './lib/api.mjs';
+import { get, post, act, getState, useLoad, useStore, useEntity, startLive, toast, livePosition, playbackState, runtime, mmss, setActExtra } from './lib/api.mjs';
+import { useStartup, timing, clock, eyebrow, heading, stepLine } from './lib/startup.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
 import { streamerNow } from './lib/streamer.mjs';
@@ -70,9 +71,10 @@ function useArmed() {
 
 // Play in the cinema. A cold room starts first (about a minute); the server handles the order.
 async function playItem(item, roomOn, resume = true) {
-  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, title: nameOf(item), offset: resume ? item.viewOffset : 0 });
+  const sub = item.showTitle ? `S${item.season} · E${item.episode} ${item.title}` : [item.year].filter(Boolean).join('');
+  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, title: nameOf(item), sub, poster: item.poster || '', offset: resume ? item.viewOffset : 0 });
   if (!r) return false;
-  toast(!roomOn ? `Starting the cinema · ${nameOf(item)} opens in about a minute`
+  toast(!roomOn ? `Starting the cinema · ${nameOf(item)} opens when it's up`
     : r.preroll ? `Lights down… ${nameOf(item)} in ${r.preroll}s` : `Opening ${nameOf(item)} on the TV · pick a stream with the remote`);
   return true;
 }
@@ -86,7 +88,37 @@ async function openApp(app) {
 
 function Top({ title, kicker, children }) {
   return html`<header class="r-top"><div><div class="r-kick">${kicker}</div><h1>${title}</h1></div>
-    <div class="r-topr">${seat && html`<${SeatBadge} />`}${children}</div></header>`;
+    <div class="r-topr">${seat && html`<${SeatBadge} />`}${children}</div></header>
+    <${StartupBar} />`;
+}
+
+// The start-up status (server/startup.mjs), under the header on every tab while the room comes up:
+// what is starting, the step it is on and the time left. Tap for the steps.
+function StartupBar() {
+  const { job, now } = useStartup();
+  const [open, setOpen] = useState(false);
+  useEffect(() => { if (!job) setOpen(false); }, [Boolean(job)]);
+  if (!job) return null;
+  const t = timing(job, now);
+  const what = job.kind === 'move' ? `Moving to the ${job.box === 'shield' ? 'Shield' : 'Streamer'}` : job.kind === 'xbox' ? 'Starting the room · Xbox' : `Starting the cinema · ${job.box === 'shield' ? 'Shield' : 'Streamer'}`;
+  return html`<button type="button" class=${`r-start${job.late ? ' late' : ''}${job.done ? ' done' : ''}`} onClick=${() => setOpen(true)}>
+      <span class="r"><span class="tx"><b>${job.done ? 'Ready' : what}</b><s>${stepLine(job)}</s></span>
+        <span class="n">${job.done ? '✓' : job.late ? clock(t.so) : clock(t.left)}</span></span>
+      <span class="bar"><i style=${`width:${t.pct}%`}></i></span></button>
+    ${open && html`<div class="r-sheet-back" onClick=${(ev) => { if (ev.target === ev.currentTarget) setOpen(false); }}>
+      <div class="r-sheet r-startsheet" role="dialog" aria-label="Start-up">
+        <div class="r-grab"></div>
+        <div class="eye">${eyebrow(job)}</div>
+        <h3>${heading(job)}</h3>
+        ${(job.what?.sub || job.from) && html`<p class="sub">${[job.what?.sub, job.from && `Started from ${job.from}`].filter(Boolean).join(' · ')}</p>`}
+        ${job.done ? html`<div class="cnt"><span class="n">Ready</span></div>`
+          : job.late ? html`<div class="cnt"><span class="n late">${clock(t.so)}</span><span class="l">so far · usually ${clock(t.usual)}</span></div>
+            <p class="warn">Still waiting for: ${job.waiting || 'the room'}. If it stays stuck, check the Media Control Switch plug, or tap All off and start again.</p>`
+          : html`<div class="cnt"><span class="n">${clock(t.left)}</span><span class="l">${t.left > 0 ? 'to go, roughly' : 'any moment now'}</span></div>`}
+        <div class="bar"><i style=${`width:${t.pct}%`}></i></div>
+        <ul class="steps">${job.steps.map((s, i) => html`<li key=${s.id} class=${s.ok ? 'ok' : s.id === job.current ? (job.late ? 'late' : 'now') : ''}>
+          <span class="ic">${s.ok ? '✓' : s.id === job.current ? '' : i + 1}</span>${s.label}<span class="t">${s.ok ? clock(Math.round(s.at / 1000)) : ''}</span></li>`)}</ul>
+      </div></div>`}`;
 }
 
 // ---------- kids mode (the seat phone only; server/seat.mjs) ----------
@@ -830,7 +862,7 @@ function Games() {
 
   async function start() { setBusy(true); if (await act({ action: 'xbox', cmd: 'start' })) toast('Starting the room for gaming'); setTimeout(() => setBusy(false), 60000); }
   async function pick(g) {
-    const r = await act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind });
+    const r = await act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind, title: g.title, poster: g.thumb || '' });
     if (r) toast(r.starting ? `Starting the room · ${g.title} opens when the Xbox is up` : `Opening ${g.title}`);
     if (r?.starting) setBusy(true);
   }
@@ -875,5 +907,6 @@ function Games() {
   </div>`;
 }
 
+setActExtra({ from: 'phone' });   // the start-up status says where a start came from
 startLive({ navigate: () => {} });
 render(html`<${Remote} />`, document.getElementById('app'));
