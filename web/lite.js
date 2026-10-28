@@ -219,7 +219,7 @@
   // What the Streamer is showing (web/lib/streamer.mjs).
   var STREAM_APPS = [
     [/^com\.netflix\./, 'netflix', 'Netflix'], [/^com\.stremio\./, 'stremio', 'Stremio'],
-    [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'], [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'],
+    [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'], [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'], [/^org\.smarttube/, 'youtube', 'YouTube'],
     [/^com\.amazon\.amazonvideo/, 'prime', 'Prime Video'], [/^com\.spotify\./, null, 'Spotify'], [/^com\.disney\./, null, 'Disney+'],
     [/^com\.plexapp\./, null, 'Plex'], [/launcher/, null, 'Home screen'], [/mediashell/, null, 'Casting'],
   ];
@@ -386,7 +386,7 @@
     var a = attrs(tv);
     var app = (session && session.app) || now.key;
     var title = (session && (session.showTitle || session.title)) || now.title || a.media_title || now.name;
-    var sub = session && session.showTitle ? 'S' + session.season + ' · E' + session.episode + ' ' + session.title : now.title ? [now.artist, now.name].filter(Boolean).join(' · ') : '';
+    var sub = session && session.showTitle ? 'S' + session.season + ' · E' + session.episode + ' ' + session.title : session && session.artist ? session.artist : now.title ? [now.artist, now.name].filter(Boolean).join(' · ') : '';
     var dur = session && session.duration ? session.duration / 1000 : attrs(now.cast).media_duration || a.media_duration || null;
     var pos = null;
     if (session && session.viewOffset != null) pos = session.viewOffset / 1000 + (playing ? (Date.now() - S.sessionsAt) / 1000 : 0);
@@ -893,7 +893,7 @@
     var it = /^tt\d+/.test(sid) ? load('item:' + sid, function () { return get('/api/plex/item/' + encodeURIComponent(sid)).catch(function () { return null; }); }).v : null;
     var app = (session && session.app) || now.key;
     var title = (session && (session.showTitle || session.title)) || now.title || a.media_title || now.name;
-    var sub = session && session.showTitle ? 'S' + session.season + ' · E' + session.episode + ' · ' + session.title : now.title && now.artist ? now.artist : '';
+    var sub = session && session.showTitle ? 'S' + session.season + ' · E' + session.episode + ' · ' + session.title : session && session.artist ? session.artist : now.title && now.artist ? now.artist : '';
     var dur = session && session.duration ? session.duration / 1000 : ca.media_duration || a.media_duration || null;
     var pos = session && session.viewOffset != null ? session.viewOffset / 1000 + (playing ? (Date.now() - S.sessionsAt) / 1000 : 0) : livePosition(now.cast || tv);
     var left = dur && pos != null && dur - pos > 1 ? dur - pos : null;

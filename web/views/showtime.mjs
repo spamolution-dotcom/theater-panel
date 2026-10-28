@@ -69,7 +69,7 @@ export function Showtime() {
   const playing = state === 'playing';
   const autoplayOn = useStore((s) => s.states[s.entities?.autoplay]?.state === 'on');
   const title = session?.showTitle || session?.title || a.media_series_title || a.media_title || (viaCast && a.app_name) || 'Now showing';
-  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : (a.media_series_title ? a.media_title : '');
+  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : session?.artist ? session.artist : (a.media_series_title ? a.media_title : '');
   // Position: the Plex session when there is one (it is the film, wherever it plays), carried
   // forward between polls while playing; the Apple TV's own report otherwise.
   const dur = session?.duration ? session.duration / 1000 : a.media_duration || null;
