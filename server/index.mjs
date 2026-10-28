@@ -176,7 +176,7 @@ function castTitleId(title, series) {
 // its Google Cast entity hears nothing from Stremio, so while Stremio is in front on the Shield
 // the panel asks Android's media session over ADB every 10 s: the title, playing or paused, and the
 // position. (Without it, a film started on the TV wore the poster of the last one the panel opened.)
-const MARK = '#tp-media';
+const MARK = 'tp-media';   // no '#': the Shield's shell would treat the rest of the line as a comment
 let shieldMeta = null;   // { title, state, pos, at }
 function shieldTitlePoll() {
   const e = config.entities;
@@ -184,19 +184,26 @@ function shieldTitlePoll() {
   const onShield = e.player === 'shield' && /stremio/.test(ha.states[e.appleTv]?.attributes?.app_id || '');
   readShieldMeta();   // the answer to the last ask (it arrives as the entity's adb_response)
   if (!clients.size || !adb || !onShield || !ha.states[adb]) return;
-  ha.callService('androidtv', 'adb_command', { command: `echo ${MARK}; cat /proc/uptime; dumpsys media_session | grep -A3 'package=com.stremio.one'` }, { target: { entity_id: adb } })
+  ha.callService('androidtv', 'adb_command', { command: `echo ${MARK}; cat /proc/uptime; dumpsys media_session | grep -E 'package=|state=PlaybackState|description='` }, { target: { entity_id: adb } })
     .then(() => readShieldMeta()).catch(() => {});
 }
 function readShieldMeta() {
   const out = String(ha.states[config.entities.shield?.cast]?.attributes?.adb_response || '');
   if (!out.startsWith(MARK)) return;
-  const up = Number(out.split('\n')[1]?.split(' ')[0]) * 1000;
-  const st = /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(out);
-  const title = /description=([^,\n]+)/.exec(out)?.[1]?.trim();
+  const lines = out.split('\n');
+  const up = Number(lines[1]?.split(' ')[0]) * 1000;
+  // The lines after Stremio's "package=" line, up to the next app's.
+  let inStremio = false, st = null, title = null;
+  for (const line of lines.slice(2)) {
+    if (/package=/.test(line)) { if (st && title) break; inStremio = /package=com\.stremio\.one/.test(line); continue; }
+    if (!inStremio) continue;
+    st = st || /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(line);
+    title = title || /description=([^,]+)/.exec(line)?.[1]?.trim();
+  }
   if (!st || !title || title === 'null') { shieldMeta = null; return; }
-  const [, code, pos, speed, upd] = st.map(Number);
+  const [code, pos, speed, upd] = st.slice(1).map(Number);
   // Where it is now: the reported position plus the time since Android recorded it.
-  const now = Number(pos) + (up && code === 3 ? Number(speed) * Math.max(0, up - Number(upd)) : 0);
+  const now = pos + (up && code === 3 ? speed * Math.max(0, up - upd) : 0);
   shieldMeta = { title, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
 }
 setInterval(shieldTitlePoll, 10e3).unref();

@@ -897,7 +897,8 @@
     var dur = session && session.duration ? session.duration / 1000 : ca.media_duration || a.media_duration || null;
     var pos = session && session.viewOffset != null ? session.viewOffset / 1000 + (playing ? (Date.now() - S.sessionsAt) / 1000 : 0) : livePosition(now.cast || tv);
     var left = dur && pos != null && dur - pos > 1 ? dur - pos : null;
-    var castPic = now.cast && ca.entity_picture ? '/api/ha-image?e=' + encodeURIComponent(e.streamerCast) + '&v=' + encodeURIComponent(ca.entity_picture) : null;
+    // (Not on the Shield: its play-state entity's picture is a live screenshot of the TV.)
+    var castPic = now.cast && ca.entity_picture && S.entities.player !== 'shield' ? '/api/ha-image?e=' + encodeURIComponent(e.streamerCast) + '&v=' + encodeURIComponent(ca.entity_picture) : null;
     var pic = (session && (session.posterLarge || session.poster)) || castPic;
     // The app's icon or the title underneath, showing if the poster doesn't load.
     var under = '<div class="fb">' + (app ? '<img class="app" src="/assets/apps/' + esc(app) + '.png" alt="">' : '<div class="tt">' + esc(title) + '</div>') + '</div>';
