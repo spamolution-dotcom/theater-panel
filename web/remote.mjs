@@ -767,7 +767,29 @@ function useSeatFollow({ tab, setTab, sheet, close, hasXbox }) {
   }, [mode]);
 }
 
+// Dark when the phone is in dark mode, and always while the cinema (or the Xbox) is on, so the
+// phone doesn't light up the room during a film. Light otherwise.
+function useDark() {
+  const roomOn = useRoomOn();
+  const gaming = useGaming();
+  const starting = useStore((s) => Boolean(s.startup && !s.startup.done));
+  const mq = typeof matchMedia === 'function' ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const [phoneDark, setPhoneDark] = useState(Boolean(mq?.matches));
+  useEffect(() => {
+    if (!mq) return undefined;
+    const f = (ev) => setPhoneDark(ev.matches);
+    mq.addEventListener ? mq.addEventListener('change', f) : mq.addListener(f);
+    return () => (mq.removeEventListener ? mq.removeEventListener('change', f) : mq.removeListener(f));
+  }, []);
+  const dark = phoneDark || roomOn || gaming || starting;
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', dark);
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#0E0907' : '#E9E2D8');
+  }, [dark]);
+}
+
 function Remote() {
+  useDark();
   const [tab, setTab] = useState(() => (['#watch', '#remote', '#games'].includes(location.hash) ? location.hash.slice(1) : 'home'));
   const hasXbox = useStore((s) => Boolean(s.entities?.xbox && s.states[s.entities.xbox]));
   const [sheet, setSheet] = useState(null);

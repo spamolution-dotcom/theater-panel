@@ -167,7 +167,9 @@ function castTitleId(title, series) {
     const same = list.filter((m) => normTitle(m.title) === normTitle(title) && /^tt\d+$/.test(m.id || ''));
     const want = (m) => (series ? m.type !== 'movie' : m.type === 'movie');
     const pick = same.find(want) || same[0] || null;
-    castTitles.set(key, pick ? { imdb: pick.id, year: pick.year } : false);
+    castTitles.set(key, pick ? { imdb: pick.id, year: pick.year, duration: pick.duration || null } : false);
+    // Its length, for the progress bar where the player doesn't report one (the Shield).
+    if (pick && !pick.duration) plex.item(pick.id).then((it) => { const v = castTitles.get(key); if (v && it?.duration) castTitles.set(key, { ...v, duration: it.duration }); }).catch(() => {});
   }).catch(() => castTitles.delete(key));
   return null;
 }
@@ -241,7 +243,9 @@ function streamerSessions() {
       id: same ? l.id : imdb || 'stremio', type: same ? l.type : series ? 'episode' : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
       title: same && l.title ? l.title : series ? a.media_artist : a.media_title || 'Stremio', showTitle: same ? l.showTitle : series ? a.media_title : undefined,
       season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : found?.year,
-      viewOffset: pos != null ? Math.round(pos * 1000) : 0, duration: a.media_duration ? Math.round(a.media_duration * 1000) : 0,
+      viewOffset: pos != null ? Math.round(pos * 1000) : 0,
+      // The player's own length, else the catalogue runtime (the Shield reports none; may differ a little).
+      duration: a.media_duration ? Math.round(a.media_duration * 1000) : (same ? l.duration : found?.duration) || 0,
       poster: pics.poster || (same ? l.poster : null), posterLarge: pics.posterLarge, art: pics.art,
     }];
   }
