@@ -590,11 +590,21 @@ async function playStremio(ha, body) {
     await wait(6000);
     // Already playing (Stremio's own autoplay): leave it. Only "playing" counts here, since a
     // previous film can leave the Shield reporting "paused" while the stream list is up.
-    if (castNow(ha)?.state === 'playing') return;
-    const ok = () => ha.callService('remote', 'send_command', { command: 'DPAD_CENTER' }, { target: { entity_id: e.appleTvRemote } });
-    await ok();
-    for (let i = 0; i < 12 && !castNow(ha); i++) await wait(1000);
-    if (!castNow(ha)) await ok();
+    if (stremioNow(ha) === 'playing') return;
+    const key = (command) => ha.callService('remote', 'send_command', { command }, { target: { entity_id: e.appleTvRemote } });
+    await key('DPAD_CENTER');   // the first stream
+    // A stream can take 10-20 s to load. OK toggles play/pause once a stream is up, so it is never
+    // pressed again while anything might be playing: wait up to 30 s, ask the box afresh (the
+    // Shield's ADB entity is polled), and only then, if nothing at all is loaded, press OK again.
+    for (let i = 0; i < 30 && !stremioNow(ha); i++) await wait(1000);
+    if (!stremioNow(ha)) { await refreshPlayState(ha); await wait(2500); }
+    const now = stremioNow(ha);
+    if (now === 'paused') return key('MEDIA_PLAY');   // Play only plays: it can't pause anything
+    if (!now) {
+      await key('DPAD_CENTER');
+      await wait(15000);
+      if (stremioNow(ha) === 'paused') await key('MEDIA_PLAY');
+    }
   };
   run().catch((err) => console.warn(`[stremio] ${kind}:`, err.message));
   return { ok: true, warming: !ready() };
@@ -603,6 +613,26 @@ async function playStremio(ha, body) {
 // Pause and play are key presses on the Streamer's remote (Stremio's player takes them); volume and
 // mute go to the Denon, which is the thing making the sound.
 // The Streamer as Google Cast sees it, when Stremio is playing or paused on it (else null).
+// Whether Stremio has a stream up on the player: 'playing', 'paused' (or buffering), or null. Asks
+// the player's play entity (the Streamer's Google Cast, the Shield's ADB) and, on the Shield, its
+// Google Cast entity too, which hears about play and pause sooner than ADB is polled.
+export function stremioNow(ha) {
+  const e = config.entities;
+  const box = e[e.player] || {};
+  const fg = /stremio/.test(ha.states[e.appleTv]?.attributes?.app_id || '');
+  let seen = null;
+  for (const id of [e.streamerCast, box.alsoCast].filter(Boolean)) {
+    const c = ha.states[id];
+    if (!c || !['playing', 'paused', 'buffering'].includes(c.state)) continue;
+    if (!fg && !/stremio/i.test(`${c.attributes?.app_name || ''} ${c.attributes?.app_id || ''}`)) continue;
+    if (c.state === 'playing') return 'playing';
+    seen = 'paused';
+  }
+  return seen;
+}
+// Ask the player for its play state now instead of at its next poll (the Shield's ADB entity).
+const refreshPlayState = (ha) => ha.callService('homeassistant', 'update_entity', {}, { target: { entity_id: config.entities.streamerCast } }).catch(() => {});
+
 export function castNow(ha) {
   const c = ha.states[config.entities.streamerCast];
   if (!c || !['playing', 'paused', 'buffering'].includes(c.state)) return null;
