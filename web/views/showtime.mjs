@@ -34,7 +34,7 @@ export function Showtime() {
   const vol = avr?.attributes?.volume_level;
   const muted = Boolean(avr?.attributes?.is_volume_muted);
   const volText = vol == null ? '–' : String(Math.round(vol * 200) / 2);
-  // What the Denon is decoding: Atmos coming through, or PCM (the Chromecast missed the handshake).
+  // What the Denon is decoding: Atmos coming through, or PCM (the player missed the handshake).
   const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
   const media = useEntity(ents.lights?.[0]);
   const mediaPct = media?.state === 'on' ? Math.round(((media.attributes?.brightness || 0) / 255) * 100) : 0;

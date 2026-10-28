@@ -29,6 +29,7 @@ function attach(c) {
   const e = c.entities;
   const box = () => e[current()] || e.streamer;
   const all = () => [e.shield, e.streamer].filter(Boolean);
+  const musicList = Array.isArray(e.musicPlayers) ? [...e.musicPlayers] : [];
   const defs = {
     player: () => current(),
     players: () => (e.shield ? ['shield', 'streamer'] : ['streamer']),
@@ -37,6 +38,9 @@ function attach(c) {
     appleTvRemote: () => box().remote,
     streamerCast: () => box().cast,
     playerInput: () => box().input,
+    musicPlayer: () => box().music || e.streamer.music,
+    // The chosen player's music player first: the screens' Music tab starts on it.
+    musicPlayers: () => { const m = box().music || e.streamer.music; return m ? [m, ...musicList.filter((x) => x !== m)] : musicList; },
     roomOn: () => (all().find((b) => isOn(b.room)) || box()).room,
     warmupScript: () => (all().find((b) => isOn(b.script)) || box()).script,
   };
@@ -100,11 +104,37 @@ export async function set(to) {
     moveRoom(from, to);
   }
   ctx.broadcast('settings', {});
+  syncHa();
   return get();
+}
+
+// HA's copy of the choice (input_select.theater_player: Shield / Streamer): the panel writes it
+// when the player changes, and a change made in HA (a dashboard, a script) changes the player.
+const LABEL = { shield: 'Shield', streamer: 'Streamer' };
+let written = null, writtenAt = 0;
+function syncHa() {
+  const id = config.entities.playerSelect;
+  const st = id && states()[id];
+  if (!st || st.state === LABEL[current()]) return;
+  written = LABEL[current()]; writtenAt = Date.now();
+  ctx.ha.callService('input_select', 'select_option', { option: written }, { target: { entity_id: id } }).catch((err) => console.warn('[player] HA helper:', err.message));
+}
+function fromHa() {
+  const id = config.entities.playerSelect;
+  const v = id && states()[id]?.state;
+  if (!v || v === LABEL[current()]) { written = null; return; }
+  if (written && Date.now() - writtenAt < 10000) return;   // our own write still on its way
+  const to = Object.keys(LABEL).find((k) => LABEL[k] === v);
+  if (to && boxes()[to]) set(to).catch((err) => console.warn('[player] from HA:', err.message));
 }
 
 export function init(context) {
   ctx = context;
+  let synced = false;
+  ctx.ha.on('states', () => {
+    if (!synced && config.entities.playerSelect && states()[config.entities.playerSelect]) { synced = true; syncHa(); return; }
+    if (synced) fromHa();
+  });
   // The cinema's on/running state changes which scene switch and start script the panels watch.
   let last = '';
   ctx.ha.on('states', () => {

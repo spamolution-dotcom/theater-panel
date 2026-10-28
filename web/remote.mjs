@@ -835,6 +835,7 @@ function GTile({ g, on, onPick }) {
 }
 
 function Games() {
+  const denonOn = useStore((st) => ({ GoogleTVStreamer: 'the Streamer', 'Blu-ray': 'the Shield' })[st.states[st.entities?.avr]?.attributes?.source] || st.states[st.entities?.avr]?.attributes?.source || 'another input');
   const kids = useKids();
   const e = useStore((s) => s.entities) || {};
   const box = useEntity(e.xbox);
@@ -874,7 +875,7 @@ function Games() {
       <section class="rg-hero playing">
         <div class="rg-kick"><span class="rg-pill"><${Icon} name="pad" size=${18} w=${2} />Xbox</span><span class="rg-eye">${playing ? 'Now playing' : 'On'}</span></div>
         <div class="rg-big">${playing || (offInput ? 'Not on screen' : 'Xbox home')}</div>
-        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : offInput ? (kids ? 'The Denon is on the Chromecast · tap the game below to switch to it' : 'The Denon is on the Chromecast · switch Source to Xbox below') : 'Pick a game below, or use the controller'}</div>
+        <div class="rg-sub">${playing ? [Array.isArray(genres) ? genres.join(', ') : genres, now?.attributes?.developer].filter(Boolean).join(' · ') : offInput ? (kids ? `The Denon is on ${denonOn} · tap the game below to switch to it` : `The Denon is on ${denonOn} · switch Source to Xbox below`) : 'Pick a game below, or use the controller'}</div>
         ${playing && Number.isFinite(progress) && html`<div class="rg-ach"><span>Achievements</span><div class="bar"><i style=${`width:${Math.min(100, progress)}%`}></i></div><span>${Math.round(progress)} %</span></div>`}
         ${isUp(avr) && html`<div class="rg-vol">
           <button type="button" aria-label="Volume down" onClick=${() => t('vol_down')}><${Icon} name="volm" size=${20} /></button>
