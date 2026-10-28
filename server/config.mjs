@@ -167,6 +167,8 @@ function build(env) {
     // account entities' prefix, the game artwork image and the console's free-space sensor.
     xbox: env.ENTITY_XBOX || 'media_player.cinema_xboxone',
     xboxScene: env.ENTITY_XBOX_SCENE || 'input_boolean.xbox_scene',
+    // Xbox Scene's start script: while it runs, the screens show the start-up status.
+    xboxScript: env.ENTITY_XBOX_SCRIPT || 'script.turn_on_xbox_sequence',
     xboxAccount: env.XBOX_ACCOUNT || 'xbox',
     xboxArt: env.ENTITY_XBOX_ART || 'image.cinema_xbox_superhero_art',
     xboxStorage: env.ENTITY_XBOX_STORAGE || 'sensor.xboxone_free_space_internal_storage',
@@ -392,7 +394,7 @@ export function watchedEntities() {
   const e = config.entities;
   return [
     ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.room, b.script]),
-    e.seatUnlock, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
+    e.seatUnlock, e.autoplay, e.xboxScript, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

@@ -73,6 +73,10 @@ export function toast(text, err = false) {
   toastTimer = setTimeout(() => set({ toast: null }), 3500);
 }
 
+// A start-up record with `skew` (server clock minus ours), so the countdown is right on a screen
+// whose clock is off.
+const withSkew = (j) => (j ? { ...j, skew: (j.serverNow || Date.now()) - Date.now() } : null);
+
 let onNavigate = null;
 let bootBuild = null;
 export async function startLive({ navigate } = {}) {
@@ -99,7 +103,7 @@ export async function startLive({ navigate } = {}) {
         bootBuild ??= d.build;
         if (d.build !== bootBuild) set({ stale: d.build });
       }
-      set({ connected: true, haConnected: d.ha.connected, haConfigured: d.ha.configured, states: d.ha.states, sessions: d.sessions, streams: d.streams || [], seat: d.seat || null });
+      set({ connected: true, haConnected: d.ha.connected, haConfigured: d.ha.configured, states: d.ha.states, sessions: d.sessions, streams: d.streams || [], seat: d.seat || null, startup: withSkew(d.startup) });
     });
     es.addEventListener('states', (e) => {
       const changed = JSON.parse(e.data);
@@ -109,6 +113,8 @@ export async function startLive({ navigate } = {}) {
     });
     es.addEventListener('ha', (e) => set({ haConnected: JSON.parse(e.data).connected }));
     es.addEventListener('seat', (e) => set({ seat: JSON.parse(e.data) }));
+    // The start-up status (server/startup.mjs): the same on every screen.
+    es.addEventListener('startup', (e) => set({ startup: withSkew(JSON.parse(e.data)) }));
     es.addEventListener('sessions', (e) => set({ sessions: JSON.parse(e.data), sessionsAt: Date.now() }));
     // Everything playing on the Plex server, behind the "N streams" pill.
     es.addEventListener('streams', (e) => set({ streams: JSON.parse(e.data) }));

@@ -133,7 +133,7 @@
   function get(path) { return request(path); }
   function post(path, data) { return request(path, data || {}); }
   function act(data) {
-    if (SEAT) data.seat = true;
+    if (SEAT) data.seat = true; else data.from = 'ipad';
     return post('/api/action', data).catch(function (e) { toast(e.message, true); return null; });
   }
 
@@ -160,6 +160,8 @@
   function loadSettings() {
     get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.albumStatus = (s.albumColours && s.albumColours.status) || ''; S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
   }
+  // The start-up status (server/startup.mjs) with the gap between the server's clock and ours.
+  function withSkew(j) { if (j) j.skew = (j.serverNow || Date.now()) - Date.now(); return j || null; }
   function startLive() {
     loadSettings();
     var es, offlineTimer, retryTimer, retryMs = 1000, downSince = null;
@@ -168,7 +170,7 @@
       es.addEventListener('hello', function (e) {
         var d = JSON.parse(e.data);
         if (d.build) { if (bootBuild == null) bootBuild = d.build; else if (d.build !== bootBuild) staleBuild = true; }
-        S.connected = true; S.states = (d.ha && d.ha.states) || {}; S.sessions = d.sessions || []; S.sessionsAt = Date.now(); S.seat = d.seat || null;
+        S.connected = true; S.states = (d.ha && d.ha.states) || {}; S.sessions = d.sessions || []; S.sessionsAt = Date.now(); S.seat = d.seat || null; S.startup = withSkew(d.startup);
         paint();
       });
       es.addEventListener('states', function (e) {
@@ -177,6 +179,7 @@
         paint();
       });
       es.addEventListener('seat', function (e) { S.seat = JSON.parse(e.data); paint(); });
+      es.addEventListener('startup', function (e) { S.startup = withSkew(JSON.parse(e.data)); paint(); });
       es.addEventListener('sleep', function (e) { var d = JSON.parse(e.data); S.sleep = d.mode ? d : null; paint(); });
       es.addEventListener('albumColours', function (e) { var d = JSON.parse(e.data); S.albumColours = Boolean(d.on); S.albumStatus = d.status || ''; paint(); });
       es.addEventListener('sessions', function (e) { S.sessions = JSON.parse(e.data) || []; S.sessionsAt = Date.now(); paint(); });
@@ -290,9 +293,10 @@
 
   function playItem(item, resume) {
     var on = roomOn();
-    return act({ action: 'play', ratingKey: item.id, type: item.type, title: nameOf(item), offset: resume ? item.viewOffset : 0 }).then(function (r) {
+    var sub = item.showTitle ? 'S' + item.season + ' · E' + item.episode + ' ' + item.title : (item.year ? String(item.year) : '');
+    return act({ action: 'play', ratingKey: item.id, type: item.type, title: nameOf(item), sub: sub, poster: item.poster || '', offset: resume ? item.viewOffset : 0 }).then(function (r) {
       if (!r) return false;
-      toast(!on ? 'Starting the cinema · ' + nameOf(item) + ' opens in about a minute'
+      toast(!on ? 'Starting the cinema · ' + nameOf(item) + ' opens when it\'s up'
         : r.preroll ? 'Lights down… ' + nameOf(item) + ' in ' + r.preroll + 's' : 'Opening ' + nameOf(item) + ' on the TV · pick a stream with the remote');
       return true;
     });
@@ -1278,11 +1282,53 @@
   // else goes to the Music tab. It goes when the music has stopped (or been paused a minute), or
   // a film or the Xbox starts.
   var SS = { on: false, pausedAt: 0 };
+  // ---------- the start-up takeover ----------
+  // While the room comes up (any start, from any screen), the whole iPad shows it: what is opening,
+  // the steps ticking off and the time left, the same as the wall panel and the phones. "Remote"
+  // hides it for this start-up.
+
+  var SU_PLAYER = { shield: 'Shield', streamer: 'Streamer' };
+  var SU_APP = { netflix: 'Netflix', prime: 'Prime Video', youtube: 'YouTube', stremio: 'Stremio' };
+  function suShown() { return Boolean(S.startup) && U.suHide !== S.startup.id; }
+  function suClock(sec) { sec = Math.max(0, sec); return Math.floor(sec / 60) + ':' + String(sec % 60).padStart(2, '0'); }
+  function suHtml() {
+    if (!suShown()) return '';
+    var j = S.startup, w = j.what || {};
+    var now = Date.now() + (j.skew || 0);
+    var so = Math.round((now - j.startedAt) / 1000);
+    var left = j.etaAt ? Math.max(0, Math.round((j.etaAt - now) / 1000)) : null;
+    var total = j.etaAt ? Math.max(1, j.etaAt - j.startedAt) : j.usualMs;
+    var pct = j.done ? 100 : Math.min(98, ((now - j.startedAt) / total) * 100);
+    var eye = j.done ? 'Ready' : j.late ? 'Taking longer than usual' + (j.box ? ' · ' + SU_PLAYER[j.box] : '')
+      : j.kind === 'move' ? 'Moving the cinema to the ' + SU_PLAYER[j.box] : j.kind === 'xbox' ? 'Starting the room for gaming · Xbox' : 'Getting the cinema ready · ' + SU_PLAYER[j.box];
+    var title = w.type === 'app' ? SU_APP[w.id] || 'The cinema' : w.title || (j.kind === 'xbox' ? 'Xbox' : j.kind === 'move' ? SU_PLAYER[j.box] : 'The cinema');
+    var ic = w.type === 'preshow' ? 'music' : j.kind === 'xbox' ? 'pad' : w.type === 'app' ? 'app' : 'film';
+    var art = w.poster ? poster(w.poster, title) : '<div class="blank">' + icon(ic, 70, 1.2) + '</div>';
+    var count = j.done ? '<div class="cnt"><span class="n">Ready</span></div>'
+      : j.late ? '<div class="cnt"><span class="n late">' + suClock(so) + '</span><span class="l">so far · usually ' + suClock(Math.round(j.usualMs / 1000)) + '</span></div>' +
+        '<div class="warn">Still waiting for: ' + esc(j.waiting || 'the room') + '. If it stays stuck, check the Media Control Switch plug, or tap All off and start again.</div>'
+      : '<div class="cnt"><span class="n">' + suClock(left) + '</span><span class="l">' + (left > 0 ? 'to go, roughly' : 'any moment now') + '</span></div>';
+    var steps = j.steps.map(function (x, i) {
+      var cur = x.id === j.current;
+      var cls = x.ok ? 'ok' : cur ? (j.late ? 'late' : 'now') : '';
+      return '<li class="' + cls + '"><span class="ic">' + (x.ok ? '✓' : cur ? '' : i + 1) + '</span><span class="lb">' + esc(x.label) + '</span><span class="t">' +
+        (x.ok ? suClock(Math.round(x.at / 1000)) : cur && x.id === 'settle' && !j.late ? '~20 s' : '') + '</span></li>';
+    }).join('');
+    var sub = [w.sub].filter(Boolean).join(' · ');
+    return '<div class="l-su"><div class="art">' + art + '</div><div class="bd">' +
+      '<div class="eye">' + esc(eye) + '</div><h1>' + esc(title) + '</h1>' + (sub ? '<div class="sub">' + esc(sub) + '</div>' : '') +
+      count + (j.late || j.done ? '' : '<div class="bar"><i style="width:' + pct + '%"></i></div>') +
+      '<ul class="steps">' + steps + '</ul></div>' +
+      '<div class="ft"><span>' + (j.from ? 'Started from ' + esc(j.from) : '') + '</span><button type="button" class="go" data-a="suhide">Remote ›</button></div></div>';
+  }
+  // The countdown moves every second while the takeover is up.
+  setInterval(function () { if (suShown()) paint(); }, 1000);
+
   function ssCheck() {
     var id = musicPlayer();
     var x = st(id);
     var state = x && x.state;
-    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || vsDrag || typing();
+    var blocked = suShown() || media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || vsDrag || typing();
     if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
     var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
     var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
@@ -1388,6 +1434,8 @@
   var $offline = document.getElementById('offline');
   var $ss = document.createElement('div');
   document.body.appendChild($ss);
+  var $su = document.createElement('div');
+  document.body.appendChild($su);
   var built = { tab: null, shape: null, slots: {} };
   var last = {};
   // Redrawing a slot keeps the pictures it already shows: a card that ticks every second (the
@@ -1467,9 +1515,10 @@
     setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join('') +
       (LAND ? '<div class="l-railb">' + badge() + '</div>' : ''));
     setHtml($ss, 'ss', ssHtml());
+    setHtml($su, 'su', suHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs || U.playerPick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [suShown() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs || U.playerPick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1687,7 +1736,7 @@
     game: function (v, el) {
       var g = REG[el.getAttribute('data-id')];
       if (!g) return;
-      act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind }).then(function (r) {
+      act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind, title: g.title, poster: g.thumb || '' }).then(function (r) {
         if (r) toast(r.starting ? 'Starting the room · ' + g.title + ' opens when the Xbox is up' : 'Opening ' + g.title);
         if (r && r.starting) { gBusyUntil = Date.now() + 60000; paint(); }
       });
@@ -1742,6 +1791,7 @@
       post('/api/album-colours', { on: on }).then(function () { toast(on ? 'Album colours on · the lights follow the music' : 'Album colours off'); })
         .catch(function (e) { S.albumColours = !on; paint(); toast(e.message, true); });
     },
+    suhide: function () { if (S.startup) U.suHide = S.startup.id; touched = Date.now(); setTab('remote'); },
     ssclose: function () { SS.on = false; touched = Date.now(); setTab('music'); },
     pinopen: function () { U.pin = { pin: '', bad: false }; paint(); },
     pin: function (v) { pinPress(v); },

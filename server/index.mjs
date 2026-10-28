@@ -35,6 +35,7 @@ import * as hass from './hass.mjs';
 import QRCode from 'qrcode';
 import * as xbox from './xbox.mjs';
 import * as player from './player.mjs';
+import * as startup from './startup.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(root, 'web');
@@ -747,7 +748,7 @@ const server = createServer(async (req, res) => {
 
     if (path === '/api/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: ha.states }, sessions, streams, seat: seat.state(), build: config.build.version })}\n\n`);
+      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: ha.states }, sessions, streams, seat: seat.state(), startup: startup.current(), build: config.build.version })}\n\n`);
       clients.add(res);
       hass.panelsChanged();
       if (clients.size === 1) pollSessions(); // first viewer: don't wait for the next poll
@@ -864,6 +865,7 @@ hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });
 seat.init({ ha, broadcast });
 player.init({ ha, broadcast });
+startup.init({ ha, broadcast });
 ha.start();
 pollSessions();
 if (config.media.on) { plex.warmMovies(); }

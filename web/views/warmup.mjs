@@ -1,103 +1,86 @@
-// Getting the cinema ready: while the theatre start-up sequence runs (about a minute)
-// (projector, Streamer, Denon, then the title opens in Stremio). This screen shows what the
-// film is, a live checklist of the devices as Home Assistant reports them coming up, and a
-// countdown, then tells people to pick a stream on the TV and moves on to Showtime.
+// Getting the cinema ready: the wall panel's (and hallway tablet's) screen while a start-up runs.
+// It shows the shared start-up status (server/startup.mjs), the same record the iPad and the phones
+// show: what is opening, the steps ticking off as Home Assistant reports the devices coming up, and
+// a countdown learned from the last few runs. When it is done it hands over to Showtime (a film or
+// an app), the Games screen (the Xbox) or Home.
 
-import { useState, useEffect } from 'preact/hooks';
+import { useEffect } from 'preact/hooks';
 import { html, Icon, Poster } from '../lib/ui.mjs';
 import { useStore, getState } from '../lib/api.mjs';
+import { useStartup, timing, clock, eyebrow, heading } from '../lib/startup.mjs';
 import { go, route } from '../app.mjs';
-
-// The theatre sequence (Oct 2026): the Denon's plug now stays on (it idles in standby), so it
-// starts with the projector, ~10 s later the Chromecast, ~15 s later the Denon LAST (Atmos only
-// comes through when the Denon powers on after the other two are up). Measured at ~45 s to
-// everything up, plus a few seconds for the title to open.
-export const WARMUP_SECONDS = 65;
-const GIVE_UP_SECONDS = 270;   // matches theater_play_stremio's own 4.5-minute wait
-const STREMIO_APP = 'com.stremio.one';
 
 const up = (st) => Boolean(st) && !['off', 'unavailable', 'unknown', 'standby'].includes(st.state);
 
 export function Warmup() {
-  const e = useStore((s) => s.entities) || {};
-  const states = useStore((s) => s.states);
+  const { job, now } = useStartup();
   const p = route.params;
-  // The countdown runs from when the start-up script started, however it was started.
-  const script = states[e.warmupScript];
-  const running = script?.state === 'on';
-  const scriptAt = Date.parse(script?.attributes?.last_triggered || '') || 0;
-  const startedAt = (running && scriptAt) || Number(p.at) || Date.now();
-  const picked = Boolean(p.title);
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const t = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(t); }, []);
+  const playing = useStore((s) => s.sessions?.[0]?.state === 'playing');
 
-  const tv = states[e.appleTv];
-  const inStremio = tv?.attributes?.app_id === STREMIO_APP;
-  const steps = [
-    { name: 'Projector', ok: up(states[e.projectorPower]) },
-    { name: 'Chromecast', ok: up(tv) },
-    { name: 'Denon', ok: up(states[e.avr]) },
-    { name: 'Stremio', ok: inStremio },
-  ].filter((s, i) => i !== 0 || e.projectorPower);
-
-  const autoplay = states[e.autoplay]?.state === 'on';
-  const nowPlaying = useStore((s) => s.sessions?.[0]?.state === 'playing');
-  // When the stream list came up: auto-play gets 30 s to start the first stream before we ask.
-  const [readyAt, setReadyAt] = useState(null);
-  const elapsed = Math.floor((now - startedAt) / 1000);
-  const left = Math.max(0, WARMUP_SECONDS - elapsed);
-  // With a title: ready once Stremio has it on screen. Without one: once the script has finished.
-  const ready = picked ? inStremio : !running && up(tv);
-  const stuck = !ready && elapsed > GIVE_UP_SECONDS;
-  const late = steps.filter((s) => !s.ok).map((s) => s.name);
-
-  useEffect(() => { if (ready && !readyAt) setReadyAt(Date.now()); }, [ready]);
-  const starting = picked && autoplay && readyAt && now - readyAt < 30000 && !nowPlaying;
-  // Ready: give people a moment to read the message, then hand over to Showtime (straight away
-  // once the film is actually playing).
+  // Done (or never came): move on. A film or an app goes to Showtime, the Xbox to Games, else Home.
+  const id = job?.id || null;
+  const done = Boolean(job?.done);
   useEffect(() => {
-    if (!ready) return undefined;
-    const wait = picked && nowPlaying ? 2000 : picked ? (autoplay ? 35000 : 20000) : 8000;
-    const t = setTimeout(() => { if (route.name === 'warmup') go(picked ? 'showtime' : 'lobby', { auto: true }); }, wait);
+    if (job && !done) return undefined;
+    const where = job?.kind === 'xbox' ? 'games' : job?.what && job.what.type !== 'preshow' ? 'showtime' : 'lobby';
+    // No start-up at all after a while (the cinema was already up, or it never started): Home.
+    const wait = job ? (playing ? 1500 : 4000) : 20000;
+    const t = setTimeout(() => { if (route.name === 'warmup') go(job ? where : (getState().sessions?.length ? 'showtime' : 'lobby'), { auto: true }); }, wait);
     return () => clearTimeout(t);
-  }, [ready, nowPlaying]);
+  }, [id, done, playing]);
 
-  const mm = Math.floor(left / 60);
-  const ss = String(left % 60).padStart(2, '0');
-  const pct = Math.min(100, (elapsed / WARMUP_SECONDS) * 100);
+  // Tapped Play a moment ago and the start script has not begun yet: what was tapped, "Starting".
+  if (!job) {
+    return html`<main class="warmup dark tx-suede">
+      <div class="wu-poster">${p.poster ? html`<${Poster} src=${p.poster} title=${p.title || ''} />` : html`<div class="wu-blank"><${Icon} name="film" size=${64} /></div>`}</div>
+      <div class="wu-body">
+        <div class="eyebrow">Getting the cinema ready</div>
+        <h1>${p.title || 'The cinema'}</h1>
+        ${p.sub && html`<div class="wu-sub">${p.sub}</div>`}
+        <div class="wu-big"><${Icon} name="power" size=${40} /> Starting…</div>
+        <div class="wu-actions"><button type="button" class="btn ghost" onClick=${() => go('lobby')}>Back to home</button></div>
+      </div>
+    </main>`;
+  }
 
+  const w = job.what || {};
+  const t = timing(job, now);
+  const poster = w.poster || (w.title && w.title === p.title ? p.poster : '');
+  const icon = w.type === 'preshow' ? 'music' : job.kind === 'xbox' ? 'pad' : w.type === 'app' ? 'app' : 'film';
   return html`<main class="warmup dark tx-suede">
-    <div class="wu-poster">${p.poster ? html`<${Poster} src=${p.poster} title=${p.title || ''} />` : html`<div class="wu-blank"><${Icon} name="film" size=${64} /></div>`}</div>
+    <div class="wu-poster">${poster ? html`<${Poster} src=${poster} title=${w.title || ''} />` : html`<div class="wu-blank"><${Icon} name=${icon} size=${64} /></div>`}</div>
     <div class="wu-body">
-      <div class="eyebrow">${ready ? 'Ready' : stuck ? 'Taking longer than usual' : 'Getting the cinema ready'}</div>
-      <h1>${p.title || 'Cinema warming up'}</h1>
-      ${p.sub ? html`<div class="wu-sub">${p.sub}</div>` : !picked && html`<div class="wu-sub">Pick something while you wait</div>`}
+      <div class="eyebrow">${eyebrow(job)}</div>
+      <h1>${heading(job)}</h1>
+      ${(w.sub || job.from) && html`<div class="wu-sub">${[w.sub, job.from && `Started from ${job.from}`].filter(Boolean).join(' · ')}</div>`}
 
-      ${ready
-        ? html`<div class="wu-big"><${Icon} name="remote" size=${44} />${!picked ? ' The cinema is on. Pick something to watch' : nowPlaying ? ' Starting' : starting ? ' Starting the first stream…' : ' Pick a stream on the TV with the remote'}</div>`
-        : stuck
-          ? html`<div class="wu-big warn">Still waiting for ${late.join(', ')}. Check the Media Control Switch plug, or turn the movie scene off and on again.</div>`
-          : html`<div class="wu-count"><span class="n">${mm}:${ss}</span><span class="l">${left > 0 ? 'to go, roughly' : 'any moment now'}</span></div>
-            <div class="bar"><i style=${`width:${pct}%`}></i></div>`}
+      ${job.done
+        ? html`<div class="wu-big"><${Icon} name="check" size=${44} /> Ready</div>`
+        : job.late
+          ? html`<div class="wu-count"><span class="n late">${clock(t.so)}</span><span class="l">so far · usually ${clock(t.usual)}</span></div>
+            <div class="wu-big warn">Still waiting for: ${job.waiting || 'the room'}. If it stays stuck, check the Media Control Switch plug, or tap All off and start again.</div>`
+          : html`<div class="wu-count"><span class="n">${clock(t.left)}</span><span class="l">${t.left > 0 ? 'to go, roughly' : 'any moment now'}</span></div>
+            <div class="bar"><i style=${`width:${t.pct}%`}></i></div>`}
 
-      <ul class="wu-steps">
-        ${steps.map((s) => html`<li class=${s.ok ? 'ok' : ''}><span class="tick">${s.ok ? '✓' : '…'}</span>${s.name}</li>`)}
-      </ul>
+      <ul class="wu-list" style=${`grid-template-rows:repeat(${Math.ceil(job.steps.length / 2)},auto)`}>${job.steps.map((s, i) => html`<li key=${s.id} class=${s.ok ? 'ok' : s.id === job.current ? (job.late ? 'late' : 'now') : ''}>
+        <span class="ic">${s.ok ? '✓' : s.id === job.current ? '' : i + 1}</span>${s.label}
+        <span class="t">${s.ok ? clock(Math.round(s.at / 1000)) : s.id === 'settle' && s.id === job.current ? '~20 s' : ''}</span></li>`)}</ul>
 
       <div class="wu-actions">
-        ${ready && picked && html`<button type="button" class="btn primary" onClick=${() => go('showtime')}>Now playing</button>`}
-        ${!picked && html`<button type="button" class="btn primary" onClick=${() => go('watch')}>Browse while you wait</button>`}
+        ${job.done && job.what?.type === 'film' && html`<button type="button" class="btn primary" onClick=${() => go('showtime')}>Now playing</button>`}
+        ${!job.what && job.kind !== 'xbox' && html`<button type="button" class="btn primary" onClick=${() => go('watch')}>Browse while you wait</button>`}
         <button type="button" class="btn ghost" onClick=${() => go('lobby')}>Back to home</button>
       </div>
     </div>
   </main>`;
 }
 
-// Whether Play should show this screen: the start-up sequence is running, or the room (or the
-// Streamer) is off so Play will start it.
+// Whether Play should show this screen: a start-up is under way, or the room (or the player) is
+// off so Play will start it.
 export function needsWarmup() {
   const s = getState();
   const e = s.entities || {};
+  if (s.startup && !s.startup.done) return true;
   if (s.states[e.warmupScript]?.state === 'on') return true;
   const room = e.roomOn ? s.states[e.roomOn]?.state : 'on';
   return room !== 'on' || !up(s.states[e.appleTv]);

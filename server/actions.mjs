@@ -10,6 +10,7 @@ import * as games from './games.mjs';
 import { httpError } from './admin.mjs';
 import { xboxAction } from './xbox.mjs';
 import * as player from './player.mjs';
+import * as startup from './startup.mjs';
 
 // Launch links as documented for the Android TV Remote integration
 // (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
@@ -94,12 +95,14 @@ async function pauseMusic(ha) {
 
 export async function runAction(ha, body) {
   const e = config.entities;
+  const from = body.seat ? 'ipad' : body.from;
   if (STARTS(body)) await pauseMusic(ha);
   switch (body.action) {
     case 'scene': {
       if (!SCENES.includes(body.name)) throw new Error('Unknown scene');
       // Pre-show starts the cinema on the chosen player and plays its music there (HA's
       // theater_pre_show takes `player`: shield or streamer).
+      if (body.name === 'pre_show' && !player.roomOn()) startup.want({ type: 'preshow', title: 'Pre-show' }, from);
       const run = await script(ha, body.name, body.name === 'pre_show' ? { player: e.player } : {});
       // HA's All off ends the movie and Xbox scenes; the Shield's scene ends here too.
       if (body.name === 'all_off' && e.shield && ha.states[e.shield.room]?.state === 'on') {
@@ -277,6 +280,7 @@ export async function runAction(ha, body) {
         if (sceneOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
         return { ok: true };
       }
+      startup.want({ type: 'app', id: body.id }, from);
       if (sceneOff) {
         await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
         // No warm-up music: the cinema is up in under a minute now. (Pre-show still has its music.)
@@ -372,7 +376,9 @@ export async function runAction(ha, body) {
     case 'player': return player.set(String(body.to || ''));
 
     case 'game_source': return games.selectSource(ha, String(body.id));
-    case 'xbox': return xboxAction(ha, body);
+    case 'xbox':
+      if (body.cmd === 'launch' && !(ha.states[e.xbox]?.state === 'on' && (!e.xboxScene || ha.states[e.xboxScene]?.state === 'on'))) startup.want({ type: 'game', title: body.title, poster: body.poster }, from);
+      return xboxAction(ha, body);
     case 'game_pc_power': return games.pcPower(ha, body.on !== false);
     case 'game_launch': return games.launchSteamGame(ha, body.appid);
 
@@ -564,6 +570,7 @@ async function playStremio(ha, body) {
   // auto-play on press OK for the first stream (again 12 s later if nothing plays).
   const e = config.entities;
   const wasOff = !player.roomOn();
+  if (wasOff || player.startRunning()) startup.want({ type: 'film', title: body.title, sub: body.sub, poster: body.poster }, body.seat ? 'ipad' : body.from);
   if (wasOff) await ha.callService('input_boolean', 'turn_on', {}, { target: { entity_id: e.roomOn } });
   else if (ha.states[e.appleTv]?.state === 'off') await ha.callService('media_player', 'turn_on', {}, { target: { entity_id: e.appleTv } }).catch(() => {});
   const isOn = (id) => !id || ha.states[id]?.state === 'on';

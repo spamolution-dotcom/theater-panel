@@ -89,7 +89,7 @@ export function Xbox() {
 
   async function start() { setBusy('start'); if (await act({ action: 'xbox', cmd: 'start' })) toast('Starting the room for gaming'); setTimeout(() => setBusy(null), 60000); }
   async function pick(g) {
-    const r = await act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind });
+    const r = await act({ action: 'xbox', cmd: 'launch', id: g.id, kind: g.kind, title: g.title, poster: g.thumb || '' });
     if (r) toast(r.starting ? `Starting the room · ${g.title} opens when the Xbox is up` : `Opening ${g.title}`);
     if (r?.starting) setBusy('start');
   }

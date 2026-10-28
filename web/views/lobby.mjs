@@ -246,11 +246,11 @@ const ago = (ms) => { const d = Math.round((Date.now() - ms) / 86400e3); return 
 export async function play(item, resume = true, extra = {}) {
   // A cold room takes about two minutes to come up: show the warm-up screen instead of Showtime.
   const cold = needsWarmup();
-  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, title: item.showTitle || item.title, offset: resume ? item.viewOffset : 0, ...extra });
+  const sub = item.showTitle ? `S${item.season} · E${item.episode} ${item.title}` : [item.year].filter(Boolean).join('');
+  const r = await act({ action: 'play', ratingKey: item.id, type: item.type, title: item.showTitle || item.title, sub, poster: item.poster || '', offset: resume ? item.viewOffset : 0, ...extra });
   if (!r) return;
   const name = `${item.showTitle ? `${item.showTitle}: ` : ''}${item.title}`;
   if (cold) {
-    const sub = item.showTitle ? `S${item.season} · E${item.episode} ${item.title}` : [item.year].filter(Boolean).join('');
     go('warmup', { title: item.showTitle || item.title, sub, poster: item.poster || '', at: String(Date.now()) });
     return;
   }
