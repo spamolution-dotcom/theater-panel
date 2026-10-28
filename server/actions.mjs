@@ -98,7 +98,9 @@ export async function runAction(ha, body) {
   switch (body.action) {
     case 'scene': {
       if (!SCENES.includes(body.name)) throw new Error('Unknown scene');
-      const run = await script(ha, body.name);
+      // Pre-show starts the cinema on the chosen player and plays its music there (HA's
+      // theater_pre_show takes `player`: shield or streamer).
+      const run = await script(ha, body.name, body.name === 'pre_show' ? { player: e.player } : {});
       // HA's All off ends the movie and Xbox scenes; the Shield's scene ends here too.
       if (body.name === 'all_off' && e.shield && ha.states[e.shield.room]?.state === 'on') {
         await ha.callService('input_boolean', 'turn_off', {}, { target: { entity_id: e.shield.room } }).catch(() => {});
