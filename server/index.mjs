@@ -179,13 +179,18 @@ function castTitleId(title, series) {
 // the panel asks Android's media session over ADB every 10 s: the title, playing or paused, and the
 // position. (Without it, a film started on the TV wore the poster of the last one the panel opened.)
 const MARK = 'tp-media';   // no '#': the Shield's shell would treat the rest of the line as a comment
-let shieldMeta = null;   // { title, state, pos, at }
+let shieldMeta = null;   // { title, artist, pkg, state, pos, at }
+let shieldPkg = '';
+// Apps whose media session gives what's playing: Stremio, and SmartTube (YouTube) by title and channel.
+const SESSION_APPS = /^(com\.stremio\.one|org\.smarttube|com\.teamsmart\.videomanager)/;
 function shieldTitlePoll() {
   const e = config.entities;
   const adb = e.shield?.cast;
-  const onShield = e.player === 'shield' && /stremio/.test(ha.states[e.appleTv]?.attributes?.app_id || '');
+  const pkg = ha.states[e.appleTv]?.attributes?.app_id || '';
+  const onShield = e.player === 'shield' && SESSION_APPS.test(pkg);
   readShieldMeta();   // the answer to the last ask (it arrives as the entity's adb_response)
   if (!clients.size || !adb || !onShield || !ha.states[adb]) return;
+  shieldPkg = pkg;
   ha.callService('androidtv', 'adb_command', { command: `echo ${MARK}; cat /proc/uptime; dumpsys media_session | grep -E 'package=|state=PlaybackState|description='` }, { target: { entity_id: adb } })
     .then(() => readShieldMeta()).catch(() => {});
 }
@@ -195,18 +200,26 @@ function readShieldMeta() {
   const lines = out.split('\n');
   const up = Number(lines[1]?.split(' ')[0]) * 1000;
   // The lines after Stremio's "package=" line, up to the next app's.
-  let inStremio = false, st = null, title = null;
+  let inApp = false, st = null, title = null, artist = null;
   for (const line of lines.slice(2)) {
-    if (/package=/.test(line)) { if (st && title) break; inStremio = /package=com\.stremio\.one/.test(line); continue; }
-    if (!inStremio) continue;
+    if (/package=/.test(line)) { if (st && title) break; inApp = Boolean(shieldPkg) && line.includes(`package=${shieldPkg}`); continue; }
+    if (!inApp) continue;
     st = st || /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(line);
-    title = title || /description=([^,]+)/.exec(line)?.[1]?.trim();
+    const d = /description=(.*)$/.exec(line)?.[1];
+    if (d && !title) {
+      // "title, subtitle, description": a YouTube title can hold commas too, so the channel is
+      // the second-last part.
+      const parts = d.split(', ');
+      const sub = parts.length >= 3 ? parts[parts.length - 2] : null;
+      title = (parts.length >= 3 ? parts.slice(0, -2).join(', ') : parts[0]).trim();
+      artist = sub && sub !== 'null' ? sub.trim() : null;
+    }
   }
   if (!st || !title || title === 'null') { shieldMeta = null; return; }
   const [code, pos, speed, upd] = st.slice(1).map(Number);
   // Where it is now: the reported position plus the time since Android recorded it.
   const now = pos + (up && code === 3 ? speed * Math.max(0, up - upd) : 0);
-  shieldMeta = { title, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
+  shieldMeta = { title, artist, pkg: shieldPkg, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
 }
 setInterval(shieldTitlePoll, 10e3).unref();
 
@@ -217,6 +230,12 @@ function streamerSessions() {
   if (!tv || ['off', 'unavailable', 'unknown'].includes(tv.state)) return [];
   // Netflix: something is on, but neither title nor position is known, so no clock.
   if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing' }];
+  // YouTube in SmartTube on the Shield: the video's title and channel from the media session (no length).
+  if (/^(org\.smarttube|com\.teamsmart\.videomanager)/.test(app || '')) {
+    const m = shieldMeta && shieldMeta.pkg === app && Date.now() - shieldMeta.at < 30e3 ? shieldMeta : null;
+    if (!m || m.state === 'idle') return [];
+    return [{ id: 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: 0 }];
+  }
   if (app !== STREMIO_APP) return [];
   const l = lastLaunched();
   // Best source: Google Cast's view of the Streamer. Stremio's player publishes its title,
@@ -224,7 +243,7 @@ function streamerSessions() {
   // only catches up when Stremio syncs, which can be much later).
   let cast = castNow(ha);
   // On the Shield the play-state entity has no title: add the media session's (shieldTitlePoll).
-  if (cast && !cast.attributes?.media_title && shieldMeta && Date.now() - shieldMeta.at < 30e3) {
+  if (cast && !cast.attributes?.media_title && shieldMeta && shieldMeta.pkg === STREMIO_APP && Date.now() - shieldMeta.at < 30e3) {
     cast = { ...cast, state: shieldMeta.state === 'paused' ? 'paused' : cast.state,
       attributes: { ...cast.attributes, media_title: shieldMeta.title, media_position: shieldMeta.pos, media_position_updated_at: new Date(shieldMeta.at).toISOString() } };
   }

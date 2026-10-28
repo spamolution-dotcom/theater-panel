@@ -270,7 +270,7 @@ function NowPlaying({ onTab, inRemote }) {
   const a = tv?.attributes || {};
   const app = session?.app || now.key;
   const title = session?.showTitle || session?.title || now.title || a.media_title || now.name;
-  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : now.title ? [now.artist, now.name].filter(Boolean).join(' · ') : '';
+  const sub = session?.showTitle ? `S${session.season} · E${session.episode} ${session.title}` : session?.artist ? session.artist : now.title ? [now.artist, now.name].filter(Boolean).join(' · ') : '';
   const dur = session?.duration ? session.duration / 1000 : now.cast?.attributes?.media_duration || a.media_duration || null;
   let pos = null;
   if (session?.viewOffset != null) pos = session.viewOffset / 1000 + (playing ? (Date.now() - sessionsAt) / 1000 : 0);

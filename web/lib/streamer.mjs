@@ -7,6 +7,7 @@ const APPS = [
   [/^com\.stremio\./, 'stremio', 'Stremio'],
   [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'],
   [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'],          // SmartTube
+  [/^org\.smarttube/, 'youtube', 'YouTube'],                        // SmartTube (current package)
   [/^com\.amazon\.amazonvideo/, 'prime', 'Prime Video'],
   [/^com\.spotify\./, null, 'Spotify'],
   [/^com\.disney\./, null, 'Disney+'],
