@@ -34,6 +34,7 @@ import { versions } from './version.mjs';
 import * as hass from './hass.mjs';
 import QRCode from 'qrcode';
 import * as xbox from './xbox.mjs';
+import * as player from './player.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(root, 'web');
@@ -862,6 +863,7 @@ hass.init({ ha, broadcast, run: (body) => runAction(ha, body), save: async (body
 hass.apply();
 tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });
 seat.init({ ha, broadcast });
+player.init({ ha, broadcast });
 ha.start();
 pollSessions();
 if (config.media.on) { plex.warmMovies(); }

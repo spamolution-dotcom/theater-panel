@@ -272,3 +272,10 @@ html.seat .r-offline, html.seat .r-toast.err { background: #8A3324; }
 .r-pinkeys button.x { background: none; border: 0; font-size: 15px; color: var(--muted); }
 .r-ask { margin-top: 16px; width: 100%; max-width: 300px; height: 48px; border-radius: 14px; border: 1px solid var(--acc); color: var(--acc); font: 700 15px var(--sans); }
 .r-grid.stale { opacity: .45; pointer-events: none; transition: opacity .15s; }
+
+/* the player switch (Shield / Streamer) */
+.r-chip.pl { color: var(--ink); gap: 5px; }
+.r-chip.pl.ro { opacity: .85; }
+.r-plopts { display: grid; gap: 8px; margin-top: 12px; }
+.r-plopts .r-scn i { margin-left: auto; font-style: normal; font-weight: 800; }
+.r-plnote { font: 500 13px/1.4 var(--sans); color: var(--amb); background: var(--amb-soft); border-radius: 12px; padding: 10px 12px; margin: 12px 0 0; }

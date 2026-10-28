@@ -51,7 +51,12 @@ export function saveSettings(next) {
   saved = next;
   const fresh = build(effectiveVars());
   for (const k of Object.keys(fresh)) config[k] = fresh[k];
+  for (const fn of builders) fn(config);
 }
+
+// Run after the config is (re)built: player.mjs uses it to put its getters back on entities.
+const builders = [];
+export function onBuild(fn) { builders.push(fn); fn(config); }
 
 function build(env) {
   const c = {
@@ -111,23 +116,36 @@ function build(env) {
   },
 
   entities: {
-    // This fork: the Google TV Streamer (Android TV Remote integration) takes the Apple TV's place.
-    appleTv: env.ENTITY_APPLE_TV || 'media_player.media_room_tv',
-    appleTvRemote: env.ENTITY_APPLE_TV_REMOTE || 'remote.media_room_tv',
+    // This fork: two boxes can be the cinema's player, the Google TV Streamer and the NVIDIA
+    // Shield (server/player.mjs picks one). appleTv, appleTvRemote, streamerCast, roomOn and
+    // warmupScript follow the chosen box (getters added by player.mjs), so the rest of the panel
+    // keeps reading them as before.
+    streamer: {
+      tv: env.ENTITY_APPLE_TV || 'media_player.media_room_tv',
+      remote: env.ENTITY_APPLE_TV_REMOTE || 'remote.media_room_tv',
+      cast: env.ENTITY_STREAMER_CAST || 'media_player.living_room_tv',
+      input: env.STREAMER_INPUT || 'GoogleTVStreamer',
+      room: env.ENTITY_ROOM_ON || 'input_boolean.movie_scene',
+      script: env.ENTITY_WARMUP_SCRIPT || 'script.activate_movie_scene_sequence',
+    },
+    // Blank ENTITY_SHIELD: no Shield, the Streamer is the only player.
+    shield: env.ENTITY_SHIELD === '' ? null : {
+      tv: env.ENTITY_SHIELD || 'media_player.cinema_shield_pro',
+      remote: env.ENTITY_SHIELD_REMOTE || 'remote.cinema_shield_pro',
+      cast: env.ENTITY_SHIELD_CAST || 'media_player.shield_3',
+      input: env.SHIELD_INPUT || 'Blu-ray',
+      room: env.ENTITY_SHIELD_ROOM_ON || 'input_boolean.shield_scene',
+      script: env.ENTITY_SHIELD_SCRIPT || 'script.turn_on_shield_sequence',
+    },
     // The Denon receiver (volume, mute) and the HACS Stremio integration's player (what is on).
     avr: env.ENTITY_AVR || 'media_player.home_theater',
     stremioPlayer: env.ENTITY_STREMIO_PLAYER || 'media_player.stairs_cabinet_stremio_stremio',
     // The integration's 'Current Watching' sensor: it updates within seconds of playback starting
     // (the media_player above can sit on an old title for a day).
     stremioWatching: env.ENTITY_STREMIO_WATCHING || 'sensor.stairs_cabinet_stremio_current_watching',
-    roomOn: env.ENTITY_ROOM_ON || 'input_boolean.movie_scene',
     // What the warm-up screen watches come on: the plug the Denon and Xbox hang off, and the projector.
     plug: env.ENTITY_PLUG || 'light.media_control_switch',
     projectorPower: env.ENTITY_PROJECTOR_POWER || 'media_player.epson_projector',
-    // The start-up sequence the movie scene runs (~2 min); while it runs the panel shows the warm-up screen.
-    warmupScript: env.ENTITY_WARMUP_SCRIPT || 'script.activate_movie_scene_sequence',
-    // The Streamer as Google Cast sees it: title, position and play/pause of what Stremio is playing.
-    streamerCast: env.ENTITY_STREAMER_CAST || 'media_player.living_room_tv',
     // On: the play script presses OK on the stream list to start the first stream.
     autoplay: env.ENTITY_AUTOPLAY || 'input_boolean.theater_auto_play_first_stream',
     // The Plex client entity HA creates for the Apple TV once "Advertise as player" is on.
@@ -371,7 +389,8 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    e.appleTv, e.appleTvRemote, e.streamerCast, e.seatUnlock, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.roomOn, e.plug, e.projectorPower, e.warmupScript, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
+    ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.room, b.script]),
+    e.seatUnlock, e.autoplay, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',

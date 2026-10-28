@@ -88,6 +88,7 @@
     pad: 'M6 11h4M8 9v4M15 12h.01M18 10h.01M17.3 5H6.7a4 4 0 0 0-3.96 3.43l-.9 6.3A2.5 2.5 0 0 0 4.3 17.6h.2a2.5 2.5 0 0 0 2.12-1.18L7.6 15h8.8l.98 1.42A2.5 2.5 0 0 0 19.5 17.6h.2a2.5 2.5 0 0 0 2.46-2.87l-.9-6.3A4 4 0 0 0 17.3 5z',
     remote: 'M9 2h6a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1zM12 5v3M10.5 6.5h3M12 12h.01M12 15h.01M11 19h2',
     tv: 'M3 5h18v12H3zM8 21h8M12 17v4',
+    shield: 'M4 4h16v11H4zM9 20h6M12 15v5M9 9.5l2 2 4-4',
     receiver: 'M2.5 7h19v10h-19zM17 9.8a2.2 2.2 0 1 0 0 4.4 2.2 2.2 0 0 0 0-4.4zM5.5 11h6M5.5 13.5h4',
     projector: 'M2.5 8h19v9h-19zM15.5 9.9a2.6 2.6 0 1 0 0 5.2 2.6 2.6 0 0 0 0-5.2zM6 11h3M6 17v2M18 17v2',
     blindOpen: 'M3 3.5h18M5 3.5V20.5h14V3.5M5 6.5h14M12 6.5v2.5',
@@ -335,7 +336,31 @@
     // A tap opens the PIN pad (holding it was hard to get right on the iPad); the PIN still guards it.
     return '<button type="button" class="l-lock" data-a="pinopen">' + icon('lock', 16, 2.4) + 'Kids</button>';
   }
+  // The cinema's player (server/player.mjs): which box apps, films and the cinema start use.
+  // A chip beside the status; a tap opens Play on. Kids see it but can't change it.
+  var PLAYER_NAMES = { shield: 'Shield', streamer: 'Google TV Streamer' };
+  var PLAYER_SHORT = { shield: 'Shield', streamer: 'Streamer' };
+  function players() { var e = S.entities; return (e.players || []).filter(function (p) { return e[p] && st(e[p].tv); }); }
+  function playerChip() {
+    if (players().length < 2) return '';
+    var p = S.entities.player, mv = S.entities.playerMoving, k = kids();
+    return '<button type="button" class="l-chip pl' + (k ? ' ro' : '') + '"' + (k ? '' : ' data-a="playeropen"') + '>' + playIcon(13) + '<span>' + esc(mv ? 'Moving to ' + PLAYER_SHORT[mv] + '…' : PLAYER_SHORT[p] || p) + '</span>' + (k ? '' : icon('down', 16)) + '</button>';
+  }
+  function playerSheet() {
+    var cur = S.entities.player;
+    var why = { shield: 'Lossless Dolby Atmos (TrueHD) for Stremio films', streamer: 'Google TV home screen · Assistant' };
+    return '<div class="l-back" data-a="playerclose" data-self="1"><div class="l-sheet l-lights l-plsheet"><div class="grab"></div>' +
+      '<div class="hd"><h3>Play on</h3><button type="button" class="ag" data-a="playerclose">Done</button></div>' +
+      players().map(function (p) {
+        return '<button type="button" class="l-plopt' + (p === cur ? ' on' : '') + '" data-a="playerpick" data-v="' + p + '">' + icon(p === 'shield' ? 'shield' : 'tv', 30) +
+          '<span class="tx"><b>' + esc(PLAYER_NAMES[p]) + '</b><s>' + esc(why[p]) + '</s></span>' + (p === cur ? '<i>✓</i>' : '') + '</button>';
+      }).join('') +
+      (roomOn() ? '<p class="l-plnote">Cinema is on: switching moves the Denon to the other box and restarts the projector (about 30 s of black screen).</p>' : '') + '</div></div>';
+  }
   function statusChip() {
+    return playerChip() + statusChipOnly();
+  }
+  function statusChipOnly() {
     var warm = st(S.entities.warmupScript);
     var warming = Boolean(warm && warm.state === 'on');
     var on = roomOn(), g = gaming();
@@ -444,7 +469,7 @@
     return [
       { id: 'projector', name: 'Projector', icon: 'projector', ok: isUp(proj), note: isUp(proj) ? 'On' : 'Off' },
       { id: 'denon', name: 'Denon', icon: 'receiver', ok: isUp(avr), note: isUp(avr) ? 'On · ' + vol : 'Off' },
-      { id: 'chromecast', name: 'Streamer', icon: 'cast', ok: isUp(tv), note: isUp(tv) ? streamerNow(tv, st(e.streamerCast)).name || 'On' : 'Off' },
+      { id: 'chromecast', name: PLAYER_SHORT[e.player] || 'Streamer', icon: e.player === 'shield' ? 'shield' : 'cast', ok: isUp(tv), note: isUp(tv) ? streamerNow(tv, st(e.streamerCast)).name || 'On' : 'Off' },
     ];
   }
   function devicesNote() {
@@ -468,7 +493,7 @@
     if (wantSource && wantSource === src) wantSource = null;
     var cur = wantSource || src;
     return '<div class="l-h2"><h2>Source</h2><span class="l-aside">Denon input</span></div><div class="l-seg">' +
-      [['GoogleTVStreamer', 'Chromecast', 'cast'], [XBOX_INPUT, 'Xbox', 'pad']].map(function (s) {
+      players().map(function (p) { return [S.entities[p].input, PLAYER_SHORT[p], p === 'shield' ? 'shield' : 'cast']; }).concat([[XBOX_INPUT, 'Xbox', 'pad']]).map(function (s) {
         return '<button type="button" class="' + (cur === s[0] ? 'on' : '') + '" data-a="source" data-v="' + esc(s[0]) + '">' + icon(s[2], 20) + s[1] + '</button>';
       }).join('') + '</div>';
   }
@@ -914,7 +939,7 @@
     var note = !isUp(m.tv) ? '<div class="l-note">The Streamer is off. ' + (roomOn() ? 'Turn it on under Devices on Home.' : 'Start the cinema first.') + '</div>' : '';
     var list = kids() ? APPS.filter(function (a) { return a.id === 'netflix'; }) : APPS;
     return [
-      ['r-top', top('Remote', 'Google TV Streamer · ' + m.now.name, statusChip())],
+      ['r-top', top('Remote', (PLAYER_NAMES[S.entities.player] || 'Google TV Streamer') + ' · ' + m.now.name, statusChip())],
       ['r-note', note],
       ['r-main', '<div class="l-rmain">' + dpad('big') + '<div class="rr"><div class="l-keys k2">' +
         '<button type="button" data-a="key" data-v="back">' + icon('left', 20) + 'Back</button>' +
@@ -1257,7 +1282,7 @@
     var id = musicPlayer();
     var x = st(id);
     var state = x && x.state;
-    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || vsDrag || typing();
+    var blocked = media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || vsDrag || typing();
     if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
     var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
     var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
@@ -1299,6 +1324,7 @@
     if (U.lights) return lightsSheet();
     if (U.mpick) return musicPickSheet();
     if (U.devs) return devicesSheet();
+    if (U.playerPick) return playerSheet();
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -1443,7 +1469,7 @@
     setHtml($ss, 'ss', ssHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs || U.playerPick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1470,7 +1496,7 @@
   function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : musicOn() ? 'music' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
-    U.sleepPick = false; U.lights = false; U.moods = null; U.devs = false; U.mpick = false;
+    U.sleepPick = false; U.lights = false; U.moods = null; U.devs = false; U.mpick = false; U.playerPick = false;
     if (U.sheet) { U.sheet = null; U.season = null; }
     var t = target();
     if (U.tab !== t) setTab(t); else { window.scrollTo(0, 0); paint(); }
@@ -1498,7 +1524,7 @@
   }, 2000);
   setInterval(function () {
     if (!SEAT || Date.now() - touched < IDLE_MS) return;
-    if (U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.tab !== target() || window.pageYOffset > 0) goHome();
+    if (U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || U.tab !== target() || window.pageYOffset > 0) goHome();
     // A new panel build was installed: reload while nobody's using it.
     if (staleBuild) location.reload();
   }, 10e3);
@@ -1696,6 +1722,14 @@
     lights: function () { U.lights = true; U.moods = null; paint(); },
     ltclose: function () { U.lights = false; U.moods = null; paint(); },
     devs: function () { U.devs = true; paint(); },
+    playeropen: function () { if (!kids()) { U.playerPick = true; paint(); } },
+    playerclose: function () { U.playerPick = false; paint(); },
+    playerpick: function (v) {
+      U.playerPick = false; paint();
+      if (v === S.entities.player) return;
+      var on = roomOn();
+      act({ action: 'player', to: v }).then(function (r) { if (r) toast(on ? 'Moving the cinema to the ' + PLAYER_NAMES[v] + ' · the projector restarts' : 'Playing on the ' + PLAYER_NAMES[v]); });
+    },
     devclose: function () { U.devs = false; paint(); },
     lton: function (v, el) { act({ action: 'light', entity_id: v, on: el.getAttribute('data-on') !== '1' }); },
     moodopen: function (v) { U.moods = v; paint(); },
