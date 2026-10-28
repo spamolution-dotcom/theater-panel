@@ -104,7 +104,8 @@ export function Showtime() {
 
   // The hallway board: the poster full height down the left, the controls beside it over the
   // film's artwork, brighter than the in-room remote.
-  const castPic = viaCast && a.entity_picture ? `/api/ha-image?e=${encodeURIComponent(ents.streamerCast)}&v=${encodeURIComponent(a.entity_picture)}` : null;
+  // (Not on the Shield: its play-state entity's picture is a live screenshot of the TV.)
+  const castPic = viaCast && a.entity_picture && ents.player !== 'shield' ? `/api/ha-image?e=${encodeURIComponent(ents.streamerCast)}&v=${encodeURIComponent(a.entity_picture)}` : null;
   const castApp = viaCast && /youtube|netflix|prime|stremio/i.test(a.app_name || '') ? String(a.app_name).toLowerCase().match(/youtube|netflix|prime|stremio/)[0] : null;
   const bigPoster = session?.posterLarge || session?.poster || castPic;
 
