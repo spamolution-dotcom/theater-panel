@@ -135,6 +135,8 @@ function build(env) {
       // What the Shield is playing. Its Google Cast entity (media_player.shield_3) never reports
       // Stremio playing, so this is the Android Debug Bridge entity, which knows play/pause for any app.
       cast: env.ENTITY_SHIELD_CAST || 'media_player.cinema_shield_adb',
+      // Its Google Cast entity: hears about Stremio's play and pause sooner than ADB is polled.
+      alsoCast: env.ENTITY_SHIELD_GCAST === '' ? null : env.ENTITY_SHIELD_GCAST || 'media_player.shield_3',
       input: env.SHIELD_INPUT || 'Blu-ray',
       room: env.ENTITY_SHIELD_ROOM_ON || 'input_boolean.shield_scene',
       script: env.ENTITY_SHIELD_SCRIPT || 'script.turn_on_shield_sequence',
@@ -393,7 +395,7 @@ export const config = build(effectiveVars());
 export function watchedEntities() {
   const e = config.entities;
   return [
-    ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.room, b.script]),
+    ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.alsoCast, b.room, b.script]),
     e.seatUnlock, e.autoplay, e.xboxScript, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
