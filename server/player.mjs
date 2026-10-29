@@ -12,6 +12,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { config, SETTINGS_FILE, onBuild } from './config.mjs';
 import { httpError } from './admin.mjs';
+import * as tidal from './tidal.mjs';
 
 const FILE = join(dirname(SETTINGS_FILE), 'player.json');
 let ctx = null;
@@ -40,7 +41,13 @@ function attach(c) {
     playerInput: () => box().input,
     musicPlayer: () => box().music || e.streamer.music,
     // The chosen player's music player first: the screens' Music tab starts on it.
-    musicPlayers: () => { const m = box().music || e.streamer.music; return m ? [m, ...musicList.filter((x) => x !== m)] : musicList; },
+    musicPlayers: () => {
+      const m = box().music || e.streamer.music;
+      const list = m ? [m, ...musicList.filter((x) => x !== m)] : [...musicList];
+      // TIDAL on the Shield, while it has something on: first while it plays, else last.
+      if (tidal.active()) return states()[tidal.ID]?.state === 'playing' ? [tidal.ID, ...list] : [...list, tidal.ID];
+      return list;
+    },
     roomOn: () => (all().find((b) => isOn(b.room)) || box()).room,
     warmupScript: () => (all().find((b) => isOn(b.script)) || box()).script,
   };
