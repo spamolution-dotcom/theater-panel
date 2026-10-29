@@ -445,7 +445,7 @@ export async function listLibrary(libId, { filters = [], genre, sort = 'added', 
 
 // IMDb ratings for the poster badges: catalog rows usually carry one; for those that don't (add-on
 // catalogs, library rows) read the title's page once (cached for hours). Never fails a list.
-async function withRatings(items) {
+export async function withRatings(items) {
   await enrich(items.filter((it) => it.rating == null && /^tt\d+$/.test(String(it.id))), { rating: true }).catch(() => {});
   return items;
 }
