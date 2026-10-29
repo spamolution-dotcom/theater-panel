@@ -20,6 +20,7 @@ import * as seasonal from './seasonal.mjs';
 import * as wrapped from './wrapped.mjs';
 import { initImageCache, serveImage, extImage } from './images.mjs';
 import * as youtube from './youtube.mjs';
+import * as tidal from './tidal.mjs';
 import { musicHome } from './ma.mjs';
 import { runAction, script, onPanelSound, musicLibrary, musicSearch, musicQueue, lastLaunched, castNow, livePosition, lightMembers } from './actions.mjs';
 import { gameEntities, gamesState, steamLibrary } from './games.mjs';
@@ -195,24 +196,32 @@ function shieldTitlePoll() {
   const pkg = ha.states[e.appleTv]?.attributes?.app_id || '';
   const onShield = e.player === 'shield' && SESSION_APPS.test(pkg);
   readShieldMeta();   // the answer to the last ask (it arrives as the entity's adb_response)
-  if (!clients.size || !adb || !onShield || !ha.states[adb]) return;
-  shieldPkg = pkg;
+  // The Shield on at all: TIDAL can be playing in the background, whatever the player choice.
+  const shieldUp = adb && !['off', 'unavailable', 'unknown', 'standby', undefined].includes(ha.states[adb]?.state);
+  if (!shieldUp) { tidal.update(null); return; }
+  if (!clients.size) return;
+  shieldPkg = onShield ? pkg : '';
   ha.callService('androidtv', 'adb_command', { command: `echo ${MARK}; cat /proc/uptime; dumpsys media_session | grep -E 'package=|state=PlaybackState|description='` }, { target: { entity_id: adb } })
     .then(() => readShieldMeta()).catch(() => {});
 }
+const PLAYBACK = /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/;
+// Where a media session is now: its position plus the time since Android recorded it.
+const livePos = (m, up) => { const [code, pos, speed, upd] = m.slice(1).map(Number); return { code, pos: Math.max(0, pos + (up && code === 3 ? speed * Math.max(0, up - upd) : 0)) / 1000 }; };
 function readShieldMeta() {
   const out = String(ha.states[config.entities.shield?.cast]?.attributes?.adb_response || '');
   if (!out.startsWith(MARK)) return;
   const lines = out.split('\n');
   const up = Number(lines[1]?.split(' ')[0]) * 1000;
   // The lines after Stremio's "package=" line, up to the next app's.
-  let inApp = false, inStremio = false, st = null, title = null, artist = null, stremioTitle = null;
+  let inApp = false, inStremio = false, inTidal = false, st = null, title = null, artist = null, stremioTitle = null, tSt = null, tDesc = null;
   for (const line of lines.slice(2)) {
-    if (/package=/.test(line)) { inApp = Boolean(shieldPkg) && line.includes(`package=${shieldPkg}`); inStremio = line.includes('package=com.stremio.one'); continue; }
+    if (/package=/.test(line)) { inApp = Boolean(shieldPkg) && line.includes(`package=${shieldPkg}`); inStremio = line.includes('package=com.stremio.one'); inTidal = line.includes('package=com.aspiro.tidal'); continue; }
+    // TIDAL, whatever is in front (it plays on in the background): "track, artist, album".
+    if (inTidal) { tSt = tSt || PLAYBACK.exec(line); tDesc = tDesc || /description=(.*)$/.exec(line)?.[1]; }
     // Stremio's own title, for when an external player is playing its stream.
     if (inStremio && !inApp && !stremioTitle) { const t = /description=([^,]+)/.exec(line)?.[1]?.trim(); if (t && t !== 'null') stremioTitle = t; }
     if (!inApp) continue;
-    st = st || /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(line);
+    st = st || PLAYBACK.exec(line);
     const d = /description=(.*)$/.exec(line)?.[1];
     if (d && !title) {
       // "title, subtitle, description": a YouTube title can hold commas too, so the channel is
@@ -223,6 +232,11 @@ function readShieldMeta() {
       artist = sub && sub !== 'null' ? sub.trim() : null;
     }
   }
+  if (tSt && tDesc) {
+    const [track, artistT, ...albumParts] = tDesc.split(', ').map((x) => x.trim());
+    const { code, pos } = livePos(tSt, up);
+    tidal.update(track && track !== 'null' ? { title: track, artist: artistT !== 'null' ? artistT : null, album: albumParts.join(', ') && albumParts.join(', ') !== 'null' ? albumParts.join(', ') : null, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos, at: Date.now() } : null);
+  } else tidal.update(null);
   if (!st || !title || title === 'null') { shieldMeta = null; return; }
   const [code, pos, speed, upd] = st.slice(1).map(Number);
   // Where it is now: the reported position plus the time since Android recorded it.
@@ -855,7 +869,7 @@ const server = createServer(async (req, res) => {
     // Artwork for a watched HA entity (media player covers), cached like any other image.
     if (path === '/api/ha-image') {
       const id = url.searchParams.get('e');
-      const st = entities.includes(id) && ha.states[id];
+      const st = (entities.includes(id) || id === tidal.ID) && ha.states[id];
       const pic = st?.attributes?.entity_picture;
       if (!pic) { res.writeHead(404).end(); return; }
       // An image entity keeps its URL (and token, for up to 5 minutes) when its picture changes;
@@ -961,6 +975,7 @@ tonight.init({ ha, broadcast, onChange: (plan) => hass.tonight(plan) });
 seat.init({ ha, broadcast });
 player.init({ ha, broadcast });
 startup.init({ ha, broadcast });
+tidal.init({ ha, broadcast });
 ha.start();
 pollSessions();
 if (config.media.on) { plex.warmMovies(); }

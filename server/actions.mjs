@@ -11,6 +11,7 @@ import { httpError } from './admin.mjs';
 import { xboxAction } from './xbox.mjs';
 import * as player from './player.mjs';
 import * as startup from './startup.mjs';
+import * as tidal from './tidal.mjs';
 
 // Launch links as documented for the Android TV Remote integration
 // (https://www.home-assistant.io/integrations/androidtv_remote/). Stremio is not in the docs;
@@ -351,6 +352,7 @@ export async function runAction(ha, body) {
     }
 
     case 'music': {
+      if (body.entity_id === tidal.ID) return tidal.command(body);   // TIDAL on the Shield (server/tidal.mjs)
       const player = e.musicPlayers.includes(body.entity_id) ? body.entity_id : e.musicPlayer;
       const target = { entity_id: player };
       const simple = { play_pause: 'media_play_pause', next: 'media_next_track', previous: 'media_previous_track' };
@@ -522,6 +524,7 @@ export async function musicSearch(ha, query) {
 }
 
 export async function musicQueue(ha, entityId) {
+  if (entityId === tidal.ID) return null;   // TIDAL's queue lives in the TIDAL app
   const player = config.entities.musicPlayers.includes(entityId) ? entityId : config.entities.musicPlayer;
   const state = ha.states[player]?.state;
   if (!state || state === 'unavailable') return { player, unavailable: true };
