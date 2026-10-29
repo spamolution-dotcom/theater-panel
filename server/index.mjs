@@ -684,7 +684,8 @@ get(/^\/api\/pick$/, async (m, q) => {
 get(/^\/api\/seasonal$/, async (m, q) => ({ shelves: config.media.on ? await seasonal.shelves(seasonParam(q)).catch(() => []) : [] }));
 get(/^\/api\/coming$/, async () => ({ items: config.seerr.url ? await seasonal.coming(8) : [] }));
 
-get(/^\/api\/plex\/search$/, (m, q) => plex.search(q.get('q') || '').then(warm));
+// IMDb ratings for the result badges, as the browse lists get them (catalog search often leaves them out, TV shows especially).
+get(/^\/api\/plex\/search$/, (m, q) => plex.search(q.get('q') || '').then((list) => (plex.withRatings ? plex.withRatings(list) : list)).then(warm));
 
 get(/^\/api\/seerr\/search$/, (m, q) => seerr.search(q.get('q') || '', q.get('page') || 1));
 get(/^\/api\/seerr\/discover\/(trending|movies|tv)$/, (m, q) => seerr.discover(m[1], q.get('page') || 1));
