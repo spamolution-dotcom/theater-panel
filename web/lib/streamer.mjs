@@ -7,7 +7,9 @@ const APPS = [
   [/^com\.stremio\./, 'stremio', 'Stremio'],
   [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'],
   [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'],          // SmartTube
-  [/^org\.smarttube/, 'youtube', 'YouTube'],                        // SmartTube (current package)
+  [/^org\.smarttube/, 'youtube', 'YouTube'],
+  // External players Stremio hands streams to: shown as Stremio.
+  [/^(com\.brouken\.player|com\.mxtech\.videoplayer|org\.videolan\.vlc|org\.courville\.nova|is\.xyz\.mpv)/, 'stremio', 'Stremio'],                        // SmartTube (current package)
   [/^com\.amazon\.amazonvideo/, 'prime', 'Prime Video'],
   [/^com\.spotify\./, null, 'Spotify'],
   [/^com\.disney\./, null, 'Disney+'],
