@@ -219,7 +219,7 @@
   // What the Streamer is showing (web/lib/streamer.mjs).
   var STREAM_APPS = [
     [/^com\.netflix\./, 'netflix', 'Netflix'], [/^com\.stremio\./, 'stremio', 'Stremio'],
-    [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'], [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'], [/^org\.smarttube/, 'youtube', 'YouTube'],
+    [/^com\.google\.android\.youtube/, 'youtube', 'YouTube'], [/^com\.teamsmart\.videomanager/, 'youtube', 'YouTube'], [/^org\.smarttube/, 'youtube', 'YouTube'], [/^(com\.brouken\.player|com\.mxtech\.videoplayer|org\.videolan\.vlc|org\.courville\.nova|is\.xyz\.mpv)/, 'stremio', 'Stremio'],
     [/^com\.amazon\.amazonvideo/, 'prime', 'Prime Video'], [/^com\.spotify\./, null, 'Spotify'], [/^com\.disney\./, null, 'Disney+'],
     [/^com\.plexapp\./, null, 'Plex'], [/launcher/, null, 'Home screen'], [/mediashell/, null, 'Casting'],
   ];

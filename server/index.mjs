@@ -182,8 +182,13 @@ function castTitleId(title, series) {
 const MARK = 'tp-media';   // no '#': the Shield's shell would treat the rest of the line as a comment
 let shieldMeta = null;   // { title, artist, pkg, state, pos, at }
 let shieldPkg = '';
-// Apps whose media session gives what's playing: Stremio, and SmartTube (YouTube) by title and channel.
-const SESSION_APPS = /^(com\.stremio\.one|org\.smarttube|com\.teamsmart\.videomanager)/;
+// External players Stremio can hand a stream to (Settings > Playback): Just Player, MX Player,
+// VLC, Kodi, Nova, mpv. Their media session names the file, so Stremio's own session (still there,
+// paused, with the proper title) gives the title and theirs gives play/pause and the position.
+const EXTERNAL_PLAYERS = /^(com\.brouken\.player|com\.mxtech\.videoplayer|org\.videolan\.vlc|org\.xbmc\.kodi|org\.courville\.nova|is\.xyz\.mpv)/;
+// Apps whose media session gives what's playing: Stremio, SmartTube (YouTube) by title and
+// channel, and the external players above.
+const SESSION_APPS = new RegExp(`^(com\\.stremio\\.one|org\\.smarttube|com\\.teamsmart\\.videomanager)|${EXTERNAL_PLAYERS.source}`);
 function shieldTitlePoll() {
   const e = config.entities;
   const adb = e.shield?.cast;
@@ -201,9 +206,11 @@ function readShieldMeta() {
   const lines = out.split('\n');
   const up = Number(lines[1]?.split(' ')[0]) * 1000;
   // The lines after Stremio's "package=" line, up to the next app's.
-  let inApp = false, st = null, title = null, artist = null;
+  let inApp = false, inStremio = false, st = null, title = null, artist = null, stremioTitle = null;
   for (const line of lines.slice(2)) {
-    if (/package=/.test(line)) { if (st && title) break; inApp = Boolean(shieldPkg) && line.includes(`package=${shieldPkg}`); continue; }
+    if (/package=/.test(line)) { inApp = Boolean(shieldPkg) && line.includes(`package=${shieldPkg}`); inStremio = line.includes('package=com.stremio.one'); continue; }
+    // Stremio's own title, for when an external player is playing its stream.
+    if (inStremio && !inApp && !stremioTitle) { const t = /description=([^,]+)/.exec(line)?.[1]?.trim(); if (t && t !== 'null') stremioTitle = t; }
     if (!inApp) continue;
     st = st || /state=PlaybackState \{state=(\d+), position=(-?\d+)[^}]*?speed=([\d.]+), updated=(\d+)/.exec(line);
     const d = /description=(.*)$/.exec(line)?.[1];
@@ -220,9 +227,17 @@ function readShieldMeta() {
   const [code, pos, speed, upd] = st.slice(1).map(Number);
   // Where it is now: the reported position plus the time since Android recorded it.
   const now = pos + (up && code === 3 ? speed * Math.max(0, up - upd) : 0);
-  shieldMeta = { title, artist, pkg: shieldPkg, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
+  shieldMeta = { title, artist, stremioTitle, pkg: shieldPkg, state: code === 3 ? 'playing' : code === 2 ? 'paused' : 'idle', pos: Math.max(0, now) / 1000, at: Date.now() };
 }
 setInterval(shieldTitlePoll, 10e3).unref();
+
+// "Top.Gun.Maverick.2022.BDRemux.2160p.HDR" -> "Top Gun Maverick": the words before the year or
+// the first quality tag.
+function fileTitle(name) {
+  const words = String(name || '').replace(/\.[a-z0-9]{2,4}$/i, '').split(/[._\s]+/).filter(Boolean);
+  const stop = words.findIndex((w, i) => i > 0 && (/^(19|20)\d{2}$/.test(w) || /^(\d{3,4}p|s\d{2}e\d{2}|bluray|bdremux|remux|web-?dl|webrip|hdr|uhd|x26[45]|h26[45]|hevc)$/i.test(w)));
+  return (stop > 0 ? words.slice(0, stop) : words).join(' ');
+}
 
 function streamerSessions() {
   const e = config.entities;
@@ -243,12 +258,20 @@ function streamerSessions() {
     const poster = yt?.thumb || (adbPic ? `/api/ha-image?e=${encodeURIComponent(e.shield.cast)}&v=${encodeURIComponent(adbPic)}` : undefined);
     return [{ id: yt?.id ? `yt:${yt.id}` : 'youtube', type: 'video', app: 'youtube', state: m.state, title: m.title, artist: m.artist || undefined, viewOffset: Math.round(m.pos * 1000), duration: yt?.duration || 0, poster, wide: Boolean(poster) }];
   }
-  if (app !== STREMIO_APP) return [];
+  // A Stremio stream playing in an external player (Just Player...): Stremio's title, the player's
+  // play state and position. The file name is the fallback when Stremio's session has gone.
+  const external = EXTERNAL_PLAYERS.test(app || '');
+  if (app !== STREMIO_APP && !external) return [];
   const l = lastLaunched();
   // Best source: Google Cast's view of the Streamer. Stremio's player publishes its title,
   // position and play/pause there the moment a stream starts (the Current Watching sensor below
   // only catches up when Stremio syncs, which can be much later).
-  let cast = castNow(ha);
+  let cast = external ? null : castNow(ha);
+  if (external) {
+    const m = shieldMeta && shieldMeta.pkg === app && Date.now() - shieldMeta.at < 30e3 ? shieldMeta : null;
+    if (!m || m.state === 'idle') return [];
+    cast = { state: m.state, attributes: { media_title: m.stremioTitle || fileTitle(m.title), media_position: m.pos, media_position_updated_at: new Date(m.at).toISOString() } };
+  }
   // On the Shield the play-state entity has no title: add the media session's (shieldTitlePoll).
   if (cast && !cast.attributes?.media_title && shieldMeta && shieldMeta.pkg === STREMIO_APP && Date.now() - shieldMeta.at < 30e3) {
     cast = { ...cast, state: shieldMeta.state === 'paused' ? 'paused' : cast.state,
