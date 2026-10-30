@@ -295,7 +295,7 @@ function AppsBoard() {
 // Sources: the Apple TV, then what is wired straight to the projector (the Unraid VM), then the
 // consoles on the HDMI switcher, all from games.json. Apps open on the projector's own Android.
 const SOURCE_ICONS = { tv: 'tv', pad: 'pad', joystick: 'joystick', remote: 'remote', monitor: 'server', server: 'server', steam: 'playc' };
-const APP_ICONS = [[/plex|plezy/i, 'plex'], [/you ?tube|smarttube/i, 'youtube'], [/moonlight|parsec|steam link/i, 'pad']];
+const APP_ICONS = [[/plex|plezy/i, 'plex'], [/you ?tube|smarttube|tizentube/i, 'youtube'], [/moonlight|parsec|steam link/i, 'pad']];
 const appIcon = (a) => a.icon || APP_ICONS.find(([re]) => re.test(a.name))?.[1] || 'app';
 
 // What is on screen: the theater's Plex session (when PLEX_PLAYER_NAME pins it down), else the

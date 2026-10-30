@@ -1,4 +1,4 @@
-// YouTube videos playing in SmartTube on the Shield: the Shield's media session gives only the
+// YouTube videos playing in SmartTube or TizenTube on the Shield: the Shield's media session gives only the
 // title and channel, so the panel looks the video up once with the YouTube Data API (a key in the
 // app's options) for its official thumbnail and its length (so the progress bar works too).
 // One search (100 units) and one details call (1 unit) per new video: the free 10,000 units a day

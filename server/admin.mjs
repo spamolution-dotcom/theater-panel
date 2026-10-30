@@ -30,7 +30,7 @@ export const FIELDS = [
   { group: 'Mystery box', key: 'MYSTERY_FAMILY', label: 'Family night: G and PG only', type: 'bool', default: false },
 
 
-  { group: 'YouTube', key: 'YOUTUBE_API_KEY', label: 'API key', type: 'secret', help: 'YouTube Data API v3 key (Google Cloud > APIs & Services > Credentials, restricted to that API). A video playing in SmartTube on the Shield gets its thumbnail and length; without it, a screenshot of the TV and no progress bar.' },
+  { group: 'YouTube', key: 'YOUTUBE_API_KEY', label: 'API key', type: 'secret', help: 'YouTube Data API v3 key (Google Cloud > APIs & Services > Credentials, restricted to that API). A video playing in SmartTube or TizenTube on the Shield gets its thumbnail and length; without it, a screenshot of the TV and no progress bar.' },
   { group: 'TMDB', key: 'TMDB_API_KEY', label: 'API key', type: 'secret', help: 'Free, from themoviedb.org > Settings > API (the v3 key or the v4 read access token, either works). Only public lists are read. Blank: the holiday shelves come from Kometa\'s collections and TMDB\'s tags instead.' },
   { group: 'TMDB', key: 'TMDB_LIST_HALLOWEEN', label: 'Halloween list', type: 'text', placeholder: '7061968', help: 'The number from the list\'s address on themoviedb.org (themoviedb.org/list/7061968-halloween). Only films you own are shown, in the list\'s order.' },
   { group: 'TMDB', key: 'TMDB_LIST_CHRISTMAS', label: 'Christmas list', type: 'text', placeholder: '5915', help: 'Default: "The Best of Christmas", 105 films.' },

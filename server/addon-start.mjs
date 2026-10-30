@@ -32,7 +32,7 @@ set('ADMIN_PASSWORD', options.admin_password);
 set('TRUST_NETWORKS', options.trust_networks);
 set('IMAGE_CACHE_MB', options.image_cache_mb);
 set('TMDB_API_KEY', options.tmdb_api_key);
-// YouTube Data API: the thumbnail and length of a video playing in SmartTube on the Shield.
+// YouTube Data API: the thumbnail and length of a video playing in SmartTube or TizenTube on the Shield.
 set('YOUTUBE_API_KEY', options.youtube_api_key);
 set('STREMIO_EMAIL', options.stremio_email);
 set('STREMIO_PASSWORD', options.stremio_password);
