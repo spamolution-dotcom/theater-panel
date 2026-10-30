@@ -261,7 +261,7 @@
     var state = session ? playbackState() : now.state || playbackState();
     var shown = roomOn() && Boolean(session || isUp(tv));
     // Music cast to the Streamer is the Music tab's, not a film.
-    var music = !session && now.cast && !castVideo(now.cast);
+    var music = (session && session.music) || (!session && now.cast && !castVideo(now.cast));
     var active = shown && !music && (state === 'playing' || state === 'paused') && (Boolean(session) || !now.home);
     return { e: e, tv: tv, session: session, now: now, state: state, shown: shown, active: active };
   }

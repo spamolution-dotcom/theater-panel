@@ -274,6 +274,15 @@ function streamerSessions() {
   }
   // A Stremio stream playing in an external player (Just Player...): Stremio's title, the player's
   // play state and position. The file name is the fallback when Stremio's session has gone.
+  // TIDAL in front on the Shield: the track (server/tidal.mjs) for Now playing. Marked music, so
+  // it fills the card without taking the screens to Showtime / Now Showing.
+  if (app === 'com.aspiro.tidal') {
+    const t = ha.states[tidal.ID];
+    if (!t) return [];
+    const a = t.attributes;
+    return [{ id: 'tidal', type: 'track', music: true, state: t.state, title: a.media_title, artist: [a.media_artist, a.media_album_name].filter(Boolean).join(' · ') || undefined,
+      viewOffset: Math.round((a.media_position || 0) * 1000), duration: a.media_duration ? Math.round(a.media_duration * 1000) : 0, poster: a.entity_picture || undefined }];
+  }
   const external = EXTERNAL_PLAYERS.test(app || '');
   if (app !== STREMIO_APP && !external) return [];
   const l = lastLaunched();

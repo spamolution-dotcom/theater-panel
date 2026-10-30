@@ -170,7 +170,8 @@ export const useEntity = (id) => useStore((s) => (id ? s.states[id] : undefined)
 // TV's own state ('idle', 'off', ...) when no film is running.
 export function playbackState(s = state) {
   const session = s.sessions?.[0];
-  if (session?.state) return session.state;
+  // A music session (TIDAL) shows in Now playing but isn't a film: it doesn't bring up Showtime.
+  if (session?.state && !session.music) return session.state;
   const tv = s.states[s.entities?.appleTv]?.state;
   // The Streamer itself only reports on/off; what Google Cast sees on it (YouTube, Netflix and
   // other video apps) says playing or paused.

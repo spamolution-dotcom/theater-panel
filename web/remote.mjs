@@ -252,9 +252,9 @@ function useMedia() {
   const castSt = useEntity(e.streamerCast);
   const session = useStore((s) => (s.ui?.theaterSessions ? s.sessions?.[0] : undefined));
   const now = streamerNow(tv, castSt);
-  const state = useStore((s) => (session ? playbackState(s) : now.state || playbackState(s)));
+  const state = useStore((s) => (session ? (session.music ? session.state : playbackState(s)) : now.state || playbackState(s)));
   const shown = roomOn && Boolean(session || isUp(tv));
-  const active = shown && ['playing', 'paused'].includes(state) && (Boolean(session) || !now.home);
+  const active = shown && !session?.music && ['playing', 'paused'].includes(state) && (Boolean(session) || !now.home);
   return { e, tv, session, now, state, shown, active };
 }
 
