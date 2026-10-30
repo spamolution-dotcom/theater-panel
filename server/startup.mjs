@@ -27,7 +27,7 @@ const LATE_AFTER = 30e3;        // past the usual time by this much: late
 const GIVE_UP = 6 * 60e3;       // a start-up older than this is dropped
 const PICK_WAIT = 60e3;         // stream list up, nothing playing yet: finish after this anyway
 const SHOW_DONE = 6e3;          // "Ready" stays up this long before the status clears
-const APP_PKG = { netflix: /netflix/, prime: /amazon/, youtube: /youtube|videomanager|smarttube/, stremio: /stremio/ };
+const APP_PKG = { netflix: /netflix/, prime: /amazon/, youtube: /youtube|videomanager|smarttube|tizentube/, stremio: /stremio/ };
 const APP_NAME = { netflix: 'Netflix', prime: 'Prime Video', youtube: 'YouTube', stremio: 'Stremio' };
 const FROM = { wall: 'the wall panel', ipad: 'the iPad', phone: 'a phone' };
 

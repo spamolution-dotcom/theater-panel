@@ -187,9 +187,12 @@ let shieldPkg = '';
 // VLC, Kodi, Nova, mpv. Their media session names the file, so Stremio's own session (still there,
 // paused, with the proper title) gives the title and theirs gives play/pause and the position.
 const EXTERNAL_PLAYERS = /^(com\.brouken\.player|com\.mxtech\.videoplayer|org\.videolan\.vlc|org\.xbmc\.kodi|org\.courville\.nova|is\.xyz\.mpv)/;
-// Apps whose media session gives what's playing: Stremio, SmartTube (YouTube) by title and
+// YouTube apps on the Shield whose media session gives the video's title and channel: SmartTube
+// (both packages) and TizenTube.
+const YOUTUBE_APPS = /^(org\.smarttube|com\.teamsmart\.videomanager|io\.gh\.reisxd\.tizentube)/;
+// Apps whose media session gives what's playing: Stremio, the YouTube apps above by title and
 // channel, and the external players above.
-const SESSION_APPS = new RegExp(`^(com\\.stremio\\.one|org\\.smarttube|com\\.teamsmart\\.videomanager)|${EXTERNAL_PLAYERS.source}`);
+const SESSION_APPS = new RegExp(`^(com\\.stremio\\.one)|${YOUTUBE_APPS.source}|${EXTERNAL_PLAYERS.source}`);
 function shieldTitlePoll() {
   const e = config.entities;
   const adb = e.shield?.cast;
@@ -260,8 +263,8 @@ function streamerSessions() {
   if (!tv || ['off', 'unavailable', 'unknown'].includes(tv.state)) return [];
   // Netflix: something is on, but neither title nor position is known, so no clock.
   if (app === NETFLIX_APP) return [{ id: 'netflix', type: 'movie', title: 'Netflix', app: 'netflix', state: 'playing' }];
-  // YouTube in SmartTube on the Shield: the video's title and channel from the media session (no length).
-  if (/^(org\.smarttube|com\.teamsmart\.videomanager)/.test(app || '')) {
+  // YouTube in SmartTube or TizenTube on the Shield: the video's title and channel from the media session (no length).
+  if (YOUTUBE_APPS.test(app || '')) {
     const m = shieldMeta && shieldMeta.pkg === app && Date.now() - shieldMeta.at < 30e3 ? shieldMeta : null;
     if (!m || m.state === 'idle') return [];
     // The picture: the ADB entity's live screenshot of the TV, so a frame of the video (the Shield
