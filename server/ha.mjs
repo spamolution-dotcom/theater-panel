@@ -115,6 +115,10 @@ export class HomeAssistant extends EventEmitter {
       if (p) { clearTimeout(p.timer); this.pending.delete(msg.id); p.resolve(true); }
       return;
     }
+    if (msg.type === 'result' && msg.id === this.subId && !msg.success) {
+      console.error('[ha] Home Assistant refused the entity subscription:', msg.error?.message || 'unknown error');
+      return;
+    }
     if (msg.type === 'result') {
       const p = this.pending.get(msg.id);
       if (!p) return;

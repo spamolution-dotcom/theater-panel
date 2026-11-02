@@ -416,5 +416,12 @@ export function watchedEntities() {
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
     ...e.dogSensors, e.babyCamera, e.babyTemperature, e.babyHumidity, e.babyState, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',
-  ].filter(Boolean);
+  ].filter((id) => {
+    // HA refuses the whole subscription if one id is malformed (a setting typed without its
+    // domain, say), and then the panel sees nothing at all. Skip it instead, and say so.
+    if (!id) return false;
+    if (/^[a-z0-9_]+\.[a-z0-9_]+$/.test(id)) return true;
+    console.warn(`[config] ignoring "${id}": not an entity id (domain.name)`);
+    return false;
+  });
 }
