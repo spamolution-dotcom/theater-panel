@@ -59,6 +59,7 @@ export const FIELDS = [
   { group: 'Entities', key: 'ENTITY_LIGHTS', label: 'Lights', type: 'list', domain: 'light' },
   { group: 'Entities', key: 'ENTITY_TEMPERATURE', label: 'Temperature', type: 'entity', domain: 'sensor' },
   { group: 'Entities', key: 'ENTITY_BABY_CAMERA', label: 'Baby monitor camera', type: 'entity', domain: 'camera', help: 'Shows a Camera button on the iPad. The picture is shown on the home network only and starts only when someone taps it.' },
+  { group: 'Entities', key: 'CAMERA_PIN', label: 'Baby camera PIN', type: 'secret', help: 'Four digits. Set, the Kiaan button asks for it every time the camera starts (and again after it is stopped), on every screen, and the panel server refuses the picture without it. Blank: no PIN.' },
   { group: 'Entities', key: 'ENTITY_BABY_TEMPERATURE', label: 'Baby room temperature', type: 'entity', domain: 'sensor' },
   { group: 'Entities', key: 'ENTITY_BABY_HUMIDITY', label: 'Baby room humidity', type: 'entity', domain: 'sensor' },
   { group: 'Entities', key: 'ENTITY_BABY_CAMERA_STATE', label: 'Baby camera online status', type: 'entity', domain: 'sensor' },
