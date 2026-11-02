@@ -1622,12 +1622,21 @@
     return { t: t, unit: unit, h: h, net: net };
   }
 
+  // WebRTC first (well under a second behind), through HA's go2rtc: the panel server only passes
+  // the offer and answer along; the picture comes straight from HA over the home network. If it
+  // doesn't connect in 12 s, the HLS stream (10-15 s behind, but plays everywhere) takes over.
+  var kPc = null, kRtc = null, kPoll = null, kFall = null;
   function camStart() {
-    if (K.state === 'starting') return;
+    if (K.state === 'starting' && (kPc || K.src)) return;
     K.on = true; K.state = 'starting'; K.err = ''; K.at = Date.now();
     paint();
+    if (window.RTCPeerConnection) camRtc(); else camHls();
+  }
+  function camHls() {
+    rtcEnd();
+    K.src = 'hls';
     post('/api/camera/start').then(function (r) {
-      if (!K.on) return;
+      if (!K.on || K.src !== 'hls') return;
       kVid.muted = !K.snd;
       kVid.src = r.src;
       var p = kVid.play(); if (p && p.catch) p.catch(function () {});
@@ -1636,23 +1645,95 @@
       K.state = 'error'; K.err = e && e.message ? e.message : 'Can\'t reach the camera'; paint();
     });
   }
-  // Stops it completely: the player is emptied so nothing more is fetched.
+  function rtcEnd() {
+    clearInterval(kPoll); clearTimeout(kFall); kPoll = null; kFall = null;
+    if (kPc) { try { kPc.close(); } catch (e) { /* closed */ } kPc = null; }
+    if (kRtc) { post('/api/camera/webrtc/close', { session: kRtc }).catch(function () {}); kRtc = null; }
+    if (kVid.srcObject) { try { kVid.srcObject = null; } catch (e) { /* old Safari */ } }
+  }
+  function rtcFallback(pc) { if (kPc === pc && K.on) camHls(); }
+  function rtcCands(pc, list) {
+    (list || []).forEach(function (c) {
+      var init = typeof c === 'string' ? { candidate: c, sdpMLineIndex: 0 } : c;
+      if (init && init.candidate) pc.addIceCandidate(init).catch(function () {});
+    });
+  }
+  function camRtc() {
+    rtcEnd();
+    K.src = 'rtc';
+    var pc = new RTCPeerConnection({ iceServers: [] }), ms = null;
+    kPc = pc;
+    var opts = {};
+    if (pc.addTransceiver) { pc.addTransceiver('video', { direction: 'recvonly' }); pc.addTransceiver('audio', { direction: 'recvonly' }); }
+    else opts = { offerToReceiveVideo: true, offerToReceiveAudio: true };
+    pc.ontrack = function (ev) {
+      if (kPc !== pc) return;
+      if (ev.streams && ev.streams[0]) ms = ev.streams[0];
+      else { ms = ms || new MediaStream(); ms.addTrack(ev.track); }
+      K.audio = ms.getAudioTracks().length > 0;
+      if (kVid.srcObject !== ms) {
+        kVid.removeAttribute('src');
+        kVid.muted = !K.snd;
+        kVid.srcObject = ms;
+        var p = kVid.play(); if (p && p.catch) p.catch(function () {});
+      }
+    };
+    var lost = null;
+    pc.oniceconnectionstatechange = function () {
+      var st = pc.iceConnectionState;
+      if (st === 'failed') rtcFallback(pc);
+      else if (st === 'disconnected') { clearTimeout(lost); lost = setTimeout(function () { if (pc.iceConnectionState === 'disconnected' && kPc === pc && K.on) camRetry(); }, 8000); }
+    };
+    kFall = setTimeout(function () { if (K.state !== 'live') rtcFallback(pc); }, 12000);
+    // The whole offer at once (no trickling from the iPad): gather for up to 2 s first.
+    pc.createOffer(opts).then(function (o) { return pc.setLocalDescription(o); }).then(function () {
+      return new Promise(function (done) {
+        if (pc.iceGatheringState === 'complete') return done();
+        var t = setTimeout(done, 2000);
+        pc.onicegatheringstatechange = function () { if (pc.iceGatheringState === 'complete') { clearTimeout(t); done(); } };
+      });
+    }).then(function () {
+      if (kPc !== pc) return null;
+      return post('/api/camera/webrtc/offer', { offer: pc.localDescription.sdp });
+    }).then(function (r) {
+      if (!r) return;
+      if (kPc !== pc) { post('/api/camera/webrtc/close', { session: r.session }).catch(function () {}); return; }
+      kRtc = r.session;
+      return pc.setRemoteDescription({ type: 'answer', sdp: r.answer }).then(function () {
+        rtcCands(pc, r.candidates);
+        // HA's later candidates for a few seconds, then every 20 s to keep the session open.
+        var n = 0;
+        kPoll = setInterval(function () {
+          n += 1;
+          if (n > 8 && n % 20) return;
+          post('/api/camera/webrtc/candidates', { session: kRtc }).then(function (c) {
+            if (kPc !== pc) return;
+            if (c.gone || c.error) { camRetry(); return; }
+            rtcCands(pc, c.candidates);
+          }).catch(function () {});
+        }, 1000);
+      });
+    }).catch(function () { rtcFallback(pc); });
+  }
+  // Stops it completely: the player is emptied and the session closed, so nothing is fetched.
   function camStop() {
-    K.on = false; K.big = false; K.state = 'idle'; K.err = ''; K.tries = 0; K.audio = null;
+    K.on = false; K.big = false; K.state = 'idle'; K.err = ''; K.tries = 0; K.audio = null; K.src = null;
     K.s = 1; K.cx = 0.5; K.cy = 0.5;
+    rtcEnd();
     try { kVid.pause(); kVid.removeAttribute('src'); kVid.load(); } catch (e) { /* nothing to stop */ }
     camZoomApply();
     paint();
   }
   function camRestart() {
+    rtcEnd();
     try { kVid.pause(); kVid.removeAttribute('src'); kVid.load(); } catch (e) { /* ignore */ }
-    K.state = 'idle';
+    K.state = 'idle'; K.src = null;
     camStart();
   }
   kVid.addEventListener('playing', function () { K.state = 'live'; K.tries = 0; K.seen = Date.now(); paint(); });
-  kVid.addEventListener('loadedmetadata', function () { K.audio = kVid.audioTracks ? kVid.audioTracks.length > 0 : null; paint(); });
+  kVid.addEventListener('loadedmetadata', function () { if (K.src === 'hls') K.audio = kVid.audioTracks ? kVid.audioTracks.length > 0 : null; paint(); });
   kVid.addEventListener('timeupdate', function () { K.seen = Date.now(); });
-  kVid.addEventListener('error', function () { if (K.on && K.state !== 'idle') camRetry(); });
+  kVid.addEventListener('error', function () { if (K.on && K.src === 'hls' && K.state !== 'idle') camRetry(); });
   // Retry a few times on its own (a new stream each time), then wait for a tap.
   function camRetry() {
     if (K.tries >= 3) { K.state = 'error'; K.err = 'Can\'t reach the camera'; paint(); return; }

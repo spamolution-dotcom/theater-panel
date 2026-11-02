@@ -395,6 +395,42 @@ const PUBLIC = new Set(['/assets/icon.png', '/assets/apple-touch-icon.png', '/as
 let isProxy = netList(config.trustedProxies);
 let isTrusted = netList(config.trustedNetworks);
 
+// The camera's WebRTC sessions, by our own random id: HA's subscription, the candidates HA has
+// sent that the iPad hasn't collected yet, and when the iPad last asked.
+const rtc = new Map();
+async function rtcOffer(entity, offer) {
+  if (!/^v=0/.test(offer) || offer.length > 20000) throw admin.httpError(400, 'Not an SDP offer');
+  for (const [k, s] of rtc) if (Date.now() - s.seen > 60e3) rtcClose(k);
+  if (rtc.size >= 4) throw admin.httpError(429, 'Too many camera sessions');
+  const key = createHash('sha256').update(`${Date.now()}:${Math.random()}`).digest('hex').slice(0, 24);
+  const s = { sub: null, ha: null, answer: null, candidates: [], error: null, seen: Date.now() };
+  let gotAnswer;
+  const answered = new Promise((r) => { gotAnswer = r; });
+  s.sub = await ha.subscribe({ type: 'camera/webrtc/offer', entity_id: entity, offer }, (ev) => {
+    if (ev?.type === 'session') s.ha = ev.session_id;
+    else if (ev?.type === 'answer') { s.answer = ev.answer; gotAnswer(); }
+    else if (ev?.type === 'candidate' && ev.candidate) s.candidates.push(ev.candidate);
+    else if (ev?.type === 'error') { s.error = ev.message || ev.code || 'Camera error'; gotAnswer(); }
+  });
+  rtc.set(key, s);
+  await Promise.race([answered, new Promise((r) => setTimeout(r, 15000))]);
+  if (!s.answer) { const err = s.error || 'The camera did not answer'; rtcClose(key); throw admin.httpError(502, err); }
+  await new Promise((r) => setTimeout(r, 300));   // the first candidates usually follow at once
+  return { session: key, answer: s.answer, candidates: s.candidates.splice(0) };
+}
+function rtcTake(key) {
+  const s = rtc.get(key);
+  if (!s) return { gone: true, candidates: [] };
+  s.seen = Date.now();
+  return { candidates: s.candidates.splice(0), error: s.error };
+}
+function rtcClose(key) {
+  const s = rtc.get(key);
+  if (s) { rtc.delete(key); try { s.sub?.close(); } catch {} }
+  return { ok: true };
+}
+setInterval(() => { for (const [k, s] of rtc) if (Date.now() - s.seen > 60e3) rtcClose(k); }, 15e3).unref();
+
 // Private LAN addresses only (and loopback). Used by the camera, which no key or Tailscale-style
 // trusted network can widen.
 const isHomeLan = netList(['127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '::1']);
@@ -917,10 +953,25 @@ const server = createServer(async (req, res) => {
     // outside the private ranges, is refused. It starts only when a panel asks (start), and the
     // panel simply stops fetching to end it. Only the one configured camera, and only HA's own
     // /api/hls/<token>/... paths, so this cannot become a general proxy into HA.
-    if (path === '/api/camera/start' || path.startsWith('/api/camera/hls/')) {
+    if (path === '/api/camera/start' || path.startsWith('/api/camera/hls/') || path.startsWith('/api/camera/webrtc/')) {
       const id = config.entities.babyCamera;
       const ip = req.headers['x-forwarded-for'] === undefined ? clientIp(req, () => false) : null;
       if (!id || !isHomeLan(ip)) { res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' }).end('The camera is available on the home network only.'); return; }
+      // WebRTC: the iPad's offer goes to HA (its go2rtc), the answer and HA's candidates come
+      // back. The picture then flows straight from HA to the iPad on the home network. The session
+      // lives while the iPad keeps it (a keep every 20 s); otherwise it is closed after a minute.
+      if (path.startsWith('/api/camera/webrtc/')) {
+        if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+        const body = await readBody(req);
+        let out;
+        if (path === '/api/camera/webrtc/offer') out = await rtcOffer(id, String(body.offer || ''));
+        else if (path === '/api/camera/webrtc/candidates') out = rtcTake(String(body.session || ''));
+        else if (path === '/api/camera/webrtc/close') out = rtcClose(String(body.session || ''));
+        else { res.writeHead(404).end(); return; }
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end(JSON.stringify(out));
+        return;
+      }
       if (path === '/api/camera/start') {
         if (req.method !== 'POST') { res.writeHead(405).end(); return; }
         const r = await ha.request({ type: 'camera/stream', entity_id: id, format: 'hls' }, 30000);
