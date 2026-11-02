@@ -395,6 +395,10 @@ const PUBLIC = new Set(['/assets/icon.png', '/assets/apple-touch-icon.png', '/as
 let isProxy = netList(config.trustedProxies);
 let isTrusted = netList(config.trustedNetworks);
 
+// Private LAN addresses only (and loopback). Used by the camera, which no key or Tailscale-style
+// trusted network can widen.
+const isHomeLan = netList(['127.0.0.0/8', '10.0.0.0/8', '172.16.0.0/12', '192.168.0.0/16', '::1']);
+
 const isHttps = (req) => req.headers['x-forwarded-proto'] === 'https' || Boolean(req.socket.encrypted);
 
 function authorized(req, url, res) {
@@ -905,6 +909,33 @@ const server = createServer(async (req, res) => {
       const svg = await qrSvg(url.searchParams.get('url') || '/vote');
       res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; style-src 'unsafe-inline'" });
       res.end(svg);
+      return;
+    }
+
+    // The baby monitor, as HLS (Safari plays it natively). Home network only, whatever the panel
+    // key or trusted networks say: a request that arrives through a proxy, or from any address
+    // outside the private ranges, is refused. It starts only when a panel asks (start), and the
+    // panel simply stops fetching to end it. Only the one configured camera, and only HA's own
+    // /api/hls/<token>/... paths, so this cannot become a general proxy into HA.
+    if (path === '/api/camera/start' || path.startsWith('/api/camera/hls/')) {
+      const id = config.entities.babyCamera;
+      const ip = req.headers['x-forwarded-for'] === undefined ? clientIp(req, () => false) : null;
+      if (!id || !isHomeLan(ip)) { res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' }).end('The camera is available on the home network only.'); return; }
+      if (path === '/api/camera/start') {
+        if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+        const r = await ha.request({ type: 'camera/stream', entity_id: id, format: 'hls' }, 30000);
+        const m = /^\/api\/hls\/([A-Za-z0-9_-]+)\/master_playlist\.m3u8$/.exec(String(r?.url || '').split('?')[0]);
+        if (!m) throw admin.httpError(502, 'Home Assistant did not return a stream');
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end(JSON.stringify({ src: `/api/camera/hls/${m[1]}/master_playlist.m3u8` }));
+        return;
+      }
+      const m = /^\/api\/camera\/hls\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_./-]+)$/.exec(path);
+      if (!m || m[2].includes('..') || !config.ha.url || !config.ha.token) { res.writeHead(404).end(); return; }
+      const r = await fetch(`${config.ha.url}/api/hls/${m[1]}/${m[2]}`, { headers: { authorization: `Bearer ${config.ha.token}` }, signal: AbortSignal.timeout(20000) });
+      if (!r.ok) { res.writeHead(r.status === 404 ? 404 : 502, { 'cache-control': 'no-store' }).end(); return; }
+      res.writeHead(200, { 'content-type': r.headers.get('content-type') || 'application/octet-stream', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' });
+      res.end(Buffer.from(await r.arrayBuffer()));
       return;
     }
 

@@ -79,6 +79,11 @@
     sun: 'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
     cup: 'M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 10h2a2 2 0 0 1 0 4h-2M8 3v2M12 3v2',
     x: 'M6 6l12 12M18 6L6 18',
+    cam: 'M23 7l-7 5 7 5zM3 5h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z',
+    expand: 'M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7',
+    therm: 'M14 14.8V4a2 2 0 0 0-4 0v10.8a4 4 0 1 0 4 0z',
+    drop: 'M12 2.7l5.7 5.7a8 8 0 1 1-11.4 0z',
+    wifi: 'M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M12 19.5h.01',
     chev: 'M9 6l6 6-6 6',
     list: 'M8 6h13M8 12h13M8 18h9M3 6h.01M3 12h.01M3 18h.01',
     lock: 'M6 11h12v10H6zM8.5 11V7.5a3.5 3.5 0 0 1 7 0V11',
@@ -929,8 +934,9 @@
       return '<div class="p"><div class="ph"><span>' + esc(ini) + '</span>' + (c.photo ? '<img src="' + esc(imgSrc(c.photo)) + '" alt="">' : '') + '</div><span class="nm"><b>' + esc(c.name) + '</b>' + (c.character ? '<s>' + esc(c.character) + '</s>' : '') + '</span></div>';
     }).join('') + '</div>' : '';
     return [
-      ['n-poster', '<div class="l-npost">' + art + '<button type="button" class="l-phome" data-a="tab" data-v="home">' + icon('home', 20) + 'Panel home</button>' +
-        (hasLights() ? '<button type="button" class="l-phome lt" data-a="lights">' + icon('bulb', 20) + 'Lights</button>' : '') + '</div>'],
+      ['n-poster', '<div class="l-npost' + (K.on && camOk() ? ' cam' : '') + '">' + art + '<button type="button" class="l-phome" data-a="tab" data-v="home">' + icon('home', 20) + 'Panel home</button>' +
+        (hasLights() ? '<button type="button" class="l-phome lt" data-a="lights">' + icon('bulb', 20) + 'Lights</button>' : '') + camBtn('lt') +
+        (K.on && camOk() ? '<div class="k-ph" data-k="now"></div>' : '') + '</div>'],
       ['n-head', head],
       ['n-tp', tp],
       ['n-eps', nav],
@@ -956,6 +962,7 @@
       ['r-apps', '<div class="l-apps2">' + list.map(function (a) {
         return '<button type="button" data-a="app" data-v="' + a.id + '" data-name="' + a.name + '"><img src="/assets/apps/' + a.id + '.png" alt="' + a.name + '"></button>';
       }).join('') + '</div>'],
+      ['r-cam', K.on && camOk() ? camCard('remote') : ''],
     ];
   }
 
@@ -1020,7 +1027,8 @@
     // Nothing playing: Continue watching across the top. A film on: Now playing beside it.
     // Underneath, always the same row: Apps, Scenes, Blind.
     var list = kidsFilter(deck).list;
-    var top2 = media().active ? [['h-np', nowPlaying(false), 'up:L'], ['h-deck', continueCard(list, k, false), 'up:R']] : [['h-deck', continueCard(list, k, true)]];
+    var cam = K.on && camOk();
+    var top2 = media().active ? [['h-np', nowPlaying(false), 'up:L'], ['h-deck', cam ? camCard('home') : continueCard(list, k, false), 'up:R']] : [['h-deck', cam ? camCard('home wide') : continueCard(list, k, true)]];
     return [['h-top', top('Home Theater', d.toLocaleDateString('en-AU', { weekday: 'long' }) + ' ' + part, statusChip(), true)]].concat(top2, [
       ['h-apps', appsRow(), 'bot:1'],
       ['h-scenes', scenesLand(), 'bot:2'],
@@ -1516,7 +1524,9 @@
     // In landscape the Remote tab is Now Showing while something plays.
     tabs.push(['remote', LAND && media().active ? 'Now' : 'Remote', 'remote']);
     setHtml($tabs, 'tabs', tabs.map(function (t) { return '<button type="button" class="' + (tab === t[0] ? 'on' : '') + '" data-a="tab" data-v="' + t[0] + '">' + icon(t[2], 28) + t[1] + '</button>'; }).join('') +
-      (LAND ? '<div class="l-railb">' + badge() + '</div>' : ''));
+      (LAND ? '<div class="l-railb">' + (camOk() ? '<button type="button" class="kr' + (K.on ? ' kon' : '') + '" data-a="kcam">' + icon('cam', 26) + esc(camName()) + '</button>' : '') + badge() + '</div>' : ''));
+    camWatchRoom();
+    camPlace();
     setHtml($ss, 'ss', ssHtml());
     setHtml($su, 'su', suHtml());
     fillLive();
@@ -1582,6 +1592,200 @@
   }, 10e3);
   // Ticking clocks (time left, grown-up minutes).
   setInterval(function () { if (media().state === 'playing' || ((U.tab === 'music' || SS.on) && musicOn()) || (S.seat && S.seat.enabled && !S.seat.locked)) paint(); }, 1000);
+
+
+  // ---------- baby monitor camera (landscape) ----------
+  // One <video> that lives outside the redrawn page, so a redraw never restarts the stream. It is
+  // laid over a placeholder (.k-ph) that Now Showing, Home and Remote leave for it, and it grows to
+  // fill the screen on request. Off by default; a tap starts it, X stops it for good (the player
+  // is emptied, nothing is fetched). Nothing stops it on a timer or for want of touches; it stops
+  // when the cinema turns off. The server only streams it to the home network.
+  var K = { on: false, big: false, snd: false, state: 'idle', err: '', s: 1, cx: 0.5, cy: 0.5, audio: null, tries: 0, at: 0, seen: 0, prevRoom: null };
+  var $k = document.createElement('div');
+  $k.id = 'kcam';
+  $k.className = 'k-cam away';
+  $k.innerHTML = '<div class="k-hd"></div><div class="k-vid"><video playsinline webkit-playsinline muted></video><div class="k-ov"></div></div><div class="k-ex"></div>';
+  document.body.appendChild($k);
+  var kVid = $k.querySelector('video'), kBox = $k.querySelector('.k-vid');
+  var kLast = {};
+  function kSet(key, el, html) { if (kLast[key] === html) return; kLast[key] = html; el.innerHTML = html; }
+
+  function camOk() { return LAND && !kids() && Boolean(S.entities && S.entities.babyCamera && st(S.entities.babyCamera)); }
+  function camName() { return (S.entities && S.entities.babyName) || 'Baby'; }
+  function camNum(id) { var s = st(id), v = s && s.state !== 'unavailable' ? parseFloat(s.state) : NaN; return isFinite(v) ? v : null; }
+  // Only real readings: a missing or unavailable sensor leaves its figure out.
+  function camReads() {
+    var e = S.entities, t = camNum(e.babyTemperature), h = camNum(e.babyHumidity), unit = (attrs(st(e.babyTemperature)).unit_of_measurement) || '°C';
+    var ss = e.babyState ? st(e.babyState) : null, cs = st(e.babyCamera), net = null;
+    if (ss && ['unavailable', 'unknown'].indexOf(ss.state) < 0) net = { text: ss.state.charAt(0).toUpperCase() + ss.state.slice(1), ok: /^(online|on|connected|streaming|idle)$/i.test(ss.state) };
+    else if (cs) net = cs.state === 'unavailable' ? { text: 'Offline', ok: false } : { text: 'Online', ok: true };
+    return { t: t, unit: unit, h: h, net: net };
+  }
+
+  function camStart() {
+    if (K.state === 'starting') return;
+    K.on = true; K.state = 'starting'; K.err = ''; K.at = Date.now();
+    paint();
+    post('/api/camera/start').then(function (r) {
+      if (!K.on) return;
+      kVid.muted = !K.snd;
+      kVid.src = r.src;
+      var p = kVid.play(); if (p && p.catch) p.catch(function () {});
+    }).catch(function (e) {
+      if (!K.on) return;
+      K.state = 'error'; K.err = e && e.message ? e.message : 'Can\'t reach the camera'; paint();
+    });
+  }
+  // Stops it completely: the player is emptied so nothing more is fetched.
+  function camStop() {
+    K.on = false; K.big = false; K.state = 'idle'; K.err = ''; K.tries = 0; K.audio = null;
+    K.s = 1; K.cx = 0.5; K.cy = 0.5;
+    try { kVid.pause(); kVid.removeAttribute('src'); kVid.load(); } catch (e) { /* nothing to stop */ }
+    camZoomApply();
+    paint();
+  }
+  function camRestart() {
+    try { kVid.pause(); kVid.removeAttribute('src'); kVid.load(); } catch (e) { /* ignore */ }
+    K.state = 'idle';
+    camStart();
+  }
+  kVid.addEventListener('playing', function () { K.state = 'live'; K.tries = 0; K.seen = Date.now(); paint(); });
+  kVid.addEventListener('loadedmetadata', function () { K.audio = kVid.audioTracks ? kVid.audioTracks.length > 0 : null; paint(); });
+  kVid.addEventListener('timeupdate', function () { K.seen = Date.now(); });
+  kVid.addEventListener('error', function () { if (K.on && K.state !== 'idle') camRetry(); });
+  // Retry a few times on its own (a new stream each time), then wait for a tap.
+  function camRetry() {
+    if (K.tries >= 3) { K.state = 'error'; K.err = 'Can\'t reach the camera'; paint(); return; }
+    K.tries += 1; K.state = 'starting'; paint();
+    setTimeout(function () { if (K.on && K.state === 'starting') camRestart(); }, 2000);
+  }
+  setInterval(function () {
+    if (!K.on) return;
+    if (K.state === 'live' && Date.now() - K.seen > 20e3) camRetry();
+    else if (K.state === 'starting' && Date.now() - K.at > 45e3) { K.at = Date.now(); camRetry(); }
+  }, 5000);
+
+  // Two fingers zoom (1x to 5x) and pan; one finger pans when zoomed; double tap resets.
+  function camZoomApply() {
+    var w = kBox.offsetWidth, h = kBox.offsetHeight, s = K.s;
+    K.cx = Math.min(1 - 0.5 / s, Math.max(0.5 / s, K.cx)); K.cy = Math.min(1 - 0.5 / s, Math.max(0.5 / s, K.cy));
+    kVid.style.webkitTransform = kVid.style.transform = 'translate3d(' + (w / 2 - K.cx * w * s) + 'px,' + (h / 2 - K.cy * h * s) + 'px,0) scale(' + s + ')';
+  }
+  var kz = null, kTap = 0;
+  function kDist(t) { var dx = t[0].clientX - t[1].clientX, dy = t[0].clientY - t[1].clientY; return Math.sqrt(dx * dx + dy * dy) || 1; }
+  function kMid(t) { return { x: (t[0].clientX + t[1].clientX) / 2, y: (t[0].clientY + t[1].clientY) / 2 }; }
+  $k.addEventListener('gesturestart', function (ev) { ev.preventDefault(); });
+  $k.addEventListener('gesturechange', function (ev) { ev.preventDefault(); });
+  $k.addEventListener('touchstart', function (ev) {
+    if (!K.on || !ev.target.closest || !ev.target.closest('.k-vid')) return;
+    var t = ev.touches;
+    if (t.length === 2) { var m = kMid(t); kz = { d: kDist(t), s: K.s, mx: m.x, my: m.y, cx: K.cx, cy: K.cy }; ev.preventDefault(); }
+    else if (t.length === 1 && !ev.target.closest('button')) {
+      if (Date.now() - kTap < 300) { K.s = 1; K.cx = 0.5; K.cy = 0.5; camZoomApply(); paint(); kTap = 0; return; }
+      kTap = Date.now();
+      kz = { s: K.s, mx: t[0].clientX, my: t[0].clientY, cx: K.cx, cy: K.cy, one: true };
+    }
+  }, { passive: false });
+  $k.addEventListener('touchmove', function (ev) {
+    if (!kz) return;
+    var t = ev.touches, w = kBox.offsetWidth, h = kBox.offsetHeight;
+    if (t.length === 2 && !kz.one) {
+      var m = kMid(t);
+      K.s = Math.min(5, Math.max(1, kz.s * kDist(t) / kz.d));
+      K.cx = kz.cx - (m.x - kz.mx) / (w * K.s); K.cy = kz.cy - (m.y - kz.my) / (h * K.s);
+    } else if (t.length === 1 && kz.one && K.s > 1) {
+      K.cx = kz.cx - (t[0].clientX - kz.mx) / (w * K.s); K.cy = kz.cy - (t[0].clientY - kz.my) / (h * K.s);
+    } else return;
+    kTap = 0;
+    if (ev.cancelable) ev.preventDefault();
+    camZoomApply();
+  }, { passive: false });
+  $k.addEventListener('touchend', function (ev) {
+    if (!kz) return;
+    if (ev.touches.length === 0) { kz = null; if (K.s < 1.02) { K.s = 1; K.cx = 0.5; K.cy = 0.5; camZoomApply(); } paint(); }
+    else if (ev.touches.length === 1) { kz = { s: K.s, mx: ev.touches[0].clientX, my: ev.touches[0].clientY, cx: K.cx, cy: K.cy, one: true }; }
+  }, { passive: true });
+
+  function camBtn(cls) {
+    if (!camOk()) return '';
+    return '<button type="button" class="l-phome kb' + (K.on ? ' on' : '') + (cls ? ' ' + cls : '') + '" data-a="kcam">' + icon('cam', 20) + esc(camName()) + (K.on ? '<i class="k-dot"></i>' : '') + '</button>';
+  }
+  function camSide() {
+    var r = camReads(), out = '';
+    if (r.t != null) out += '<div><div class="lab">Temp</div><div class="v">' + r.t.toFixed(1) + '<small>' + esc(r.unit) + '</small></div></div>';
+    if (r.h != null) out += '<div><div class="lab">Humidity</div><div class="v">' + Math.round(r.h) + '<small>%</small></div></div>';
+    if (r.net) out += '<div class="net' + (r.net.ok ? ' ok' : ' bad') + '">● ' + esc(r.net.text) + '</div>';
+    return '<div class="k-side">' + out + '<button type="button" class="x" data-a="kstop">' + icon('x', 16, 2.4) + 'Stop</button></div>';
+  }
+  // The card Home and Remote show in place of Continue / under the apps while the camera is on.
+  function camCard(where) { return '<section class="k-card ' + where + '"><div class="k-ph" data-k="' + where + '"></div>' + camSide() + '</section>'; }
+
+  function camReadsStrip() {
+    var r = camReads(), out = '';
+    if (r.t != null) out += '<span>' + icon('therm', 16) + r.t.toFixed(1) + esc(r.unit) + '</span>';
+    if (r.h != null) out += '<span>' + icon('drop', 16) + Math.round(r.h) + '%</span>';
+    if (r.net) out += '<span class="' + (r.net.ok ? 'ok' : 'bad') + '">' + icon('wifi', 16) + esc(r.net.text) + '</span>';
+    return out ? '<div class="k-reads">' + out + '</div>' : '';
+  }
+  function camOverlay(where) {
+    var live = K.state === 'live', out = '';
+    if (K.state === 'starting' || K.state === 'idle') out += '<div class="k-msg">Connecting…</div>';
+    else if (K.state === 'error') out += '<button type="button" class="k-msg err" data-a="kretry">' + esc(K.err || 'Can\'t reach the camera') + '<s>Tap to try again</s></button>';
+    if (live) out += '<div class="k-tag"><i></i>LIVE</div>';
+    if (where === 'now') out += '<button type="button" class="k-ic tr" data-a="kstop" aria-label="Stop camera">' + icon('x', 20, 2.4) + '</button>';
+    if (where !== 'big') out += '<button type="button" class="k-ic br" data-a="kbig" aria-label="Enlarge">' + icon('expand', 18, 2.2) + '</button>';
+    if (K.s > 1.02) out += '<button type="button" class="k-zr' + (where === 'big' ? ' big' : '') + '" data-a="kzoom0">' + K.s.toFixed(1) + '× · Reset</button>';
+    if (live && K.audio !== false && (where === 'now' || where === 'big')) out += '<button type="button" class="k-snd' + (where === 'big' ? ' big' : '') + (K.snd ? ' on' : '') + '" data-a="ksnd">' + icon(K.snd ? 'volp' : 'mute', where === 'big' ? 20 : 18, 2.2) + (K.snd ? 'Sound on' : 'Sound off' + (where === 'big' ? ' · tap to listen' : '')) + '</button>';
+    return out;
+  }
+  function camBackLabel() { return U.tab === 'home' ? 'Back to Home' : U.tab === 'remote' && media().active ? 'Back to Now Showing' : U.tab === 'remote' ? 'Back to Remote' : 'Back'; }
+  function camBig() {
+    var m = media(), title = m.active ? ((m.session && (m.session.showTitle || m.session.title)) || (m.now && (m.now.title || m.now.name)) || '') : '';
+    kSet('hd', $k.querySelector('.k-hd'), '<div class="tx"><div class="kick">' + esc(camName()) + '\'s room · live</div><h1>' + esc(camName()) + '</h1></div><div class="bt">' +
+      '<button type="button" class="k-btn" data-a="kstop">' + icon('x', 20, 2.4) + 'Stop camera</button>' +
+      '<button type="button" class="k-back" data-a="kback">' + icon('left', 22, 2.4) + esc(camBackLabel()) + '</button></div>');
+    var r = camReads(), cards = '';
+    if (r.t != null) cards += '<div class="c"><div class="lab">' + icon('therm', 16) + 'Temp</div><div class="v">' + r.t.toFixed(1) + '<small> ' + esc(r.unit) + '</small></div></div>';
+    if (r.h != null) cards += '<div class="c"><div class="lab">' + icon('drop', 16) + 'Humidity</div><div class="v">' + Math.round(r.h) + '<small> %</small></div></div>';
+    if (r.net) cards += '<div class="c"><div class="lab">' + icon('wifi', 16) + 'Camera</div><div class="v ' + (r.net.ok ? 'ok' : 'bad') + '">' + esc(r.net.text) + '</div></div>';
+    var mini = m.active ? '<div class="k-mini"><div class="t"><b>' + esc(title) + '</b><s>' + (m.state === 'playing' ? 'Playing' : 'Paused') + '</s></div>' +
+      '<button type="button" data-a="t" data-v="back10">−10</button>' +
+      '<button type="button" class="pp" data-a="t" data-v="play_pause" aria-label="Play or pause">' + (m.state === 'playing' ? pauseIcon(26) : playIcon(26)) + '</button>' +
+      '<button type="button" data-a="t" data-v="fwd30">+30</button>' +
+      '<button type="button" class="vl" data-a="t" data-v="vol_down" aria-label="Volume down">−</button><button type="button" data-a="t" data-v="vol_up" aria-label="Volume up">+</button></div>' : '';
+    kSet('ex', $k.querySelector('.k-ex'), '<div class="k-fbot"><div class="k-fread">' + cards + '</div>' + mini + '</div>');
+  }
+  // After every redraw: put the player over its placeholder (or full screen, or out of sight).
+  function camPlace() {
+    var ph = document.querySelector('#page .k-ph');
+    var where = K.big ? 'big' : ph ? ph.getAttribute('data-k') : '';
+    if (!camOk() || !K.on) {
+      if (K.on && !camOk()) camStop();
+      $k.className = 'k-cam away'; document.body.classList.remove('kbig');
+      return;
+    }
+    if (K.big) { $k.className = 'k-cam big'; $k.style.cssText = ''; document.body.classList.add('kbig'); camBig(); }
+    else {
+      document.body.classList.remove('kbig');
+      if (!ph) { $k.className = 'k-cam away'; return; }
+      var r = ph.getBoundingClientRect();
+      $k.className = 'k-cam pip ' + where;
+      $k.style.cssText = 'left:' + r.left + 'px;top:' + r.top + 'px;width:' + r.width + 'px;height:' + r.height + 'px';
+      kSet('hd', $k.querySelector('.k-hd'), '');
+      kSet('ex', $k.querySelector('.k-ex'), where === 'now' ? camReadsStrip() : '');
+    }
+    kSet('ov', $k.querySelector('.k-ov'), camOverlay(where));
+    camZoomApply();
+  }
+  // The cinema turning off ends the stream (a camera started with the cinema already off is left alone).
+  function camWatchRoom() {
+    var s = st(S.entities && S.entities.roomOn);
+    if (!s) return;
+    var on = s.state === 'on';
+    if (K.prevRoom === true && !on && K.on) { camStop(); toast(camName() + ' camera stopped · cinema off'); }
+    K.prevRoom = on;
+  }
+  window.addEventListener('scroll', function () { if (K.on && !K.big) camPlace(); });
 
   // ---------- taps ----------
 
@@ -1727,6 +1931,13 @@
       var name = el.getAttribute('data-name');
       act({ action: 'app', id: v }).then(function (r) { if (r && r.warming) toast('Starting the cinema · ' + name + ' opens once it\'s up'); else if (r) toast('Opening ' + name + ' on the TV'); });
     },
+    kcam: function () { if (!K.on) camStart(); else { K.big = !K.big; paint(); } },
+    kstop: function () { camStop(); },
+    kbig: function () { K.big = true; paint(); },
+    kback: function () { K.big = false; paint(); },
+    kretry: function () { K.tries = 0; camRestart(); },
+    kzoom0: function () { K.s = 1; K.cx = 0.5; K.cy = 0.5; camZoomApply(); paint(); },
+    ksnd: function () { K.snd = !K.snd; kVid.muted = !K.snd; paint(); },
     kind: function (v) { if (v !== W.kind) { W.kind = v; W.lib = null; paint(); } },
     lib: function (v) { W.lib = v; paint(); },
     filter: function (v) { var i = W.filters.indexOf(v); if (i >= 0) W.filters.splice(i, 1); else W.filters.push(v); W.filters = W.filters.slice(); paint(); },
