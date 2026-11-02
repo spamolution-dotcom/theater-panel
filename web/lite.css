@@ -720,3 +720,79 @@ svg { display: block; flex-shrink: 0; }
 
 /* A video's picture (a frame from the TV): landscape */
 .l-np-art.wide { width: 260px; height: 146px; -webkit-align-self: center; align-self: center; }
+
+/* ---------- baby monitor camera (landscape) ---------- */
+.k-cam { position: fixed; z-index: 30; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.k-cam.away { left: -2000px; top: 0; width: 308px; height: 173px; }
+.k-cam.pip { display: -webkit-box; display: flex; -webkit-box-orient: vertical; flex-direction: column; }
+.k-cam .k-hd, .k-cam .k-ex:empty { display: none; }
+.k-vid { position: relative; overflow: hidden; border-radius: 16px; border: 1px solid var(--line); background: #111; -webkit-box-flex: 1; flex: 1; min-height: 0; }
+.k-vid video { position: absolute; left: 0; top: 0; width: 100%; height: 100%; object-fit: contain; background: #111; -webkit-transform-origin: 0 0; transform-origin: 0 0; }
+.k-ov button, .k-ov .k-tag, .k-ov .k-msg { z-index: 2; }
+.k-tag { position: absolute; left: 10px; top: 10px; display: -webkit-box; display: flex; align-items: center; font: 700 12px var(--mono); letter-spacing: .08em; background: rgba(14,9,7,.75); color: var(--ok); padding: 5px 10px; border-radius: 999px; }
+.k-tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); margin-right: 6px; }
+.k-ic { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(14,9,7,.75); color: var(--ink); display: -webkit-box; display: flex; align-items: center; justify-content: center; }
+.k-ic.tr { top: 8px; right: 8px; } .k-ic.br { bottom: 8px; right: 8px; }
+.home .k-ic, .remote .k-ic { width: 36px; height: 36px; }
+.k-snd { position: absolute; left: 10px; bottom: 10px; display: -webkit-box; display: flex; align-items: center; height: 36px; padding: 0 13px 0 10px; border-radius: 999px; background: rgba(14,9,7,.75); color: var(--ink); font: 600 14px var(--sans); }
+.k-snd svg { margin-right: 6px; } .k-snd.on { color: var(--ok); }
+.k-snd.big { height: 44px; font-size: 16px; left: 14px; bottom: 14px; }
+.k-zr { position: absolute; right: 56px; bottom: 10px; height: 36px; padding: 0 12px; border-radius: 999px; background: rgba(14,9,7,.75); color: var(--acc); font: 700 13px var(--mono); }
+.k-zr.big { right: 14px; bottom: 14px; height: 44px; font-size: 15px; }
+.k-msg { position: absolute; left: 0; right: 0; top: 50%; margin-top: -22px; text-align: center; color: var(--muted); font: 600 16px var(--sans); }
+.k-msg.err { color: var(--ink); } .k-msg s { display: block; text-decoration: none; color: var(--acc); font-size: 14px; margin-top: 4px; }
+.k-reads { display: -webkit-box; display: flex; justify-content: space-between; margin-top: 10px; background: rgba(14,9,7,.82); border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; font: 600 14px var(--mono); color: var(--ink); letter-spacing: .04em; }
+.k-reads span { display: -webkit-inline-box; display: inline-flex; align-items: center; }
+.k-reads svg { margin-right: 6px; color: var(--acc); }
+.k-reads .ok, .k-reads .ok svg { color: var(--ok); } .k-reads .bad, .k-reads .bad svg { color: #E5736A; }
+/* expanded */
+.k-cam.big { left: 0; top: 0; right: 0; bottom: 0; z-index: 80; background: var(--bg); padding: 18px 24px; padding-top: calc(18px + env(safe-area-inset-top)); display: -webkit-box; display: flex; -webkit-box-orient: vertical; flex-direction: column; }
+.k-cam.big .k-hd { display: -webkit-box; display: flex; justify-content: space-between; align-items: center; height: 54px; margin-bottom: 12px; }
+.k-hd .kick { font: 600 13px var(--mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; margin-bottom: 4px; }
+.k-hd h1 { font: 800 44px/1 var(--disp); margin: 0; }
+.k-hd .bt { display: -webkit-box; display: flex; align-items: center; }
+.k-btn { display: -webkit-inline-box; display: inline-flex; align-items: center; height: 54px; padding: 0 18px; margin-right: 10px; border-radius: 16px; background: rgba(14,9,7,.82); border: 1px solid var(--line); color: var(--ink); font: 700 17px var(--sans); }
+.k-btn svg { margin-right: 8px; color: var(--acc); }
+.k-back { display: -webkit-inline-box; display: inline-flex; align-items: center; height: 54px; padding: 0 22px 0 16px; border-radius: 16px; background: var(--acc); color: #1A0F06; font: 700 18px var(--sans); }
+.k-back svg { margin-right: 6px; }
+.k-fbot { display: -webkit-box; display: flex; justify-content: space-between; align-items: center; margin-top: 14px; }
+.k-cam.big .k-ex { display: block; }
+.k-fread { display: -webkit-box; display: flex; }
+.k-fread .c { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px 16px; margin-right: 10px; min-width: 128px; }
+.k-fread .lab { display: -webkit-box; display: flex; align-items: center; font: 600 11px var(--mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.k-fread .lab svg { margin-right: 6px; color: var(--acc); }
+.k-fread .v { font: 800 32px/1 var(--disp); margin-top: 6px; } .k-fread .v small { font: 700 15px var(--sans); color: var(--muted); }
+.k-fread .v.ok { color: var(--ok); font-size: 28px; } .k-fread .v.bad { color: #E5736A; font-size: 28px; }
+.k-mini { display: -webkit-box; display: flex; align-items: center; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 10px 12px 10px 18px; }
+.k-mini .t { margin-right: 14px; max-width: 260px; }
+.k-mini .t b { display: block; font: 800 22px/1 var(--disp); text-transform: uppercase; letter-spacing: .02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-mini .t s { text-decoration: none; font: 600 13px var(--mono); color: var(--muted); }
+.k-mini button { display: -webkit-box; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; border-radius: 50%; background: var(--btn); color: var(--ink); font: 700 16px var(--sans); margin-left: 8px; }
+.k-mini .pp { width: 58px; height: 58px; background: var(--acc); color: #1A0F06; }
+.k-mini .vl { margin-left: 8px; } .k-mini .vl + .vl { margin-left: 8px; } .k-mini .pp + button + .vl { margin-left: 16px; }
+/* the button, the rail item, the cards */
+.l-phome.kb { left: 140px; }
+.l-phome.kb svg { color: var(--acc); }
+.l-phome.kb.on { background: var(--ok-soft); border-color: var(--ok-line); color: var(--ok); }
+.l-phome.kb.on svg { color: var(--ok); }
+.k-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ok); margin-left: 9px; }
+.l-npost.cam { -webkit-box-align: end; align-items: flex-end; }
+.l-npost.cam .pic { width: auto; max-width: 100%; max-height: 376px; }
+.l-npost .k-ph { position: absolute; left: 16px; top: 140px; width: 308px; height: 222px; }
+.land .l-tabs button.kr { margin-bottom: 8px; }
+.land .l-tabs button.kr.kon { background: var(--ok-soft); color: var(--ok); border: 1px solid var(--ok-line); }
+.k-card { display: -webkit-box; display: flex; background: var(--card); border: 1px solid var(--line); border-radius: 24px; padding: 12px; }
+.k-card .k-ph { width: 294px; height: 171px; -webkit-box-flex: 0; flex: none; }
+.k-card.wide .k-ph { width: 400px; height: 225px; }
+.k-side { -webkit-box-flex: 1; flex: 1; display: -webkit-box; display: flex; -webkit-box-orient: vertical; flex-direction: column; justify-content: space-between; margin-left: 12px; padding: 2px 0; }
+.k-side .lab { font: 600 11px var(--mono); color: var(--muted); letter-spacing: .1em; text-transform: uppercase; }
+.k-side .v { font: 800 30px/1 var(--disp); color: var(--ink); margin-top: 3px; } .k-side .v small { font: 700 15px var(--sans); color: var(--muted); }
+.k-side .net { font: 700 15px var(--sans); } .k-side .net.ok { color: var(--ok); } .k-side .net.bad { color: #E5736A; }
+.k-side .x { display: -webkit-box; display: flex; align-items: center; justify-content: center; height: 40px; border-radius: 12px; background: var(--btn); color: var(--ink); font: 700 14px var(--sans); }
+.k-side .x svg { margin-right: 5px; }
+.k-card.remote { margin-top: 12px; }
+.k-card.remote .k-ph { width: 244px; height: 137px; }
+.k-card.remote { padding: 10px; }
+.k-card.remote .k-side { -webkit-box-orient: horizontal; flex-direction: row; -webkit-box-align: center; align-items: center; margin-left: 20px; }
+.k-card.remote .k-side .x { width: 130px; }
+.k-card.remote .k-side .v { font-size: 26px; }

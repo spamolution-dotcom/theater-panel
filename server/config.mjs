@@ -203,6 +203,11 @@ function build(env) {
     dogSensors: list(env.ENTITY_DOG_SENSORS, []),
     dogCamera: env.ENTITY_DOG_CAMERA || '',
     dogName: env.DOG_NAME || 'The dog',
+    babyCamera: env.ENTITY_BABY_CAMERA || '',
+    babyTemperature: env.ENTITY_BABY_TEMPERATURE || '',
+    babyHumidity: env.ENTITY_BABY_HUMIDITY || '',
+    babyState: env.ENTITY_BABY_CAMERA_STATE || '',
+    babyName: env.BABY_NAME || 'Baby',
     // Picture mode helper (input_select) the projector card shows and cycles.
     pictureMode: env.ENTITY_PICTURE_MODE || 'input_select.projector_picture_mode',
   },
@@ -409,7 +414,7 @@ export function watchedEntities() {
     ...[e.streamer, e.shield].filter(Boolean).flatMap((b) => [b.tv, b.remote, b.cast, b.alsoCast, b.room, b.script]), e.playerSelect,
     e.seatUnlock, e.autoplay, e.xboxScript, e.avr, e.stremioPlayer, e.stremioWatching, e.plug, e.projectorPower, e.plexPlayer, e.projectorPlexPlayer, ...e.musicPlayers, e.soundSpeaker, e.blind, e.projector,
     ...e.lights, e.temperature, e.occupancy, e.tautulli, e.pictureMode, e.accentSpeed, e.accentIntensity,
-    ...e.dogSensors, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
+    ...e.dogSensors, e.babyCamera, e.babyTemperature, e.babyHumidity, e.babyState, ...e.projectorTemps, ...soundbarEntities(e.soundbar),
     'input_select.theater_scene',
   ].filter(Boolean);
 }

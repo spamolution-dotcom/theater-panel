@@ -58,6 +58,11 @@ export const FIELDS = [
   { group: 'Entities', key: 'ENTITY_MUSIC_PLAYERS', label: 'Music players (first is the theater)', type: 'list', domain: 'media_player' },
   { group: 'Entities', key: 'ENTITY_LIGHTS', label: 'Lights', type: 'list', domain: 'light' },
   { group: 'Entities', key: 'ENTITY_TEMPERATURE', label: 'Temperature', type: 'entity', domain: 'sensor' },
+  { group: 'Entities', key: 'ENTITY_BABY_CAMERA', label: 'Baby monitor camera', type: 'entity', domain: 'camera', help: 'Shows a Camera button on the iPad. The picture is shown on the home network only and starts only when someone taps it.' },
+  { group: 'Entities', key: 'ENTITY_BABY_TEMPERATURE', label: 'Baby room temperature', type: 'entity', domain: 'sensor' },
+  { group: 'Entities', key: 'ENTITY_BABY_HUMIDITY', label: 'Baby room humidity', type: 'entity', domain: 'sensor' },
+  { group: 'Entities', key: 'ENTITY_BABY_CAMERA_STATE', label: 'Baby camera online status', type: 'entity', domain: 'sensor' },
+  { group: 'Entities', key: 'BABY_NAME', label: 'Name on the camera button', type: 'text', placeholder: 'Baby' },
   { group: 'Entities', key: 'ENTITY_OCCUPANCY', label: 'Occupancy', type: 'entity', domain: 'binary_sensor' },
 
   { group: 'Lights', key: 'ACCENT_FAVOURITES', label: 'Favourite effects (up to 8)', type: 'effects', help: 'Shown first in the panel\'s Moods sheet. The rest stay under the mood tabs.' },
