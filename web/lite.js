@@ -163,7 +163,7 @@
   var bootBuild = null;
   var staleBuild = false;
   function loadSettings() {
-    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.albumStatus = (s.albumColours && s.albumColours.status) || ''; S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
+    get('/api/state').then(function (s) { S.entities = s.entities || {}; S.ui = s.ui || {}; S.cameraPin = s.cameraPin || 'none'; S.sleep = s.sleep && s.sleep.mode ? s.sleep : null; S.albumColours = Boolean(s.albumColours && s.albumColours.on); S.albumStatus = (s.albumColours && s.albumColours.status) || ''; S.favs = s.effectFavourites || []; paint(); }).catch(function () {});
   }
   // The start-up status (server/startup.mjs) with the gap between the server's clock and ours.
   function withSkew(j) { if (j) j.skew = (j.serverNow || Date.now()) - Date.now(); return j || null; }
@@ -1339,7 +1339,7 @@
     var id = musicPlayer();
     var x = st(id);
     var state = x && x.state;
-    var blocked = suShown() || media().active || gaming() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || vsDrag || typing();
+    var blocked = suShown() || media().active || gaming() || U.sheet || U.pin || U.camPin || U.sleepPick || U.lights || U.moods || U.devs || U.mpick || U.playerPick || vsDrag || typing();
     if (state === 'paused') { if (!SS.pausedAt) SS.pausedAt = Date.now(); } else SS.pausedAt = 0;
     var keep = state === 'playing' || (state === 'paused' && Date.now() - SS.pausedAt < 60e3);
     var want = SS.on ? keep && !blocked : state === 'playing' && !blocked && Date.now() - touched >= SWITCH_MS;
@@ -1382,6 +1382,15 @@
     if (U.mpick) return musicPickSheet();
     if (U.devs) return devicesSheet();
     if (U.playerPick) return playerSheet();
+    if (U.camPin) {
+      var cp = U.camPin;
+      var cdots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < cp.pin.length ? 'f' : '') + '"></i>'; }).join('');
+      var ckeys = '';
+      for (var cn = 1; cn <= 9; cn++) ckeys += '<button type="button" data-a="campin" data-v="' + cn + '">' + cn + '</button>';
+      ckeys += '<button type="button" class="x" data-a="campinclose">Cancel</button><button type="button" data-a="campin" data-v="0">0</button><button type="button" class="x" data-a="campindel" aria-label="Delete">⌫</button>';
+      return '<div class="l-back" data-a="campinclose" data-self="1"><div class="l-sheet l-pin"><div class="grab"></div><h3>' + esc(camName()) + ' camera</h3><p>Enter the camera PIN</p>' +
+        '<div class="l-dots' + (cp.bad ? ' bad' : '') + '">' + cdots + '</div><div class="l-pinkeys">' + ckeys + '</div></div></div>';
+    }
     if (U.pin) {
       var p = U.pin;
       var dots = [0, 1, 2, 3].map(function (i) { return '<i class="' + (i < p.pin.length ? 'f' : '') + '"></i>'; }).join('');
@@ -1531,7 +1540,7 @@
     setHtml($su, 'su', suHtml());
     fillLive();
     setHtml($sheet, 'sheet', sheetHtml());
-    document.body.className = [suShown() || U.sheet || U.pin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs || U.playerPick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
+    document.body.className = [suShown() || U.sheet || U.pin || U.camPin || U.sleepPick || U.lights || U.moods || U.mpick || U.devs || U.playerPick ? 'locked' : '', LAND ? 'land' : '', LAND && tab === 'music' ? 'mus' : '', MODE].filter(Boolean).join(' ');
     setHtml($toast, 'toast', toastNow ? '<div class="l-toast' + (toastNow.err ? ' err' : '') + '">' + esc(toastNow.text) + '</div>' : '');
     setHtml($offline, 'offline', S.connected === false ? '<div class="l-offline">Can\'t reach the cinema panel. Is the iPad on the home Wi-Fi?</div>' : '');
   }
@@ -1558,6 +1567,7 @@
   function target() { return gaming() && hasXbox() ? 'games' : media().active ? 'remote' : musicOn() ? 'music' : 'home'; }
   function goHome() {
     if (U.pin) U.pin = null;
+    U.camPin = null;
     U.sleepPick = false; U.lights = false; U.moods = null; U.devs = false; U.mpick = false; U.playerPick = false;
     if (U.sheet) { U.sheet = null; U.season = null; }
     var t = target();
@@ -1600,7 +1610,7 @@
   // fill the screen on request. Off by default; a tap starts it, X stops it for good (the player
   // is emptied, nothing is fetched). Nothing stops it on a timer or for want of touches; it stops
   // when the cinema turns off. The server only streams it to the home network.
-  var K = { on: false, big: false, snd: false, state: 'idle', err: '', s: 1, cx: 0.5, cy: 0.5, audio: null, tries: 0, at: 0, seen: 0, prevRoom: null };
+  var K = { tok: '', on: false, big: false, snd: false, state: 'idle', err: '', s: 1, cx: 0.5, cy: 0.5, audio: null, tries: 0, at: 0, seen: 0, prevRoom: null };
   var $k = document.createElement('div');
   $k.id = 'kcam';
   $k.className = 'k-cam away';
@@ -1626,8 +1636,28 @@
   // the offer and answer along; the picture comes straight from HA over the home network. If it
   // doesn't connect in 12 s, the HLS stream (10-15 s behind, but plays everywhere) takes over.
   var kPc = null, kRtc = null, kPoll = null, kFall = null;
+  // The camera PIN: when one is set, every start needs the token it gives, and stopping revokes it.
+  function camAuthFail(e) {
+    if (!K.on || !e || !/camera PIN/i.test(e.message || '')) return false;
+    K.tok = ''; K.on = false; K.state = 'idle'; K.src = null; rtcEnd();
+    if (/must be four digits/.test(e.message)) { toast(e.message, true); paint(); return true; }
+    U.camPin = { pin: '', bad: false }; paint();
+    return true;
+  }
+  function camPinPress(d) {
+    var p = U.camPin;
+    if (!p || p.pin.length >= 4) return;
+    p.pin += d; p.bad = false;
+    paint();
+    if (p.pin.length === 4) {
+      post('/api/camera/unlock', { pin: p.pin })
+        .then(function (r) { K.tok = r.token || ''; U.camPin = null; camStart(); })
+        .catch(function (e) { if (U.camPin) { U.camPin.bad = true; U.camPin.pin = ''; } toast(e.message, true); paint(); });
+    }
+  }
   function camStart() {
     if (K.state === 'starting' && (kPc || K.src)) return;
+    if (S.cameraPin !== 'none' && !K.tok) { U.camPin = { pin: '', bad: false }; paint(); return; }
     K.on = true; K.state = 'starting'; K.err = ''; K.at = Date.now();
     paint();
     if (window.RTCPeerConnection) camRtc(); else camHls();
@@ -1635,13 +1665,13 @@
   function camHls() {
     rtcEnd();
     K.src = 'hls';
-    post('/api/camera/start').then(function (r) {
+    post('/api/camera/start', { token: K.tok }).then(function (r) {
       if (!K.on || K.src !== 'hls') return;
       kVid.muted = !K.snd;
       kVid.src = r.src;
       var p = kVid.play(); if (p && p.catch) p.catch(function () {});
     }).catch(function (e) {
-      if (!K.on) return;
+      if (!K.on || camAuthFail(e)) return;
       K.state = 'error'; K.err = e && e.message ? e.message : 'Can\'t reach the camera'; paint();
     });
   }
@@ -1694,7 +1724,7 @@
       });
     }).then(function () {
       if (kPc !== pc) return null;
-      return post('/api/camera/webrtc/offer', { offer: pc.localDescription.sdp });
+      return post('/api/camera/webrtc/offer', { offer: pc.localDescription.sdp, token: K.tok });
     }).then(function (r) {
       if (!r) return;
       if (kPc !== pc) { post('/api/camera/webrtc/close', { session: r.session }).catch(function () {}); return; }
@@ -1713,10 +1743,11 @@
           }).catch(function () {});
         }, 1000);
       });
-    }).catch(function () { rtcFallback(pc); });
+    }).catch(function (e) { if (kPc === pc && camAuthFail(e)) return; rtcFallback(pc); });
   }
   // Stops it completely: the player is emptied and the session closed, so nothing is fetched.
   function camStop() {
+    if (K.tok) { post('/api/camera/lock', { token: K.tok }).catch(function () {}); K.tok = ''; }
     K.on = false; K.big = false; K.state = 'idle'; K.err = ''; K.tries = 0; K.audio = null; K.src = null;
     K.s = 1; K.cx = 0.5; K.cy = 0.5;
     rtcEnd();
@@ -2092,6 +2123,9 @@
     pin: function (v) { pinPress(v); },
     pindel: function () { if (U.pin) { U.pin.pin = U.pin.pin.slice(0, -1); paint(); } },
     pinclose: function () { U.pin = null; paint(); },
+    campin: function (v) { camPinPress(v); },
+    campindel: function () { if (U.camPin) { U.camPin.pin = U.camPin.pin.slice(0, -1); paint(); } },
+    campinclose: function () { U.camPin = null; paint(); },
     ask: function () {
       post('/api/seat/ask', {}).then(function (r) { toast(r.again ? 'Already asked · check your phones' : 'Asked · a grown-up\'s phone will buzz'); U.pin = null; paint(); })
         .catch(function (e) { toast(e.message, true); });

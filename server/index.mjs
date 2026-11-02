@@ -38,6 +38,7 @@ import QRCode from 'qrcode';
 import * as xbox from './xbox.mjs';
 import * as player from './player.mjs';
 import * as startup from './startup.mjs';
+import * as camlock from './camlock.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const WEB = join(root, 'web');
@@ -68,7 +69,9 @@ const ha = new HomeAssistant({ url: config.ha.url, token: config.ha.token, entit
 
 // After the admin page saves: reconnect HA if its URL, token or the entity list changed, and tell
 // open panels to reload their settings.
+let camPinSeen = config.camera.pin;
 async function applySettings() {
+  if (config.camera.pin !== camPinSeen) { camPinSeen = config.camera.pin; camlock.reset(); }
   isProxy = netList(config.trustedProxies);
   isTrusted = netList(config.trustedNetworks);
   entities = [...new Set([...watchedEntities(), ...xbox.xboxEntities(), ...(await gameEntitiesSafe())])];
@@ -84,7 +87,17 @@ function broadcast(event, data) {
   }
   hass.observe(event, data);
 }
-ha.on('states', (changed) => { broadcast('states', changed); xbox.observe(changed); });
+// The baby camera entity carries HA's own picture address and access token (a still frame from
+// HA's :8123 with no login), so clients never see its attributes: only that it exists and its
+// state. Everything that sends states to a page goes through this.
+const camId = () => config.entities.babyCamera;
+const redactOne = (st) => (st ? { state: st.state, attributes: {}, last_changed: st.last_changed } : st);
+const redact = (states) => {
+  const id = camId();
+  if (!id || !states || !(id in states)) return states;
+  return { ...states, [id]: redactOne(states[id]) };
+};
+ha.on('states', (changed) => { broadcast('states', redact(changed)); xbox.observe(changed); });
 onPanelSound((sound) => broadcast('sound', sound));
 ha.on('status', (connected) => broadcast('ha', { connected }));
 
@@ -500,7 +513,8 @@ post(/^\/api\/look$/, async (m, q, body) => {
 });
 
 get(/^\/api\/state$/, () => ({
-  ha: { connected: ha.connected, configured: ha.configured, states: ha.states },
+  ha: { connected: ha.connected, configured: ha.configured, states: redact(ha.states) },
+  cameraPin: camlock.mode(),
   sessions,
   streams,
   entities: config.entities,
@@ -909,7 +923,7 @@ const server = createServer(async (req, res) => {
 
     if (path === '/api/events') {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-store', connection: 'keep-alive' });
-      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: ha.states }, sessions, streams, seat: seat.state(), startup: startup.current(), build: config.build.version })}\n\n`);
+      res.write(`event: hello\ndata: ${JSON.stringify({ ha: { connected: ha.connected, configured: ha.configured, states: redact(ha.states) }, sessions, streams, seat: seat.state(), startup: startup.current(), build: config.build.version })}\n\n`);
       clients.add(res);
       hass.panelsChanged();
       if (clients.size === 1) pollSessions(); // first viewer: don't wait for the next poll
@@ -921,6 +935,7 @@ const server = createServer(async (req, res) => {
     // Artwork for a watched HA entity (media player covers), cached like any other image.
     if (path === '/api/ha-image') {
       const id = url.searchParams.get('e');
+      if (id && id === camId()) { res.writeHead(404).end(); return; }
       const st = (entities.includes(id) || id === tidal.ID) && ha.states[id];
       const pic = st?.attributes?.entity_picture;
       if (!pic) { res.writeHead(404).end(); return; }
@@ -953,7 +968,7 @@ const server = createServer(async (req, res) => {
     // outside the private ranges, is refused. It starts only when a panel asks (start), and the
     // panel simply stops fetching to end it. Only the one configured camera, and only HA's own
     // /api/hls/<token>/... paths, so this cannot become a general proxy into HA.
-    if (path === '/api/camera/start' || path.startsWith('/api/camera/hls/') || path.startsWith('/api/camera/webrtc/')) {
+    if (path === '/api/camera/start' || path === '/api/camera/unlock' || path === '/api/camera/lock' || path.startsWith('/api/camera/hls/') || path.startsWith('/api/camera/webrtc/')) {
       const id = config.entities.babyCamera;
       const ip = req.headers['x-forwarded-for'] === undefined ? clientIp(req, () => false) : null;
       if (!id || !isHomeLan(ip)) { res.writeHead(403, { 'content-type': 'text/plain', 'cache-control': 'no-store' }).end('The camera is available on the home network only.'); return; }
@@ -964,7 +979,7 @@ const server = createServer(async (req, res) => {
         if (req.method !== 'POST') { res.writeHead(405).end(); return; }
         const body = await readBody(req);
         let out;
-        if (path === '/api/camera/webrtc/offer') out = await rtcOffer(id, String(body.offer || ''));
+        if (path === '/api/camera/webrtc/offer') { camlock.require(body.token); out = await rtcOffer(id, String(body.offer || '')); }
         else if (path === '/api/camera/webrtc/candidates') out = rtcTake(String(body.session || ''));
         else if (path === '/api/camera/webrtc/close') out = rtcClose(String(body.session || ''));
         else { res.writeHead(404).end(); return; }
@@ -972,8 +987,17 @@ const server = createServer(async (req, res) => {
         res.end(JSON.stringify(out));
         return;
       }
+      if (path === '/api/camera/unlock' || path === '/api/camera/lock') {
+        if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+        const b = await readBody(req);
+        const out = path === '/api/camera/unlock' ? camlock.unlock(String(b.pin || '')) : camlock.lock(b.token);
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+        res.end(JSON.stringify(out));
+        return;
+      }
       if (path === '/api/camera/start') {
         if (req.method !== 'POST') { res.writeHead(405).end(); return; }
+        camlock.require((await readBody(req)).token);
         const r = await ha.request({ type: 'camera/stream', entity_id: id, format: 'hls' }, 30000);
         const m = /^\/api\/hls\/([A-Za-z0-9_-]+)\/master_playlist\.m3u8$/.exec(String(r?.url || '').split('?')[0]);
         if (!m) throw admin.httpError(502, 'Home Assistant did not return a stream');

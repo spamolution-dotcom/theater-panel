@@ -249,6 +249,7 @@ function build(env) {
   // Kometa's collections and TMDB's tags through Seerr.
   // The seat phone's kids mode (server/seat.mjs): on while a 4-digit PIN is set.
   seat: { pin: (env.SEAT_PIN || '').trim() },
+  camera: { pin: (env.CAMERA_PIN || '').trim() },
   // YouTube Data API key (server/youtube.mjs): thumbnails and lengths of SmartTube and TizenTube videos.
   youtube: { apiKey: (env.YOUTUBE_API_KEY || '').trim() },
   tmdb: {
