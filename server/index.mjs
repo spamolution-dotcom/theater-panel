@@ -323,14 +323,26 @@ function streamerSessions() {
     // the TV itself would otherwise wear the previous launch's poster).
     const castName = normTitle(a.media_title);
     const same = l && Date.now() - l.at < 6 * 3600e3 && (!castName || [l.showTitle, l.title].some((t) => normTitle(t) === castName));
+    // Stremio's own Current Watching sensor knows the exact title, by IMDb id, once it has synced. When
+    // its show or film is the one Cast is playing it settles which title this is: a name search alone
+    // picked a 2019 film named "The Dropout" (no poster, no cast) over the 2022 series being watched.
+    const cwSt = ha.states[e.stremioWatching];
+    const cwa = cwSt?.attributes || {};
+    const cwEp = cwa.type === 'series' && cwa.season != null;
+    const cwShow = cwSt && cwa.imdb_id && !['unknown', 'unavailable', ''].includes(cwSt.state) ? (cwEp ? String(cwSt.state).replace(/\s+S\d+E\d+.*$/, '') : cwSt.state) : '';
+    const viaCw = !same && a.media_title && cwShow && normTitle(cwShow) === normTitle(a.media_title) && /^tt\d+$/.test(cwa.imdb_id);
+    // The episode counts while it could still be playing (as for the sensor-only case below).
+    const cwUpdated = Date.parse(cwSt?.last_changed || 0);
+    const cwLeft = Math.max(0, (Number(cwa.duration) || 0) - (Number(cwa.time_offset) || 0));
+    const cwEpNow = viaCw && cwEp && Date.now() < cwUpdated + (cwLeft ? cwLeft + 30 * 60e3 : 3 * 3600e3);
     const series = Boolean(a.media_artist);
-    const found = !same && a.media_title ? castTitleId(a.media_title, series) : null;
-    const imdb = same ? String(l.id).split(':')[0] : found?.imdb || '';
+    const found = !same && !viaCw && a.media_title ? castTitleId(a.media_title, series) : null;
+    const imdb = same ? String(l.id).split(':')[0] : viaCw ? cwa.imdb_id : found?.imdb || '';
     const pics = metahubPics(imdb);
     return [{
-      id: same ? l.id : imdb || 'stremio', type: same ? l.type : series ? 'episode' : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
-      title: same && l.title ? l.title : series ? a.media_artist : a.media_title || 'Stremio', showTitle: same ? l.showTitle : series ? a.media_title : undefined,
-      season: same ? l.season : undefined, episode: same ? l.episode : undefined, year: same ? l.year : found?.year,
+      id: same ? l.id : cwEpNow ? `${imdb}:${cwa.season}:${cwa.episode}` : imdb || 'stremio', type: same ? l.type : cwEpNow || series ? 'episode' : 'movie', app: 'stremio', state: cast.state === 'paused' ? 'paused' : 'playing',
+      title: same && l.title ? l.title : cwEpNow ? cwa.episode_title || `Episode ${cwa.episode}` : series ? a.media_artist : a.media_title || 'Stremio', showTitle: same ? l.showTitle : cwEpNow ? cwShow : series ? a.media_title : undefined,
+      season: same ? l.season : cwEpNow ? Number(cwa.season) : undefined, episode: same ? l.episode : cwEpNow ? Number(cwa.episode) : undefined, year: same ? l.year : found?.year,
       viewOffset: pos != null ? Math.round(pos * 1000) : 0,
       // The player's own length, else the catalogue runtime (the Shield reports none; may differ a little).
       duration: a.media_duration ? Math.round(a.media_duration * 1000) : (same ? l.duration : found?.duration) || 0,
