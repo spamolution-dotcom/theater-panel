@@ -11,6 +11,7 @@ import { act, useStore, useEntity } from '../lib/api.mjs';
 import { go } from '../app.mjs';
 import { soundFormat } from '../lib/sound.mjs';
 import { XBOX_INPUT } from '../lib/gaming.mjs';
+import { pickXbox, xboxArtOf } from '../lib/xbox-pick.mjs';
 
 const live = (st) => Boolean(st) && !['unknown', 'unavailable', ''].includes(st.state);
 const haImg = (id, st) => (st?.attributes?.entity_picture ? `/api/ha-image?e=${encodeURIComponent(id)}&v=${encodeURIComponent(st.attributes.entity_picture)}&s=${encodeURIComponent(st.state || '')}` : null);
@@ -27,14 +28,15 @@ export function gameOn(states, e) {
   if (!e?.xbox || states[e.xbox]?.state !== 'on') return false;
   const avr = e.avr && states[e.avr];
   if (avr && avr.state === 'on' && avr.attributes?.source && avr.attributes.source !== XBOX_INPUT) return false;
-  return live(states[`sensor.${e.xboxAccount}_now_playing`]);
+  return live(states[`sensor.${pickXbox(states, e)}_now_playing`]);
 }
 
 export function Gametime() {
   const e = useStore((s) => s.entities) || {};
-  const now = useEntity(e.xboxAccount && `sensor.${e.xboxAccount}_now_playing`);
+  const acct = useStore((s) => pickXbox(s.states, s.entities));
+  const now = useEntity(acct && `sensor.${acct}_now_playing`);
   const avr = useEntity(e.avr);
-  const ids = artIds(e.xboxArt);
+  const ids = artIds(xboxArtOf(e, acct));
   const poster = useEntity(ids.poster);
   const box = useEntity(ids.box);
   const [, tick] = useState(0);

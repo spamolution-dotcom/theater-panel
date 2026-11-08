@@ -175,7 +175,9 @@ function build(env) {
     xboxScene: env.ENTITY_XBOX_SCENE || 'input_boolean.xbox_scene',
     // Xbox Scene's start script: while it runs, the screens show the start-up status.
     xboxScript: env.ENTITY_XBOX_SCRIPT || 'script.turn_on_xbox_sequence',
-    xboxAccount: env.XBOX_ACCOUNT || 'xbox',
+    // One or more accounts, comma separated; the first is the default, the panel follows whichever is in a game.
+    xboxAccounts: String(env.XBOX_ACCOUNT || 'xbox').split(',').map((s) => s.trim()).filter(Boolean),
+    xboxAccount: String(env.XBOX_ACCOUNT || 'xbox').split(',')[0].trim() || 'xbox',
     xboxArt: env.ENTITY_XBOX_ART || 'image.cinema_xbox_superhero_art',
     xboxStorage: env.ENTITY_XBOX_STORAGE || 'sensor.xboxone_free_space_internal_storage',
     // The helper a grown-up's phone turns on to unlock the seat phone (see server/seat.mjs).
