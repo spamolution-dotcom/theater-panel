@@ -7,6 +7,7 @@ import { html, Icon, Header, H2 } from '../lib/ui.mjs';
 import { get, act, useLoad, useStore, useEntity, toast } from '../lib/api.mjs';
 import { soundFormat } from '../lib/sound.mjs';
 import { XBOX_INPUT } from '../lib/gaming.mjs';
+import { pickXbox, xboxArtOf } from '../lib/xbox-pick.mjs';
 
 const ART = ['#2f6b3b,#122a17', '#3b4f7a,#151d33', '#7a3b2f,#2a120e', '#6b5b2f,#2a2210', '#4f2f6b,#1d1029', '#2f6b6b,#0f2929', '#7a2f4f,#2a0f1b', '#5b5b5b,#1e1e1e'];
 const tint = (id) => ART[[...String(id)].reduce((a, c) => a + c.charCodeAt(0), 0) % ART.length];
@@ -40,7 +41,7 @@ function OffChip({ big }) {
 }
 
 function Me({ e, dark }) {
-  const x = e.xboxAccount;
+  const x = useStore((s) => pickXbox(s.states, s.entities));
   const pic = useEntity(x && `image.${x}_gamerpic`);
   const score = useEntity(x && `sensor.${x}_gamerscore`);
   const online = useEntity(x && `binary_sensor.${x}`);
@@ -70,8 +71,10 @@ export function Xbox() {
   const box = useEntity(e.xbox);
   const scene = useEntity(e.xboxScene);
   const avr = useEntity(e.avr);
-  const now = useEntity(e.xboxAccount && `sensor.${e.xboxAccount}_now_playing`);
-  const art = useEntity(e.xboxArt);
+  const acct = useStore((s) => pickXbox(s.states, s.entities));
+  const artId = xboxArtOf(e, acct);
+  const now = useEntity(acct && `sensor.${acct}_now_playing`);
+  const art = useEntity(artId);
   const [lib, err] = useLoad(() => get('/api/xbox/library'), []);
   const [busy, setBusy] = useState(null);
   const on = box?.state === 'on';
@@ -96,12 +99,12 @@ export function Xbox() {
   const home = async () => { if (await act({ action: 'xbox', cmd: 'home' })) toast('Xbox home'); };
 
   const status = on ? 'Xbox on' : starting ? 'Starting…' : 'Off';
-  const statusLine = !on && !starting && e.xboxAccount ? html`<${StatusText} id=${`sensor.${e.xboxAccount}_status`} />` : null;
+  const statusLine = !on && !starting && acct ? html`<${StatusText} id=${`sensor.${acct}_status`} />` : null;
   const fmt = soundFormat(avr?.attributes?.sound_mode_raw);
   const genres = now?.attributes?.genres; const dev = now?.attributes?.developer;
   const progress = parseFloat(String(now?.attributes?.progress ?? ""));
   const ach = now?.attributes?.achievements;
-  const artSrc = playing ? haImg(e.xboxArt, art) : null;
+  const artSrc = playing ? haImg(artId, art) : null;
 
   return html`<main class="view">
     <${Header} title="Games" kicker="Xbox">

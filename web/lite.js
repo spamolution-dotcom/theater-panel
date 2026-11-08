@@ -219,6 +219,13 @@
     return Boolean(avr && avr.state === 'on' && attrs(avr).source === XBOX_INPUT);
   }
   function kids() { return Boolean(SEAT && S.seat && S.seat.enabled && S.seat.locked); }
+  // With several Xbox accounts, follow the one that is in a game (the first listed wins a tie).
+  function xboxAcct() {
+    var e = S.entities, list = e.xboxAccounts || (e.xboxAccount ? [e.xboxAccount] : []);
+    for (var i = 0; i < list.length; i++) { var s = st('sensor.' + list[i] + '_now_playing'); if (s && ['unknown', 'unavailable', ''].indexOf(s.state) < 0) return list[i]; }
+    return list[0] || '';
+  }
+  function xboxArtId() { var e = S.entities, a = xboxAcct(); return !a || a === e.xboxAccount ? e.xboxArt : 'image.' + a + '_superhero_art'; }
   function hasXbox() { return Boolean(S.entities.xbox && st(S.entities.xbox)); }
 
   // What the Streamer is showing (web/lib/streamer.mjs).
@@ -734,7 +741,7 @@
     var k = kids();
     var e = S.entities;
     var box = st(e.xbox), scene = st(e.xboxScene), avr = st(e.avr);
-    var nowSt = e.xboxAccount ? st('sensor.' + e.xboxAccount + '_now_playing') : undefined;
+    var nowSt = xboxAcct() ? st('sensor.' + xboxAcct() + '_now_playing') : undefined;
     var libC = load('xbox', function () { return get('/api/xbox/library'); });
     var lib = libC.v;
     var on = Boolean(box && box.state === 'on');
@@ -1043,8 +1050,9 @@
     MODE = 'gplay';
     var e = S.entities;
     var a = attrs(c.nowSt);
-    var base = String(e.xboxArt || '').replace(/_superhero_art$/, '');
-    var pid = base && base !== e.xboxArt ? base + '_poster' : null;
+    var art = xboxArtId();
+    var base = String(art || '').replace(/_superhero_art$/, '');
+    var pid = base && base !== art ? base + '_poster' : null;
     var pst = st(pid);
     var pic = c.playing && pst && attrs(pst).entity_picture ? '/api/ha-image?e=' + encodeURIComponent(pid) + '&v=' + encodeURIComponent(attrs(pst).entity_picture) + '&s=' + encodeURIComponent(pst.state || '') : null;
     var frac = function (v) { var mm = String(v || '').match(/(\d+)\s*\/\s*(\d+)/); return mm ? [Number(mm[1]), Number(mm[2])] : null; };

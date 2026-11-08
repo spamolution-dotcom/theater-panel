@@ -12,6 +12,7 @@ import { get, post, act, getState, useLoad, useStore, useEntity, startLive, toas
 import { useStartup, timing, clock, eyebrow, heading, stepLine } from './lib/startup.mjs';
 import { soundFormat } from './lib/sound.mjs';
 import { usePicked } from './lib/picked.mjs';
+import { pickXbox } from './lib/xbox-pick.mjs';
 import { streamerNow } from './lib/streamer.mjs';
 
 // Kids mode and the seat behaviours (dark theme, follow the room) belong to the iPad's /lite page
@@ -863,7 +864,8 @@ function Games() {
   const box = useEntity(e.xbox);
   const scene = useEntity(e.xboxScene);
   const avr = useEntity(e.avr);
-  const now = useEntity(e.xboxAccount && `sensor.${e.xboxAccount}_now_playing`);
+  const acct = useStore((s) => pickXbox(s.states, s.entities));
+  const now = useEntity(acct && `sensor.${acct}_now_playing`);
   const [lib, err] = useLoad(() => get('/api/xbox/library'), []);
   const [busy, setBusy] = useState(false);
   const [armed, setArmed] = useArmed();

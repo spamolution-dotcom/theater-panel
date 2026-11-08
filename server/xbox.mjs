@@ -20,9 +20,14 @@ export const configured = () => Boolean(config.entities.xbox);
 
 // The account and console entities the Games screen shows, derived from the settings so HA streams them.
 export function xboxEntities() {
-  const x = config.entities.xboxAccount;
+  const accounts = config.entities.xboxAccounts || [];
   if (!configured()) return [];
-  const acc = x ? [`sensor.${x}_gamerscore`, `sensor.${x}_now_playing`, `sensor.${x}_status`, `binary_sensor.${x}`, `binary_sensor.${x}_in_game`, `image.${x}_gamerpic`, `image.${x}_now_playing`] : [];
+  const acc = accounts.flatMap((x, i) => {
+    const art = i === 0 ? config.entities.xboxArt : `image.${x}_superhero_art`;
+    const b = art && art.replace(/_superhero_art$/, '');
+    return [`sensor.${x}_gamerscore`, `sensor.${x}_now_playing`, `sensor.${x}_status`, `binary_sensor.${x}`, `binary_sensor.${x}_in_game`, `image.${x}_gamerpic`, `image.${x}_now_playing`,
+      ...(i > 0 && b !== art ? [art, `${b}_poster`, `${b}_box_art`] : [])];
+  });
   const free = config.entities.xboxStorage;
   // Game time's poster and box art sit next to the wide artwork image, with the same prefix.
   const art = config.entities.xboxArt; const base = art && art.replace(/_superhero_art$/, '');
