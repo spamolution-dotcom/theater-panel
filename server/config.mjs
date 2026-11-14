@@ -165,6 +165,8 @@ function build(env) {
     // the Denon stays on the Streamer's input. (Straight to the Denon's HEOS, it only showed
     // "Url Stream" and left the Denon on its music input.)
     musicPlayer: env.ENTITY_MUSIC_PLAYER || 'media_player.media_room_tv_2',
+    // Where the Music screen plays while the cinema is off (nothing to wake, nothing silent): the speaker Pre-show starts on.
+    musicIdle: env.ENTITY_MUSIC_IDLE === '' ? null : env.ENTITY_MUSIC_IDLE || 'media_player.living_room_speaker_2',
     // Pre-show swell, intermission march and THX: the Google Mini, so the Denon never leaves the
     // Streamer's input mid-film.
     // The cinema's blind (Lights card on Home).
@@ -385,6 +387,7 @@ function build(env) {
   // Both players' Music Assistant players are offered (and watched); the Music screen's own one
   // follows the chosen player (server/player.mjs).
   for (const b of [c.entities.streamer, c.entities.shield]) if (b?.music && !c.entities.musicPlayers.includes(b.music)) c.entities.musicPlayers.push(b.music);
+  if (c.entities.musicIdle && !c.entities.musicPlayers.includes(c.entities.musicIdle)) c.entities.musicPlayers.push(c.entities.musicIdle);
   // HA's copy of the player choice, so the Hue switch and HA's scripts know it (the panel keeps it in step).
   c.entities.playerSelect = env.ENTITY_PLAYER_SELECT === '' ? null : env.ENTITY_PLAYER_SELECT || 'input_select.theater_player';
   return c;
