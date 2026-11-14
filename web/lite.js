@@ -1105,10 +1105,15 @@
     if (M.player && list.indexOf(M.player) >= 0) return M.player;
     var live = list.filter(function (id) { var x = st(id); return x && x.state === 'playing'; })[0];
     if (live) return live;
-    // Cinema off: the speaker Pre-show starts on, not the Shield (asleep, and the Denon is off).
-    var idle = S.entities.musicIdle;
-    if (idle && list.indexOf(idle) >= 0 && st(idle) && !roomOn() && !gaming()) return idle;
-    return list[0];
+    var den = S.entities.musicDenon;
+    return den && list.indexOf(den) >= 0 ? den : list[0];
+  }
+  // Where a tapped song plays: the player picked, else the Denon itself (not a Cast player that has to wake first).
+  function playTarget() {
+    var list = musicPlayers();
+    if (M.player && list.indexOf(M.player) >= 0) return M.player;
+    var den = S.entities.musicDenon;
+    return den && list.indexOf(den) >= 0 ? den : musicPlayer();
   }
   // On the cinema's own players the sound is the Denon's level; their Cast volume sits at 100%.
   function denonMusic(id) {
@@ -2110,7 +2115,7 @@
     mplay: function (v, el) {
       var m = REG[el.getAttribute('data-id')];
       if (!m) return;
-      var id = musicPlayer();
+      var id = playTarget();
       act({ action: 'music', cmd: 'play_media', uri: m.uri, media_type: m.type, entity_id: id }).then(function (r) { if (r) toast('Playing ' + m.name + ' on ' + playerName(id)); });
     },
     mcmd: function (v) { act({ action: 'music', cmd: v, entity_id: musicPlayer() }); },
