@@ -383,6 +383,10 @@
     var warming = Boolean(warm && warm.state === 'on');
     var on = roomOn(), g = gaming();
     var cls = warming ? 'warm' : on || g ? 'on' : '';
+    if (!warming && !on && !g && !SEAT) {
+      var ar = isArmed('cinemaon');
+      return '<button type="button" class="l-chip tap' + (ar ? ' warm' : '') + '" data-a="cinemaon"><span class="dot"></span>' + (ar ? 'Tap again to start the cinema' : 'Cinema off · Start') + '</button>';
+    }
     return '<span class="l-chip ' + cls + '"><span class="dot"></span>' + (warming ? 'Starting…' : on ? 'Cinema on' : g ? 'Xbox on' : 'Cinema off') + '</span>';
   }
   function poster(src, title, extra) {
@@ -865,7 +869,7 @@
     vsDrag = null;
     if (!VS) return;
     VS.until = Date.now() + 4000;
-    if (kind === 'music') act({ action: 'music', cmd: 'volume', level: VS.pct / 100, entity_id: musicPlayer() });
+    if (kind === 'music') { if (denonMusic(musicPlayer())) act({ action: 'cinema', cmd: 'volume', value: VS.pct }); else act({ action: 'music', cmd: 'volume', level: VS.pct / 100, entity_id: musicPlayer() }); }
     else if (kind.indexOf('light:') === 0) act(VS.pct ? { action: 'light', entity_id: kind.slice(6), brightness_pct: VS.pct } : { action: 'light', entity_id: kind.slice(6), on: false });
     else act({ action: 'cinema', cmd: 'volume', value: VS.pct });
     paint();
@@ -1099,7 +1103,22 @@
   function musicPlayer() {
     var list = musicPlayers();
     if (M.player && list.indexOf(M.player) >= 0) return M.player;
-    return list.filter(function (id) { var x = st(id); return x && x.state === 'playing'; })[0] || list[0];
+    var live = list.filter(function (id) { var x = st(id); return x && x.state === 'playing'; })[0];
+    if (live) return live;
+    var den = S.entities.musicDenon;
+    return den && list.indexOf(den) >= 0 ? den : list[0];
+  }
+  // Where a tapped song plays: the player picked, else the Denon itself (not a Cast player that has to wake first).
+  function playTarget() {
+    var list = musicPlayers();
+    if (M.player && list.indexOf(M.player) >= 0) return M.player;
+    var den = S.entities.musicDenon;
+    return den && list.indexOf(den) >= 0 ? den : musicPlayer();
+  }
+  // On the cinema's own players the sound is the Denon's level; their Cast volume sits at 100%.
+  function denonMusic(id) {
+    var e = S.entities;
+    return Boolean(id && isUp(st(e.avr)) && [e.streamer && e.streamer.music, e.shield && e.shield.music].indexOf(id) >= 0);
   }
   function playerName(id) { return String(attrs(st(id)).friendly_name || id).replace(/ player$/i, ''); }
   function musicNow(id) {
@@ -1109,7 +1128,7 @@
     var playing = Boolean(x && x.state === 'playing');
     var pos = livePosition(x), dur = a.media_duration;
     var art = a.entity_picture ? '/api/ha-image?e=' + encodeURIComponent(id) + '&v=' + encodeURIComponent(a.entity_picture) : null;
-    var p = VS && VS.kind === 'music' && VS.until > Date.now() ? VS.pct : Math.round((a.volume_level || 0) * 100);
+    var p = VS && VS.kind === 'music' && VS.until > Date.now() ? VS.pct : Math.round(((denonMusic(id) ? attrs(st(S.entities.avr)).volume_level : a.volume_level) || 0) * 100);
     var dis = gone ? ' disabled' : '';
     var rep = a.repeat && a.repeat !== 'off';
     return '<section class="l-mnow">' +
@@ -2024,6 +2043,10 @@
       if (ep) playItem(ep, false);
       paint();
     },
+    cinemaon: function () {
+      if (!isArmed('cinemaon')) { arm('cinemaon'); paint(); return; }
+      delete armed.cinemaon; act({ action: 'cinema', cmd: 'on' }).then(function (r) { if (r) toast('Starting the cinema'); }); paint();
+    },
     scene: function (v) { picked = { name: v, at: Date.now() }; act({ action: 'scene', name: v }); paint(); },
     alloff: function () {
       if (!isArmed('alloff')) { arm('alloff'); paint(); return; }
@@ -2092,7 +2115,7 @@
     mplay: function (v, el) {
       var m = REG[el.getAttribute('data-id')];
       if (!m) return;
-      var id = musicPlayer();
+      var id = playTarget();
       act({ action: 'music', cmd: 'play_media', uri: m.uri, media_type: m.type, entity_id: id }).then(function (r) { if (r) toast('Playing ' + m.name + ' on ' + playerName(id)); });
     },
     mcmd: function (v) { act({ action: 'music', cmd: v, entity_id: musicPlayer() }); },

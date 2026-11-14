@@ -361,10 +361,16 @@ export async function runAction(ha, body) {
       if (body.cmd === 'shuffle') return ha.callService('media_player', 'shuffle_set', { shuffle: Boolean(body.on) }, { target });
       if (body.cmd === 'repeat') return ha.callService('media_player', 'repeat_set', { repeat: ['off', 'all', 'one'].includes(body.mode) ? body.mode : 'off' }, { target });
       if (body.cmd === 'play_media') {
-        return ha.callService('music_assistant', 'play_media', {
+        // A Cast player that is asleep takes a while to wake, so Music Assistant can run past a tap's
+        // patience while it still ends up playing. Give it up to 2 minutes, but answer the tap after 8 s.
+        const call = ha.callService('music_assistant', 'play_media', {
           // A genre (from For you) goes by its uri alone: Music Assistant works out what it is.
           media_id: String(body.uri), ...(body.media_type && body.media_type !== 'genre' ? { media_type: body.media_type } : {}), enqueue: body.enqueue || 'replace',
-        }, { target });
+        }, { target, timeoutMs: 120e3 });
+        call.catch((err) => console.warn('[music] play_media on', player, 'failed:', err.message));
+        let timer;
+        const slow = new Promise((r) => { timer = setTimeout(() => r({ starting: true }), 8e3); });
+        try { return await Promise.race([call, slow]); } finally { clearTimeout(timer); }
       }
       if (body.cmd === 'transfer') {
         const to = e.musicPlayers.includes(body.to) ? body.to : null;

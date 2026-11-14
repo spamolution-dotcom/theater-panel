@@ -796,3 +796,4 @@ svg { display: block; flex-shrink: 0; }
 .k-card.remote .k-side { -webkit-box-orient: horizontal; flex-direction: row; -webkit-box-align: center; align-items: center; margin-left: 20px; }
 .k-card.remote .k-side .x { width: 130px; }
 .k-card.remote .k-side .v { font-size: 26px; }
+.l-chip.tap { cursor: pointer; -webkit-appearance: none; appearance: none; font-family: var(--sans); }
